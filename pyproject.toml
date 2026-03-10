@@ -1,0 +1,103 @@
+[project]
+name = "dibbs-ecr-diff"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "poethepoet>=0.42.1",
+    "ruff>=0.15.5",
+    "ty>=0.0.21",
+]
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+core = { workspace = true }
+
+# run tasks with `uv run poe <task_name>`
+# ex: `uv run poe dev`
+[tool.poe.tasks]
+ty = "ty check"
+check = "ruff check"
+format = "ruff format"
+
+# server commands
+dev = "uv run --package server fastapi dev packages/server/src/server"
+
+# cli commands
+cli = "uv run --package cli python packages/cli/src/cli/main.py"
+
+[tool.ty.src]
+include = [
+    "packages/cli/src",
+    "packages/core/src",
+    "packages/lambda/src",
+    "packages/server/src"
+]
+
+[tool.ruff.lint]
+# rule selection with comments for clarity
+extend-select = [
+    # flake8-annotations (ANN)
+    # https://docs.astral.sh/ruff/rules/#flake8-annotations-ann
+    # Missing type annotation for function argument
+    "ANN001",
+    # Missing type annotation for *args
+    "ANN002",
+    # Missing return type annotation for public function
+    "ANN201",
+
+    # pycodestyle (E, W)
+    # https://docs.astral.sh/ruff/rules/#pycodestyle-e-w
+    # Error (E)
+    "E",
+    # Warning (W)
+    "W",
+    # Pyflakes (F)
+    # https://docs.astral.sh/ruff/rules/#pyflakes-f
+    "F",
+    # flake8-bugbear (B)
+    # https://docs.astral.sh/ruff/rules/#flake8-bugbear-b
+    "B",
+
+    # flake8-comprehensions (C4)
+    # https://docs.astral.sh/ruff/rules/#flake8-comprehensions-c4
+    # comprehension checks
+    "C4",
+    # pydocstyle (D)
+    # https://docs.astral.sh/ruff/rules/#pydocstyle-d
+    # docstring rules
+    "D",
+    # isort (I)
+    # https://docs.astral.sh/ruff/rules/#isort-i
+    # import sorting
+    "I",
+    # pyupgrade (UP)
+    # https://docs.astral.sh/ruff/rules/#pyupgrade-up
+    # python code modernization
+    "UP",
+
+    # FastAPI (FAST) rules
+    # https://docs.astral.sh/ruff/rules/#fastapi-fast
+    "FAST"
+]
+
+ignore = [
+    "D100",   # undocumented-public-module
+    "E501",   # line-too-long - Handled by formatter
+    "RET504", # unnecessary-assign
+]
+
+# file-specific rule exclusions
+[tool.ruff.lint.per-file-ignores]
+# - disable docstring/type/security rules in tests
+"**/test/*" = ["D", "S", "ANN"]
+
+[tool.ruff.lint.pydocstyle]
+# configure docstring checking to use Google style
+convention = "google"

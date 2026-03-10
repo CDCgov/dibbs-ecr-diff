@@ -1,0 +1,23 @@
+services:
+  diff-server:
+    container_name: diff-server
+    build:
+      context: .
+      dockerfile: ./docker/server.Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./packages/core:/app/packages/core
+      - ./packages/server:/app/packages/server
+    restart: unless-stopped
+    develop:
+      watch:
+        # sync the working directory with the `/app` directory in the container
+        - action: sync
+          path: ./packages/
+          target: /app/packages/
+          ignore:
+            - .venv/
+        # rebuild the image if dependencies change by checking uv.lock
+        - action: rebuild
+          path: ./uv.lock
