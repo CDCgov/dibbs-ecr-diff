@@ -60,6 +60,19 @@ To access the CLI, run:
 uv run --package cli python packages/cli/src/cli/main.py
 ```
 
+### Type checking / Linting / Formatting
+
+Check types with `ty`:
+```bash
+uv run ty check
+```
+
+Lint or format with `ruff`:
+```bash
+uv run ruff check
+uv run ruff format
+```
+
 ### Running tests
 
 All unit tests can be run with pytest:
