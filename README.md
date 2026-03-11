@@ -80,7 +80,7 @@ All unit tests can be run with pytest:
 uv run pytest
 ```
 
-Unit tests for a specific package can be used by passing a path to pytest:
+Unit tests for a specific package can be ran by passing a path to pytest:
 ```bash
 uv run pytest packages/cli
 ```
