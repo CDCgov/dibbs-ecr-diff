@@ -8,7 +8,7 @@ dependencies = []
 
 [dependency-groups]
 dev = [
-    "poethepoet>=0.42.1",
+    "pytest>=9.0.2",
     "ruff>=0.15.5",
     "ty>=0.0.21",
 ]
@@ -18,19 +18,6 @@ members = ["packages/*"]
 
 [tool.uv.sources]
 core = { workspace = true }
-
-# run tasks with `uv run poe <task_name>`
-# ex: `uv run poe dev`
-[tool.poe.tasks]
-ty = "ty check"
-check = "ruff check"
-format = "ruff format"
-
-# server commands
-dev = "uv run --package server fastapi dev packages/server/src/server"
-
-# cli commands
-cli = "uv run --package cli python packages/cli/src/cli/main.py"
 
 [tool.ty.src]
 include = [
@@ -95,9 +82,13 @@ ignore = [
 
 # file-specific rule exclusions
 [tool.ruff.lint.per-file-ignores]
-# - disable docstring/type/security rules in tests
+# - disable docstring/type/security rules in test files
 "**/test/*" = ["D", "S", "ANN"]
 
 [tool.ruff.lint.pydocstyle]
 # configure docstring checking to use Google style
 convention = "google"
+
+[tool.pytest.ini_options]
+testpaths = ["packages"]
+python_files = ["**/test/test_*.py", "**/test/__init__.py"]
