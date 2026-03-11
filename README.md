@@ -33,7 +33,7 @@ This project is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/wor
 │   └── server                # Long-running FastAPI server
 │       ├── pyproject.toml
 │       └── src/
-├── pyproject.toml            # Workspace config (tasks, dependencies, linter rules)
+├── pyproject.toml            # Workspace config (dependencies, linter rules, metadata)
 └── uv.lock                   # Lockfile for all workspace dependencies
 ```
 
