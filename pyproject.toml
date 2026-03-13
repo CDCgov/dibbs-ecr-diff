@@ -27,6 +27,16 @@ include = [
     "packages/server/src"
 ]
 
+[tool.ty.environment]
+python = "./.venv/"
+root = [
+    "packages/cli/src",
+    "packages/core/src",
+    "packages/lambda/src",
+    "packages/server/src",
+    "packages/core/test",
+]
+
 [tool.ruff.lint]
 # rule selection with comments for clarity
 extend-select = [
