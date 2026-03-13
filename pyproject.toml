@@ -30,11 +30,17 @@ include = [
 [tool.ty.environment]
 python = "./.venv/"
 root = [
+    # src directories
     "packages/cli/src",
     "packages/core/src",
     "packages/lambda/src",
     "packages/server/src",
+
+    # test directories
+    "packages/cli/test",
     "packages/core/test",
+    "packages/lambda/test",
+    "packages/server/test",
 ]
 
 [tool.ruff.lint]
