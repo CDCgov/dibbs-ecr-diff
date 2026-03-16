@@ -1,0 +1,14 @@
+# List all available `server` commands
+default:
+    @just --list
+
+server := "uv run --package server"
+app    := "src/server/__init__.py"
+
+# Run FastAPI server in dev mode
+dev:
+    {{ server }} fastapi dev {{ app }}
+
+# Run FastAPI server in production mode
+run:
+    {{ server }} fastapi run {{ app }}

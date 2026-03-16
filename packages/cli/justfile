@@ -1,0 +1,8 @@
+default: run
+
+cli        := "uv run --package cli"
+entrypoint := "src/cli/main.py"
+
+# Run CLI
+run:
+    {{ cli }} {{ entrypoint }}
