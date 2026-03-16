@@ -1,0 +1,12 @@
+[project]
+name = "core"
+version = "0.1.0"
+description = ""
+dependencies = [
+    "lxml>=6.0.2",
+]
+
+[dependency-groups]
+dev = [
+    "types-lxml>=2026.2.16",
+]
