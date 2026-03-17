@@ -1,10 +1,3 @@
----
-name: Pull request
-about: Create a report to help us improve
-title: ''
-labels: ''
-assignees: ''
----
 ## Related Issue
 
 - Why is this being done? Link to issue, or a few sentences describing why this PR exists
