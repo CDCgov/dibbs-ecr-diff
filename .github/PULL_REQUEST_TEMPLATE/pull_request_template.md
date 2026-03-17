@@ -1,23 +1,29 @@
 ---
-name: Bug report
+name: Pull request
 about: Create a report to help us improve
 title: ''
 labels: ''
 assignees: ''
 ---
+## Related Issue
 
-**Please describe the bug this fixes or the feature this adds.**
+- Why is this being done? Link to issue, or a few sentences describing why this PR exists
 
-**Please describe how you tested this change. Include unit tests whenever possible.**
+## Changes Proposed
 
-**Did you create or modify any associated documentation with this change? If documentation is not included in PR, please link to related documentation.**
+- Detailed explanation of what this PR should do
 
-**If you added or modified HTML, did you check that it was 508 compliant?**
+## Additional Information
 
-**Please tag any specific reviewers you would like to review this PR**
+- decisions that were made
+- notice of future work that needs to be done
 
-**Please include the following checks for open source contributing?**
+## Testing
 
-* [ ] Did you check for sensitive data, and remove any?
-* [ ] Are additional approvals needed for this change?
-* [ ] Are there potential vulnerabilities or licensing issues with any new dependencies introduced?
+- How should reviewers verify this PR?
+
+## Checklist for Primary Reviewer
+
+- [ ] Any large-scale changes have been deployed and smoke tested
+- [ ] Any content updates (user-facing error messages, etc) have been approved by content team
+- [ ] Any dependencies introduced have been vetted and discussed
