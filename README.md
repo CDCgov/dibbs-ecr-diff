@@ -15,6 +15,92 @@
 
 DIBBs Difference in Docs (DiD) is a project aimed at helping Public Health Authorities (PHAs) better leverage eCR by reducing the frequency of updates to electronic Initial Case Reports (eICRs). This will allow them to identify updates that are meaningful to their public health activities. 
 
+## Getting Started
+
+### Prerequisites
+
+To start developing locally, you need the following tools installed:
+
+* [just](https://just.systems/man/en/) `>=1.46.x` for running project commands
+* [uv](https://docs.astral.sh/uv/getting-started/installation/) `>=0.10.x` for Python version, package, and project management
+* [Docker](https://www.docker.com/) `>=28.3.x` for running containers
+
+### Setup
+
+View all available commands
+
+```bash
+just
+```
+
+Download Python dependencies and sync all packages:
+
+```bash
+just sync
+```
+
+To start the FastAPI server, run:
+
+```bash
+just server dev
+```
+
+To access the CLI, run:
+
+```bash
+just diff
+```
+
+### Type checking / Linting / Formatting
+
+Check types:
+
+```bash
+just ty
+```
+
+Run linter:
+
+```bash
+just check
+```
+
+Apply formatting:
+```bash
+just format
+```
+
+### Running tests
+
+All unit tests can be run with pytest:
+
+```bash
+just test
+```
+
+Unit tests for a specific package can be ran by passing a path to pytest:
+
+```bash
+just test packages/cli
+```
+
+### Adding dependencies
+
+Additional dependencies can be added to the root workspace with `uv`:
+
+```bash
+uv add httpx
+
+# adding a dev dependency
+uv add --dev pytest
+```
+
+Dependencies can be added to workspace packages by specifying the package using `--package <name>`:
+
+```bash
+uv add --package lambda aws-lambda-powertools
+```
+
 ## Repository Structure
 
 This project is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/) consisting of multiple Python packages.
@@ -35,69 +121,6 @@ This project is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/wor
 │       └── src/
 ├── pyproject.toml            # Workspace config (dependencies, linter rules, metadata)
 └── uv.lock                   # Lockfile for all workspace dependencies
-```
-
-## Getting Started
-
-### Prerequisites
-
-This project uses [uv](https://docs.astral.sh/uv/) for Python version, package, and project management. Install `uv>=0.10.x` to get started.
-
-### Setup
-
-Download Python dependencies and sync all packages:
-```bash
-uv sync --all-packages
-```
-
-To start the FastAPI server, run:
-```bash
-uv run --package server fastapi dev packages/server/src/server
-```
-
-To access the CLI, run:
-```bash
-uv run --package cli python packages/cli/src/cli/main.py
-```
-
-### Type checking / Linting / Formatting
-
-Check types with `ty`:
-```bash
-uv run ty check
-```
-
-Lint or format with `ruff`:
-```bash
-uv run ruff check
-uv run ruff format
-```
-
-### Running tests
-
-All unit tests can be run with pytest:
-```bash
-uv run pytest
-```
-
-Unit tests for a specific package can be ran by passing a path to pytest:
-```bash
-uv run pytest packages/cli
-```
-
-### Adding dependencies
-
-Additional dependencies can be added to the root workspace with `uv`:
-```bash
-uv add httpx
-
-# adding a dev dependency
-uv add --dev pytest
-```
-
-Dependencies can be added to workspace packages by specifying the package using `--package <name>`:
-```bash
-uv add --package lambda aws-lambda-powertools
 ```
 
 ## Public Domain Standard Notice
