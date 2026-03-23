@@ -1,7 +1,7 @@
 set working-directory := "../packages/server"
 
 alias h := _default
-alias helper := _default
+alias help := _default
 
 # List all available `server` commands
 @_default:
