@@ -11,7 +11,6 @@ mod server './.justscripts/server.just'
 
 alias install := sync
 alias i := sync
-alias setup := sync
 
 # Download Python dependencies and sync all packages
 [group('python')]
