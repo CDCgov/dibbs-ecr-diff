@@ -7,15 +7,14 @@ alias help := _default
 @_default:
     just --list server
 
-run_server := "uv run --package server"
-app_init    := "src/server/__init__.py"
+server_init_path    := "src/server/__init__.py"
 
 alias prod := run
 
 # Run FastAPI server in dev mode
 dev:
-    {{ run_server }} fastapi dev {{ app_init }}
+    uv run --package server fastapi dev {{ server_init_path }}
 
 # Run FastAPI server in production mode
 run:
-    {{ run_server }} fastapi run {{ app_init }}
+    uv run --package server fastapi run {{ server_init_path }}
