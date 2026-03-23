@@ -15,6 +15,106 @@
 
 DIBBs Difference in Docs (DiD) is a project aimed at helping Public Health Authorities (PHAs) better leverage eCR by reducing the frequency of updates to electronic Initial Case Reports (eICRs). This will allow them to identify updates that are meaningful to their public health activities. 
 
+## Getting Started
+
+### Prerequisites
+
+To start developing locally, you need the following tools installed:
+
+* [just](https://just.systems/man/en/) `>=1.46.x` for running project commands
+* [uv](https://docs.astral.sh/uv/getting-started/installation/) `>=0.10.x` for Python version, package, and project management
+* [Docker](https://www.docker.com/) `>=28.3.x` for running containers
+
+### Setup
+
+View all available commands
+
+```bash
+just
+```
+
+Download Python dependencies and sync all packages:
+
+```bash
+just sync
+```
+
+To start the FastAPI server, run:
+
+```bash
+just server dev
+```
+
+To access the CLI, run:
+
+```bash
+just diff
+```
+
+### Type checking / Linting / Formatting
+
+Check types:
+
+```bash
+just ty
+```
+
+Run linter:
+
+```bash
+just check
+```
+
+Apply formatting:
+```bash
+just format
+```
+
+### Running tests
+
+All unit tests can be run with pytest:
+
+```bash
+just test
+```
+
+Unit tests for a specific package can be ran by passing a path to pytest:
+
+```bash
+just test packages/cli
+```
+
+### Adding dependencies
+
+Additional dependencies can be added to the root workspace with `uv`:
+
+```bash
+uv add httpx
+
+# adding a dev dependency
+uv add --dev pytest
+```
+
+Dependencies can be added to workspace packages by specifying the package using `--package <name>`:
+
+```bash
+uv add --package lambda aws-lambda-powertools
+```
+
+## Architecture
+
+### Structurizr
+
+The Difference in Docs project uses [Structurizr](https://docs.structurizr.com/) to visualize the software architecture using the [C4 Model](https://c4model.com/).
+
+To run Structurizr locally, you'll first need to have [Docker](https://www.docker.com/) installed and then run:
+
+```bash
+just arch view
+```
+
+View it in your browser at http://localhost:7268.
+
 ## Repository Structure
 
 This project is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/) consisting of multiple Python packages.
@@ -37,70 +137,8 @@ This project is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/wor
 └── uv.lock                   # Lockfile for all workspace dependencies
 ```
 
-## Getting Started
-
-### Prerequisites
-
-This project uses [uv](https://docs.astral.sh/uv/) for Python version, package, and project management. Install `uv>=0.10.x` to get started.
-
-### Setup
-
-Download Python dependencies and sync all packages:
-```bash
-uv sync --all-packages
-```
-
-To start the FastAPI server, run:
-```bash
-uv run --package server fastapi dev packages/server/src/server
-```
-
-To access the CLI, run:
-```bash
-uv run --package cli python packages/cli/src/cli/main.py
-```
-
-### Type checking / Linting / Formatting
-
-Check types with `ty`:
-```bash
-uv run ty check
-```
-
-Lint or format with `ruff`:
-```bash
-uv run ruff check
-uv run ruff format
-```
-
-### Running tests
-
-All unit tests can be run with pytest:
-```bash
-uv run pytest
-```
-
-Unit tests for a specific package can be ran by passing a path to pytest:
-```bash
-uv run pytest packages/cli
-```
-
-### Adding dependencies
-
-Additional dependencies can be added to the root workspace with `uv`:
-```bash
-uv add httpx
-
-# adding a dev dependency
-uv add --dev pytest
-```
-
-Dependencies can be added to workspace packages by specifying the package using `--package <name>`:
-```bash
-uv add --package lambda aws-lambda-powertools
-```
-
 ## Public Domain Standard Notice
+
 This repository constitutes a work of the United States Government and is not
 subject to domestic copyright protection under 17 USC § 105. This repository is in
 the public domain within the United States, and copyright and related rights in
@@ -110,6 +148,7 @@ submitting a pull request you are agreeing to comply with this waiver of
 copyright interest.
 
 ## License Standard Notice
+
 The repository utilizes code licensed under the terms of the Apache Software
 License and therefore is licensed under ASL v2 or later.
 
@@ -127,6 +166,7 @@ program. If not, see http://www.apache.org/licenses/LICENSE-2.0.html
 The source code forked from other open source projects will inherit its license.
 
 ## Privacy Standard Notice
+
 This repository contains only non-sensitive, publicly available data and
 information. All material and community participation is covered by the
 [Disclaimer](DISCLAIMER.md)
@@ -134,6 +174,7 @@ and [Code of Conduct](code-of-conduct.md).
 For more information about CDC's privacy policy, please visit [http://www.cdc.gov/other/privacy.html](https://www.cdc.gov/other/privacy.html).
 
 ## Contributing Standard Notice
+
 Anyone is encouraged to contribute to the repository by [forking](https://help.github.com/articles/fork-a-repo)
 and submitting a pull request. (If you are new to GitHub, you might start with a
 [basic tutorial](https://help.github.com/articles/set-up-git).) By contributing
@@ -146,9 +187,11 @@ All comments, messages, pull requests, and other submissions received through
 CDC including this GitHub page may be subject to applicable federal law, including but not limited to the Federal Records Act, and may be archived. Learn more at [http://www.cdc.gov/other/privacy.html](http://www.cdc.gov/other/privacy.html).
 
 ## Records Management Standard Notice
+
 This repository is not a source of government records, but is a copy to increase
 collaboration and collaborative potential. All government records will be
 published through the [CDC web site](http://www.cdc.gov).
 
 ## Additional Standard Notices
+
 Please refer to [CDC's Template Repository](https://github.com/CDCgov/template) for more information about [contributing to this repository](https://github.com/CDCgov/template/blob/main/CONTRIBUTING.md), [public domain notices and disclaimers](https://github.com/CDCgov/template/blob/main/DISCLAIMER.md), and [code of conduct](https://github.com/CDCgov/template/blob/main/code-of-conduct.md).
