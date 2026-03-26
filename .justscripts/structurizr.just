@@ -1,7 +1,7 @@
 set working-directory := "../docs"
 
 alias h := _default
-alias helper := _default
+alias help := _default
 
 # List commands for structurizr
 @_default:
