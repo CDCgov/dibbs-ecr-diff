@@ -5,35 +5,33 @@
   "description" : "Description",
   "documentation" : { },
   "id" : 1,
-  "lastModifiedDate" : "2026-03-20T18:49:24Z",
+  "lastModifiedDate" : "2026-03-26T14:13:09Z",
   "model" : {
-    "people" : [ {
-      "description" : "A user at a public health agency within a jurisdiction",
+    "softwareSystems" : [ {
+      "description" : "Handles incoming eCRs and decides whether to send to PHAs. Includes eCR Refiner.",
+      "documentation" : { },
       "id" : "1",
-      "name" : "PHA User",
+      "name" : "AIMS Platform",
       "properties" : {
-        "structurizr.dsl.identifier" : "u"
+        "structurizr.dsl.identifier" : "aims"
       },
       "relationships" : [ {
-        "description" : "Manages configuration using",
-        "destinationId" : "5",
-        "id" : "10",
+        "description" : "Sends eCR input to",
+        "destinationId" : "4",
+        "id" : "7",
         "sourceId" : "1",
-        "tags" : "Relationship",
-        "technology" : "Browser"
+        "tags" : "Relationship"
       }, {
-        "description" : "Manages configuration using",
+        "description" : "Sends eCR input to",
         "destinationId" : "2",
-        "id" : "11",
-        "linkedRelationshipId" : "10",
-        "sourceId" : "1",
-        "technology" : "Browser"
+        "id" : "8",
+        "linkedRelationshipId" : "7",
+        "sourceId" : "1"
       } ],
-      "tags" : "Element,Person"
-    } ],
-    "softwareSystems" : [ {
+      "tags" : "Element,Software System,AIMS"
+    }, {
       "containers" : [ {
-        "description" : "Configuration rules, previously seen eCR metadata, API user info, etc.",
+        "description" : "Stores previously seen eCR metadata",
         "documentation" : { },
         "id" : "3",
         "name" : "Database",
@@ -43,104 +41,67 @@
         "tags" : "Element,Container,Database",
         "technology" : "AWS DynamoDB"
       }, {
-        "description" : "Provides functionality via REST API",
-        "documentation" : { },
-        "id" : "4",
-        "name" : "Backend",
-        "properties" : {
-          "structurizr.dsl.identifier" : "did.backend"
-        },
-        "relationships" : [ {
-          "description" : "Manages auth using",
-          "destinationId" : "9",
-          "id" : "12",
-          "sourceId" : "4",
-          "tags" : "Relationship",
-          "technology" : "OAuth2"
-        }, {
-          "description" : "Reads from and writes to",
-          "destinationId" : "3",
-          "id" : "16",
-          "sourceId" : "4",
-          "tags" : "Relationship",
-          "technology" : "HTTPS"
-        } ],
-        "tags" : "Element,Container,Backend",
-        "technology" : "FastAPI, Python"
-      }, {
-        "description" : "Allows users to manage configurations",
-        "documentation" : { },
-        "id" : "5",
-        "name" : "UI",
-        "properties" : {
-          "structurizr.dsl.identifier" : "did.ui"
-        },
-        "relationships" : [ {
-          "description" : "Makes API requests to",
-          "destinationId" : "4",
-          "id" : "17",
-          "sourceId" : "5",
-          "tags" : "Relationship",
-          "technology" : "HTTPS"
-        } ],
-        "tags" : "Element,Container,UI",
-        "technology" : "React, Typescript"
-      }, {
         "description" : "Stores eCR data with input and output buckets",
         "documentation" : { },
-        "id" : "6",
+        "id" : "4",
         "name" : "Storage Account",
         "properties" : {
           "structurizr.dsl.identifier" : "did.s3"
         },
         "relationships" : [ {
-          "description" : "Sends eCR events to",
-          "destinationId" : "7",
-          "id" : "18",
-          "sourceId" : "6",
+          "description" : "Publishes notification events to",
+          "destinationId" : "5",
+          "id" : "9",
+          "sourceId" : "4",
           "tags" : "Relationship",
           "technology" : "SNS"
+        }, {
+          "description" : "Sends diff output to",
+          "destinationId" : "1",
+          "id" : "13",
+          "sourceId" : "4",
+          "tags" : "Relationship"
         } ],
         "tags" : "Element,Container,S3",
         "technology" : "AWS S3"
       }, {
         "description" : "Holds incoming eCR data",
         "documentation" : { },
-        "id" : "7",
+        "id" : "5",
         "name" : "Message Queue",
         "properties" : {
           "structurizr.dsl.identifier" : "did.sqs"
         },
         "relationships" : [ {
-          "description" : "Invokes with eCR input data",
-          "destinationId" : "8",
-          "id" : "19",
-          "sourceId" : "7",
+          "description" : "Invokes with event as input",
+          "destinationId" : "6",
+          "id" : "10",
+          "sourceId" : "5",
           "tags" : "Relationship",
           "technology" : "SNS"
         } ],
         "tags" : "Element,Container,Queue",
         "technology" : "AWS SQS"
       }, {
-        "description" : "Runs function to determine differences between eCRs based on configuration",
+        "description" : "Runs function to determine differences between eCR versions",
         "documentation" : { },
-        "id" : "8",
+        "id" : "6",
         "name" : "Lambda",
         "properties" : {
           "structurizr.dsl.identifier" : "did.lambda"
         },
         "relationships" : [ {
-          "description" : "Reads from and writes output to",
-          "destinationId" : "6",
-          "id" : "14",
-          "sourceId" : "8",
+          "description" : "Reads from and writes to",
+          "destinationId" : "3",
+          "id" : "11",
+          "sourceId" : "6",
           "tags" : "Relationship",
           "technology" : "HTTPS"
         }, {
           "description" : "Reads from and writes to",
-          "destinationId" : "3",
-          "id" : "15",
-          "sourceId" : "8",
+          "destinationId" : "4",
+          "id" : "12",
+          "sourceId" : "6",
           "tags" : "Relationship",
           "technology" : "HTTPS"
         } ],
@@ -155,28 +116,18 @@
         "structurizr.dsl.identifier" : "did"
       },
       "relationships" : [ {
-        "description" : "Manages auth using",
-        "destinationId" : "9",
-        "id" : "13",
-        "linkedRelationshipId" : "12",
-        "sourceId" : "2",
-        "technology" : "OAuth2"
+        "description" : "Sends diff output to",
+        "destinationId" : "1",
+        "id" : "14",
+        "linkedRelationshipId" : "13",
+        "sourceId" : "2"
       } ],
       "tags" : "Element,Software System,DiffInDocs"
-    }, {
-      "description" : "Handles user authentication and authorization",
-      "documentation" : { },
-      "id" : "9",
-      "name" : "Keycloak",
-      "properties" : {
-        "structurizr.dsl.identifier" : "keycloak"
-      },
-      "tags" : "Element,Software System,Keycloak"
     } ]
   },
   "name" : "Name",
   "properties" : {
-    "structurizr.inspection.error" : "2",
+    "structurizr.inspection.error" : "6",
     "structurizr.inspection.info" : "0",
     "structurizr.inspection.ignore" : "0",
     "structurizr.inspection.warning" : "0"
@@ -186,6 +137,12 @@
       "lastSavedView" : "Diagram2",
       "styles" : {
         "elements" : [ {
+          "background" : "#ffffff",
+          "color" : "#009ca7",
+          "icon" : "data:image/png;base64,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",
+          "stroke" : "#009ca7",
+          "tag" : "AIMS"
+        }, {
           "background" : "#06bdaa",
           "color" : "#ffffff",
           "icon" : "data:image/png;base64,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",
@@ -264,42 +221,26 @@
       "terminology" : { }
     },
     "containerViews" : [ {
-      "dimensions" : {
-        "height" : 1765,
-        "width" : 3320
-      },
       "elements" : [ {
         "id" : "1",
-        "x" : 152,
-        "y" : 158
+        "x" : 0,
+        "y" : 0
       }, {
         "id" : "3",
-        "x" : 1995,
-        "y" : 626
+        "x" : 0,
+        "y" : 0
       }, {
         "id" : "4",
-        "x" : 1567,
-        "y" : 218
+        "x" : 0,
+        "y" : 0
       }, {
         "id" : "5",
-        "x" : 857,
-        "y" : 218
+        "x" : 0,
+        "y" : 0
       }, {
         "id" : "6",
-        "x" : 897,
-        "y" : 1093
-      }, {
-        "id" : "7",
-        "x" : 1677,
-        "y" : 1098
-      }, {
-        "id" : "8",
-        "x" : 1232,
-        "y" : 623
-      }, {
-        "id" : "9",
-        "x" : 2565,
-        "y" : 175
+        "x" : 0,
+        "y" : 0
       } ],
       "externalSoftwareSystemBoundariesVisible" : false,
       "key" : "Diagram2",
@@ -308,62 +249,120 @@
       "relationships" : [ {
         "id" : "10"
       }, {
+        "id" : "11"
+      }, {
         "id" : "12"
       }, {
-        "id" : "14",
-        "vertices" : [ {
-          "x" : 1122,
-          "y" : 943
-        } ]
+        "id" : "13"
       }, {
-        "id" : "15"
+        "id" : "7"
       }, {
-        "id" : "16",
-        "vertices" : [ {
-          "x" : 2220,
-          "y" : 561
-        } ]
-      }, {
-        "id" : "17"
-      }, {
-        "id" : "18"
-      }, {
-        "id" : "19",
-        "vertices" : [ {
-          "x" : 1902,
-          "y" : 958
-        } ]
+        "id" : "9"
       } ],
-      "softwareSystemId" : "2"
+      "softwareSystemId" : "2",
+      "title" : "Container View: Difference in Docs, Iteration 1 DRAFT"
     } ],
-    "systemContextViews" : [ {
-      "dimensions" : {
-        "height" : 800,
-        "width" : 2380
-      },
+    "dynamicViews" : [ {
+      "elementId" : "2",
       "elements" : [ {
         "id" : "1",
-        "x" : 199,
-        "y" : 159
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "3",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "4",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "5",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "6",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalBoundariesVisible" : false,
+      "key" : "Sequence1",
+      "name" : "Dynamic View: Difference in Docs",
+      "order" : 3,
+      "relationships" : [ {
+        "description" : "Adds eCR to an input bucket on",
+        "id" : "7",
+        "order" : "1",
+        "response" : false
+      }, {
+        "description" : "Publishes event with eCR metadata to",
+        "id" : "9",
+        "order" : "2",
+        "response" : false
+      }, {
+        "description" : "Triggers with eCR metadata as input",
+        "id" : "10",
+        "order" : "3",
+        "response" : false
+      }, {
+        "description" : "Persists eCR metadata with bucket URL to",
+        "id" : "11",
+        "order" : "4",
+        "response" : false
+      }, {
+        "description" : "Queries for previous eCR version with matching Set ID",
+        "id" : "11",
+        "order" : "5",
+        "response" : false
+      }, {
+        "description" : "Returns previous eCR version metadata with bucket URL if it exists",
+        "id" : "11",
+        "order" : "6",
+        "response" : true
+      }, {
+        "description" : "Fetches eCR files of current and previous version using saved bucket URLs",
+        "id" : "12",
+        "order" : "7",
+        "response" : false
+      }, {
+        "description" : "Returns eCR files of current and previous version to compare",
+        "id" : "12",
+        "order" : "8",
+        "response" : true
+      }, {
+        "description" : "Adds diff output to",
+        "id" : "12",
+        "order" : "9",
+        "response" : false
+      }, {
+        "description" : "Triggers remaining AIMS processing",
+        "id" : "13",
+        "order" : "10",
+        "response" : false
+      } ],
+      "title" : "Sequence Diagram: Difference in Docs, Iteration 1 DRAFT"
+    } ],
+    "systemContextViews" : [ {
+      "elements" : [ {
+        "id" : "1",
+        "x" : 0,
+        "y" : 0
       }, {
         "id" : "2",
-        "x" : 939,
-        "y" : 209
-      }, {
-        "id" : "9",
-        "x" : 1729,
-        "y" : 164
+        "x" : 0,
+        "y" : 0
       } ],
       "enterpriseBoundaryVisible" : true,
       "key" : "Diagram1",
       "name" : "System Context View: Difference in Docs",
       "order" : 1,
       "relationships" : [ {
-        "id" : "11"
+        "id" : "14"
       }, {
-        "id" : "13"
+        "id" : "8"
       } ],
-      "softwareSystemId" : "2"
+      "softwareSystemId" : "2",
+      "title" : "System Context View: Difference in Docs, Iteration 1 DRAFT"
     } ]
   }
 }

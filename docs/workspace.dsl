@@ -3,27 +3,18 @@ workspace "Name" "Description" {
     !identifiers hierarchical
 
     model {
-        u = person "PHA User" {
-            description "A user at a public health agency within a jurisdiction"
+        aims = softwareSystem "AIMS Platform" {
+            description "Handles incoming eCRs and decides whether to send to PHAs. Includes eCR Refiner."
+            tags "AIMS"
         }
         did = softwareSystem "Difference in Docs" {
             description "Determines differences between eCRs based on configuration"
             tags "DiffInDocs"
 
             db = container "Database" {
-                description "Configuration rules, previously seen eCR metadata, API user info, etc."
+                description "Stores previously seen eCR metadata"
                 tags "Database"
                 technology "AWS DynamoDB"
-            }
-            backend = container "Backend" {
-                description "Provides functionality via REST API"
-                tags "Backend"
-                technology "FastAPI, Python"
-            }
-            ui = container "UI" {
-                description "Allows users to manage configurations"
-                tags "UI"
-                technology "React, Typescript"
             }
             s3 = container "Storage Account" {
                 description "Stores eCR data with input and output buckets"
@@ -36,33 +27,43 @@ workspace "Name" "Description" {
                 technology "AWS SQS"
             }
             lambda = container "Lambda" {
-                description "Runs function to determine differences between eCRs based on configuration"
+                description "Runs function to determine differences between eCR versions"
                 tags "Lambda"
                 technology "AWS Lambda, Python"
             }
         }
-        keycloak = softwareSystem "Keycloak" {
-            description "Handles user authentication and authorization"
-            tags "Keycloak"
-        }
-
-        u -> did.ui "Manages configuration using" "Browser"
-        did.backend -> keycloak "Manages auth using" "OAuth2"
-        did.lambda -> did.s3 "Reads from and writes output to" "HTTPS"
+        
+        aims -> did.s3 "Sends eCR input to"
+        did.s3 -> did.sqs "Publishes notification events to" "SNS"
+        did.sqs -> did.lambda "Invokes with event as input" "SNS"
         did.lambda -> did.db "Reads from and writes to" "HTTPS"
-        did.backend -> did.db "Reads from and writes to" "HTTPS"
-        did.ui -> did.backend "Makes API requests to" "HTTPS"
-        did.s3 -> did.sqs "Sends eCR events to" "SNS"
-        did.sqs -> did.lambda "Invokes with eCR input data" "SNS"
+        did.lambda -> did.s3 "Reads from and writes to" "HTTPS"
+        did.s3 -> aims "Sends diff output to"
     }
 
     views {
         systemContext did "Diagram1" {
             include *
+            title "System Context View: Difference in Docs, Iteration 1 DRAFT"
         }
-
         container did "Diagram2" {
             include *
+            title "Container View: Difference in Docs, Iteration 1 DRAFT"
+        }
+
+        dynamic did "Sequence1" {
+            title "Sequence Diagram: Difference in Docs, Iteration 1 DRAFT"
+
+            aims -> did.s3 "Adds eCR to an input bucket on"
+            did.s3 -> did.sqs "Publishes event with eCR metadata to"
+            did.sqs -> did.lambda "Triggers with eCR metadata as input"
+            did.lambda -> did.db "Persists eCR metadata with bucket URL to"
+            did.lambda -> did.db "Queries for previous eCR version with matching Set ID"
+            did.db -> did.lambda "Returns previous eCR version metadata with bucket URL if it exists"
+            did.lambda -> did.s3 "Fetches eCR files of current and previous version using saved bucket URLs"
+            did.s3 -> did.lambda "Returns eCR files of current and previous version to compare"
+            did.lambda -> did.s3 "Adds diff output to"
+            did.s3 -> aims "Triggers remaining AIMS processing"
         }
 
         styles {
@@ -87,6 +88,12 @@ workspace "Name" "Description" {
                 color "#6499af"
                 icon "./icons/dibbs-logo.png"
             }
+            element "AIMS" {
+                background "#ffffff"
+                stroke "#009ca7"
+                color "#009ca7"
+                icon "./icons/aphl-aims.png"
+            }
             element "Database" {
                 background "#ed2bf7"
                 stroke "#971b9e"
@@ -94,26 +101,12 @@ workspace "Name" "Description" {
                 shape cylinder
                 icon "./icons/aws-dynamodb.png"
             }
-            element "Backend" {
-                background "#06bdaa"
-                stroke "#049789"
-                color "#ffffff"
-                shape component
-                icon "./icons/fastapi-logo.png"
-            }
             element "Lambda" {
                 background "#e48125"
                 stroke "#cc5717"
                 color "#ffffff"
                 shape shell
                 icon "./icons/aws-lambda.png"
-            }
-            element "UI" {
-                background "#dbf6ff"
-                stroke "#3b7082"
-                color "#3b7082"
-                icon "./icons/react-logo.png"
-                shape webbrowser
             }
             element "S3" {
                 background "#8caf31"
@@ -128,6 +121,20 @@ workspace "Name" "Description" {
                 color "#ffffff"
                 shape pipe
                 icon "./icons/aws-simple-queue-service.png"
+            }
+            element "UI" {
+                background "#dbf6ff"
+                stroke "#3b7082"
+                color "#3b7082"
+                icon "./icons/react-logo.png"
+                shape webbrowser
+            }
+            element "Backend" {
+                background "#06bdaa"
+                stroke "#049789"
+                color "#ffffff"
+                shape component
+                icon "./icons/fastapi-logo.png"
             }
             element "Keycloak" {
                 background "#737373"
