@@ -21,18 +21,6 @@ view:
         structurizr/structurizr \
         local
 
-[doc('Exports diagrams in dot format (GraphViz) into a `diagrams/` directory.')]
-render-dot:
-    docker run \
-        -it \
-        --rm \
-        -v ./:/usr/local/structurizr \
-        structurizr/structurizr \
-        export \
-        -workspace workspace.json \
-        -format dot \
-        -output diagrams
-
 [doc('Exports diagrams in puml format (C4 PlantUML) into a `diagrams/` directory.')]
 render-c4plantuml:
     docker run \
