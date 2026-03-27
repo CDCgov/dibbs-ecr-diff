@@ -12,7 +12,7 @@ alias open := view
 
 [doc('Sets up the Structurizr instance locally on port 7268.')]
 view:
-    @echo "*******************\n\n🌐 View Structurizr in your browser at http://localhost:7268\n\n*******************\n"
+    @printf "%b\n" "*******************\n\n🌐 View Structurizr in your browser at http://localhost:7268\n\n*******************\n"
     docker compose -f compose.structurizr.yml up structurizr
 
 [doc('Exports diagrams in puml format (C4 PlantUML) into a `diagrams/` directory.')]
