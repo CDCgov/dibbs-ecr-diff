@@ -22,8 +22,6 @@ ENV PATH="/app/.venv/bin:$PATH"
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    --mount=type=bind,source=packages/core/pyproject.toml,target=packages/core/pyproject.toml \
-    --mount=type=bind,source=packages/server/pyproject.toml,target=packages/server/pyproject.toml \
     uv sync --frozen \
       --no-install-workspace \
       --no-dev
