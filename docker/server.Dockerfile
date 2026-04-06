@@ -4,7 +4,7 @@ FROM docker.io/python:3.14-slim-trixie AS base
 RUN groupadd --system --gid 999 nonroot \
  && useradd --system --gid 999 --uid 999 --create-home nonroot
 
-# copy uv binary from uv image to alpine /bin/
+# copy uv binary from uv image to path
 COPY --from=ghcr.io/astral-sh/uv:0.10 /uv /uvx /bin/
 
 WORKDIR /app
