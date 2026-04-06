@@ -1,0 +1,48 @@
+# Build output
+target/
+*.class
+*_version.py
+*.egg-info
+build/
+
+# Log file
+*.log
+
+# Temporary files
+*.swp
+*~
+*.bak
+tmp/
+temp/
+*.tmp
+
+# Project environment files
+.env
+
+# Python-Virtual Environments
+.venv
+
+# Python Cache
+__pycache__/
+.pytest_cache/
+
+# Python-generated files
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.ruff_cache
+.aws-sam
+
+# Python-Coverage
+.coverage
+coverage.xml
+
+# Editor settings
+.vscode/settings.json
+.vscode/*.code-workspace
+.exrc
+
+# macOS
+**/.DS_Store

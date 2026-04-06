@@ -1,12 +1,6 @@
-# CDCgov GitHub Organization Open Source Project Template
-
-**Template for clearance: This project serves as a template to aid projects in starting up and moving through clearance procedures. To start, create a new repository and implement the required [open practices](open_practices.md), train on and agree to adhere to the organization's [rules of behavior](rules_of_behavior.md), and [send a request through the create repo form](https://forms.office.com/Pages/ResponsePage.aspx?id=aQjnnNtg_USr6NJ2cHf8j44WSiOI6uNOvdWse4I-C2NUNk43NzMwODJTRzA4NFpCUk1RRU83RTFNVi4u) using language from this template as a Guide.**
+# DIBBs Difference in Docs
 
 **General disclaimer** This repository was created for use by CDC programs to collaborate on public health related projects in support of the [CDC mission](https://www.cdc.gov/about/cdc/#cdc_about_cio_mission-our-mission).  GitHub is not hosted by the CDC, but is a third party website used by CDC and its partners to share information and collaborate on software. CDC use of GitHub does not imply an endorsement of any one particular service, product, or enterprise. 
-
-## Access Request, Repo Creation Request
-
-* [CDC GitHub Open Project Request Form](https://forms.office.com/Pages/ResponsePage.aspx?id=aQjnnNtg_USr6NJ2cHf8j44WSiOI6uNOvdWse4I-C2NUNk43NzMwODJTRzA4NFpCUk1RRU83RTFNVi4u) _[Requires a CDC Office365 login, if you do not have a CDC Office365 please ask a friend who does to submit the request on your behalf. If you're looking for access to the CDCEnt private organization, please use the [GitHub Enterprise Cloud Access Request form](https://forms.office.com/Pages/ResponsePage.aspx?id=aQjnnNtg_USr6NJ2cHf8j44WSiOI6uNOvdWse4I-C2NUQjVJVDlKS1c0SlhQSUxLNVBaOEZCNUczVS4u).]_
 
 ## Related documents
 
@@ -19,8 +13,116 @@
 
 ## Overview
 
-Describe the purpose of your project. Add additional sections as necessary to help collaborators and potential collaborators understand and use your project.
-  
+DIBBs Difference in Docs (DiD) is a project aimed at helping Public Health Authorities (PHAs) better leverage eCR by reducing the frequency of updates to electronic Initial Case Reports (eICRs). This will allow them to identify updates that are meaningful to their public health activities. 
+
+## Getting Started
+
+### Prerequisites
+
+To start developing locally, you need the following tools installed:
+
+* [just](https://just.systems/man/en/) `>=1.46.x` for running project commands
+* [uv](https://docs.astral.sh/uv/getting-started/installation/) `>=0.10.x` for Python version, package, and project management
+* [Docker](https://www.docker.com/) `>=28.3.x` for running containers
+
+### Setup
+
+View all available commands
+
+```bash
+just
+```
+
+Download Python dependencies and sync all packages:
+
+```bash
+just sync
+```
+
+To start the FastAPI server, run:
+
+```bash
+just server dev
+```
+
+To access the CLI, run:
+
+```bash
+just diff
+```
+
+### Type checking / Linting / Formatting
+
+Check types:
+
+```bash
+just ty
+```
+
+Run linter:
+
+```bash
+just check
+```
+
+Apply formatting:
+```bash
+just format
+```
+
+### Running tests
+
+All unit tests can be run with pytest:
+
+```bash
+just test
+```
+
+Unit tests for a specific package can be ran by passing a path to pytest:
+
+```bash
+just test packages/cli
+```
+
+### Adding dependencies
+
+Additional dependencies can be added to the root workspace with `uv`:
+
+```bash
+uv add httpx
+
+# adding a dev dependency
+uv add --dev pytest
+```
+
+Dependencies can be added to workspace packages by specifying the package using `--package <name>`:
+
+```bash
+uv add --package lambda aws-lambda-powertools
+```
+
+## Repository Structure
+
+This project is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/) consisting of multiple Python packages.
+
+```
+├── packages
+│   ├── cli                   # Command-line interface package
+│   │   ├── pyproject.toml
+│   │   └── src/
+│   ├── core                  # Core Difference in Docs logic and shared modules
+│   │   ├── pyproject.toml
+│   │   └── src/
+│   ├── lambda                # AWS Lambda package
+│   │   ├── pyproject.toml
+│   │   └── src/
+│   └── server                # Long-running FastAPI server
+│       ├── pyproject.toml
+│       └── src/
+├── pyproject.toml            # Workspace config (dependencies, linter rules, metadata)
+└── uv.lock                   # Lockfile for all workspace dependencies
+```
+
 ## Public Domain Standard Notice
 This repository constitutes a work of the United States Government and is not
 subject to domestic copyright protection under 17 USC § 105. This repository is in
