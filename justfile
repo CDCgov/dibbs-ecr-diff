@@ -9,6 +9,9 @@ default:
 [group('server')]
 mod server './.justscripts/server.just'
 
+[group('structurizr')]
+mod arch './.justscripts/structurizr.just'
+
 alias install := sync
 alias i := sync
 
