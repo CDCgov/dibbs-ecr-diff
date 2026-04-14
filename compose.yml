@@ -6,9 +6,6 @@ services:
       target: development
     ports:
       - "8000:8000"
-    volumes:
-      - ./packages/core:/app/packages/core
-      - ./packages/server:/app/packages/server
     restart: unless-stopped
     develop:
       watch:
