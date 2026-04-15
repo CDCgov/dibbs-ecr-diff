@@ -1,0 +1,8 @@
+[project]
+name = "lambda"
+version = "0.1.0"
+description = ""
+dependencies = [
+    "aws-lambda-powertools>=3.25.0",
+    "core",
+]
