@@ -43,4 +43,4 @@ ty *ARGS:
 # Runs CLI to manually diff two eCRs
 [group('devtools')]
 diff *ARGS:
-    uv run --package cli python packages/cli/src/cli/main.py
+    uv run --package cli python packages/cli/src/cli/main.py {{ARGS}}

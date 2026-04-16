@@ -1,49 +1,9 @@
-#!/usr/bin/env python3
-"""
-cda_eicr_diff_with_markers_after.py
-
-Outputs FOUR files:
-  1) orig_changed.xml: pruned XML containing ONLY original values (from file1) that changed
-  2) new_changed.xml : pruned XML containing ONLY new values (from file2) at the same locations
-  3) after_with_change_markers.xml:
-        the AFTER XML (file2) with XML comments inserted to annotate:
-          - additions (wrap the added element)
-          - updates   (wrap the updated element)
-          - deletes   (INSERT A STANDALONE COMMENT at the exact sibling position where the node was removed)
-  4) changes.json:
-        JSON summary of all added/updated/deleted XML, including:
-          - didChange: boolean (true if any change detected, else false)
-          - xmlPath: stable, human-readable path (stable keys where possible)
-          - xPath:   machine-readable XPath using local-name() + stable predicates
-        plus document metadata:
-          - setId
-          - clinicalDocumentId  (ClinicalDocument/id/@root)
-          - versionNumber
-
-Defaults:
- - Prefer-updates matching is ON by default. Disable with --no-prefer-updates.
- - Add --debug-match to print matching/pairing decisions.
-
-Key refinement:
- - Narrative <text> tables/rows:
-   * Match <table> by header <th> labels (not full fingerprint)
-   * Match <tr> by first cell text (not full fingerprint)
-   Then diff within rows/cells; <td>/<th> are paired by column position.
-
-Comment un-nesting fix:
- - When inserting a delete marker anchored BEFORE/AFTER an element that is wrapped, we place the
-   delete marker BEFORE the Start wrapper (or AFTER the End wrapper) so it does not fall inside
-   the wrapper span.
-
-Requires: lxml (pip install lxml)
-"""
-
 import argparse
 import json
 import sys
 from collections import defaultdict
 from copy import deepcopy
-from typing import Optional, Tuple, List, Set, Any, Dict
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 try:
     from lxml import etree
@@ -54,7 +14,7 @@ except ImportError:
 KEY_ATTRS = ("ID", "id", "root", "extension", "code")
 
 # Globals set by CLI
-PREFER_UPDATES = True   # default ON
+PREFER_UPDATES = True  # default ON
 DEBUG_MATCH = False
 
 
@@ -87,6 +47,7 @@ def fingerprint(elem: etree._Element) -> tuple:
 
 
 # ---------- XPath helpers (namespace-agnostic via local-name()) ----------
+
 
 def _first_xpath_attr(elem: etree._Element, xpath_expr: str):
     vals = elem.xpath(xpath_expr)
@@ -121,6 +82,7 @@ def _first_xpath_pair_on_node(node: Optional[etree._Element], attr1: str, attr2:
 
 # ---------- CDA/eICR helpers ----------
 
+
 def _statement_xpath_prefix() -> str:
     return (
         "./*[local-name()='entry']"
@@ -140,19 +102,24 @@ def _template_root(elem: etree._Element) -> Optional[str]:
 
 # ---------- Narrative table/row identity ----------
 
+
 def narrative_table_key(elem: etree._Element) -> Optional[tuple]:
     """Stable-ish identity for HTML-like tables inside CDA narrative text."""
     if localname(elem) != "table":
         return None
 
-    ths = elem.xpath("./*[local-name()='thead']/*[local-name()='tr'][1]/*[local-name()='th']")
+    ths = elem.xpath(
+        "./*[local-name()='thead']/*[local-name()='tr'][1]/*[local-name()='th']"
+    )
     if ths:
         labels = [norm_text(th.text) for th in ths]
         labels = [l for l in labels if l]
         if labels:
             return ("table.headers", tuple(labels))
 
-    first = elem.xpath(".//*[local-name()='tr'][1]/*[local-name()='th' or local-name()='td'][1]")
+    first = elem.xpath(
+        ".//*[local-name()='tr'][1]/*[local-name()='th' or local-name()='td'][1]"
+    )
     if first:
         t = norm_text(first[0].text)
         if t:
@@ -181,6 +148,7 @@ def narrative_row_key(elem: etree._Element) -> Optional[tuple]:
 
 # ---------- Stable keys ----------
 
+
 def stable_key(elem: etree._Element) -> Optional[tuple]:
     items = []
     for a in KEY_ATTRS:
@@ -191,7 +159,9 @@ def stable_key(elem: etree._Element) -> Optional[tuple]:
 
     tpl_root = _first_xpath_attr(elem, "./*[local-name()='templateId']/@root")
     if tpl_root:
-        tpl_ext = _first_xpath_attr(elem, "./*[local-name()='templateId']/@extension") or ""
+        tpl_ext = (
+            _first_xpath_attr(elem, "./*[local-name()='templateId']/@extension") or ""
+        )
         return ("templateId", ("root", tpl_root), ("extension", tpl_ext))
 
     id_root = _first_xpath_attr(elem, "./*[local-name()='id']/@root")
@@ -214,11 +184,20 @@ def stable_key(elem: etree._Element) -> Optional[tuple]:
         stmt_id_root = _first_xpath_attr(stmt, "./*[local-name()='id']/@root")
         stmt_id_ext = _first_xpath_attr(stmt, "./*[local-name()='id']/@extension")
         if stmt_id_root and stmt_id_ext:
-            return ("nested.entry.statement.id", ("root", stmt_id_root), ("extension", stmt_id_ext))
+            return (
+                "nested.entry.statement.id",
+                ("root", stmt_id_root),
+                ("extension", stmt_id_ext),
+            )
 
-        stmt_tpl_roots = _collect_xpath_attrs(stmt, "./*[local-name()='templateId']/@root", limit=8)
+        stmt_tpl_roots = _collect_xpath_attrs(
+            stmt, "./*[local-name()='templateId']/@root", limit=8
+        )
         if stmt_tpl_roots:
-            return ("nested.entry.statement.templateId.roots", tuple(sorted(stmt_tpl_roots)))
+            return (
+                "nested.entry.statement.templateId.roots",
+                tuple(sorted(stmt_tpl_roots)),
+            )
 
     any_id_root = _first_xpath_attr(elem, ".//*[local-name()='id']/@root")
     any_id_ext = _first_xpath_attr(elem, ".//*[local-name()='id']/@extension")
@@ -229,6 +208,7 @@ def stable_key(elem: etree._Element) -> Optional[tuple]:
 
 
 # ---------- Discriminators ----------
+
 
 def clinical_statement_id_pair(elem: etree._Element):
     stmt = _get_statement_node(elem)
@@ -290,15 +270,25 @@ def effective_time_discriminator_from(node: etree._Element):
     v = _first_xpath_attr(node, "./*[local-name()='effectiveTime']/@value")
     if v:
         return ("effectiveTime.value", v)
-    low = _first_xpath_attr(node, "./*[local-name()='effectiveTime']/*[local-name()='low']/@value")
-    high = _first_xpath_attr(node, "./*[local-name()='effectiveTime']/*[local-name()='high']/@value")
+    low = _first_xpath_attr(
+        node, "./*[local-name()='effectiveTime']/*[local-name()='low']/@value"
+    )
+    high = _first_xpath_attr(
+        node, "./*[local-name()='effectiveTime']/*[local-name()='high']/@value"
+    )
     if low or high:
         return ("effectiveTime.lowhigh", (low or "", high or ""))
-    center = _first_xpath_attr(node, "./*[local-name()='effectiveTime']/*[local-name()='center']/@value")
+    center = _first_xpath_attr(
+        node, "./*[local-name()='effectiveTime']/*[local-name()='center']/@value"
+    )
     if center:
         return ("effectiveTime.center", center)
-    period_value = _first_xpath_attr(node, "./*[local-name()='effectiveTime']/*[local-name()='period']/@value")
-    period_unit = _first_xpath_attr(node, "./*[local-name()='effectiveTime']/*[local-name()='period']/@unit")
+    period_value = _first_xpath_attr(
+        node, "./*[local-name()='effectiveTime']/*[local-name()='period']/@value"
+    )
+    period_unit = _first_xpath_attr(
+        node, "./*[local-name()='effectiveTime']/*[local-name()='period']/@unit"
+    )
     if period_value or period_unit:
         return ("effectiveTime.period", (period_value or "", period_unit or ""))
     return None
@@ -344,6 +334,7 @@ def secondary_discriminator(elem: etree._Element):
 
 # ---------- Prefer-updates soft context key ----------
 
+
 def _nearest_organizer_context_signature(elem: etree._Element) -> tuple:
     cur = elem.getparent()
     while cur is not None:
@@ -376,6 +367,7 @@ def soft_context_key(elem: etree._Element) -> Optional[tuple]:
 
 
 # ---------- Child grouping/matching ----------
+
 
 def build_child_groups(parent: etree._Element) -> dict:
     groups = defaultdict(list)
@@ -421,7 +413,9 @@ def _prefer_updates_pairing(L1: List[etree._Element], L2: List[etree._Element]):
     return pairs, u1, u2
 
 
-def match_children_ignore_order(list1: List[etree._Element], list2: List[etree._Element]):
+def match_children_ignore_order(
+    list1: List[etree._Element], list2: List[etree._Element]
+):
     # Table cells: pair by column position
     if _is_table_cell_list(list1) and _is_table_cell_list(list2):
         n = min(len(list1), len(list2))
@@ -498,7 +492,12 @@ def match_children_ignore_order(list1: List[etree._Element], list2: List[etree._
             continue
 
         # Prefer-updates soft pairing for templateId.root buckets
-        if PREFER_UPDATES and isinstance(pkey, tuple) and len(pkey) >= 2 and pkey[0] == "templateId.root":
+        if (
+            PREFER_UPDATES
+            and isinstance(pkey, tuple)
+            and len(pkey) >= 2
+            and pkey[0] == "templateId.root"
+        ):
             soft_pairs, rem1, rem2 = _prefer_updates_pairing(L1, L2)
             for a, b in soft_pairs:
                 yield a, b
@@ -538,6 +537,7 @@ def match_children_ignore_order(list1: List[etree._Element], list2: List[etree._
 
 # ---------- Output construction helpers ----------
 
+
 def make_elem_like(src: etree._Element, nsmap=None) -> etree._Element:
     return etree.Element(src.tag, nsmap=nsmap)
 
@@ -548,7 +548,12 @@ def strip_values(elem: etree._Element):
     elem.attrib.clear()
 
 
-def set_changed_values_only(out_elem: etree._Element, src_elem: etree._Element, changed_text: bool, changed_attrs: Set[str]):
+def set_changed_values_only(
+    out_elem: etree._Element,
+    src_elem: etree._Element,
+    changed_text: bool,
+    changed_attrs: Set[str],
+):
     out_elem.text = src_elem.text if changed_text else None
     out_elem.tail = None
     out_elem.attrib.clear()
@@ -559,7 +564,13 @@ def set_changed_values_only(out_elem: etree._Element, src_elem: etree._Element, 
 
 # ---------- Diff engine for orig_changed/new_changed ----------
 
-def diff_nodes(e1: Optional[etree._Element], e2: Optional[etree._Element], is_root=False, root_nsmap=None):
+
+def diff_nodes(
+    e1: Optional[etree._Element],
+    e2: Optional[etree._Element],
+    is_root=False,
+    root_nsmap=None,
+):
     if e1 is None and e2 is None:
         return None, None
 
@@ -581,8 +592,12 @@ def diff_nodes(e1: Optional[etree._Element], e2: Optional[etree._Element], is_ro
     if fingerprint(e1) == fingerprint(e2):
         return None, None
 
-    changed_text = (norm_text(e1.text) != norm_text(e2.text))
-    changed_attrs = {k for k in set(e1.attrib.keys()) | set(e2.attrib.keys()) if e1.attrib.get(k) != e2.attrib.get(k)}
+    changed_text = norm_text(e1.text) != norm_text(e2.text)
+    changed_attrs = {
+        k
+        for k in set(e1.attrib.keys()) | set(e2.attrib.keys())
+        if e1.attrib.get(k) != e2.attrib.get(k)
+    }
 
     g1 = build_child_groups(e1)
     g2 = build_child_groups(e2)
@@ -630,8 +645,12 @@ def diff_nodes(e1: Optional[etree._Element], e2: Optional[etree._Element], is_ro
 
 # ---------- JSON + marker change collection (captures before/after XML nodes) ----------
 
-ChangeWrap = Tuple[str, etree._Element, Optional[etree._Element]]  # (typ, after_node, before_node_for_updates)
-DeleteAnchor = Tuple[etree._Element, Optional[etree._Element], str, etree._Element]  # (parent_after, ref_after, where, deleted_before_node)
+ChangeWrap = Tuple[
+    str, etree._Element, Optional[etree._Element]
+]  # (typ, after_node, before_node_for_updates)
+DeleteAnchor = Tuple[
+    etree._Element, Optional[etree._Element], str, etree._Element
+]  # (parent_after, ref_after, where, deleted_before_node)
 
 
 def _direct_text_or_attr_changed(n1: etree._Element, n2: etree._Element) -> bool:
@@ -644,7 +663,9 @@ def _direct_text_or_attr_changed(n1: etree._Element, n2: etree._Element) -> bool
     return False
 
 
-def collect_changes_and_markers(before_root: etree._Element, after_root: etree._Element):
+def collect_changes_and_markers(
+    before_root: etree._Element, after_root: etree._Element
+):
     added_after: Set[etree._Element] = set()
     updated_pairs: Dict[etree._Element, etree._Element] = {}  # after -> before
     deletes: List[DeleteAnchor] = []
@@ -735,7 +756,12 @@ def collect_changes_and_markers(before_root: etree._Element, after_root: etree._
     seen = set()
     deduped_deletes = []
     for parent_after, ref_after, where, deleted_before in deletes:
-        key = (id(parent_after), id(ref_after) if ref_after is not None else None, where, fingerprint(deleted_before))
+        key = (
+            id(parent_after),
+            id(ref_after) if ref_after is not None else None,
+            where,
+            fingerprint(deleted_before),
+        )
         if key in seen:
             continue
         seen.add(key)
@@ -745,6 +771,7 @@ def collect_changes_and_markers(before_root: etree._Element, after_root: etree._
 
 
 # ---------- Map markers onto a fresh AFTER parse (by index path) ----------
+
 
 def index_path(node: etree._Element) -> Tuple[int, ...]:
     path = []
@@ -769,7 +796,9 @@ def node_by_index_path(root: etree._Element, path: Tuple[int, ...]) -> etree._El
 Marker = tuple
 
 
-def build_markers_from_changes(wraps: List[ChangeWrap], deletes: List[DeleteAnchor]) -> List[Marker]:
+def build_markers_from_changes(
+    wraps: List[ChangeWrap], deletes: List[DeleteAnchor]
+) -> List[Marker]:
     markers: List[Marker] = []
     for typ, after_node, _before_node in wraps:
         markers.append(("wrap", typ, after_node))
@@ -778,7 +807,9 @@ def build_markers_from_changes(wraps: List[ChangeWrap], deletes: List[DeleteAnch
     return markers
 
 
-def map_markers_to_fresh_after(markers: List[Marker], fresh_after_root: etree._Element) -> List[Marker]:
+def map_markers_to_fresh_after(
+    markers: List[Marker], fresh_after_root: etree._Element
+) -> List[Marker]:
     mapped: List[Marker] = []
     for m in markers:
         if m[0] == "wrap":
@@ -814,17 +845,26 @@ PH_DEL = "__CHG_DEL__"
 
 
 def _is_ph_comment(node: Any, kind_prefix: str) -> bool:
-    return isinstance(node, etree._Comment) and (node.text or "").startswith(kind_prefix + "|")
+    return isinstance(node, etree._Comment) and (node.text or "").startswith(
+        kind_prefix + "|"
+    )
 
 
-def _insert_placeholders(after_root: etree._Element, mapped_markers: List[Marker]) -> None:
+def _insert_placeholders(
+    after_root: etree._Element, mapped_markers: List[Marker]
+) -> None:
     def pos_key(m: Marker) -> Tuple[Any, ...]:
         if m[0] == "wrap":
             _, typ, el = m
             return (index_path(el), 0, 1, {"added": 0, "updated": 1}.get(typ, 9))
         _, _, parent, ref, where = m
         if ref is not None:
-            return (index_path(ref), {"before": 0, "after": 2, "end": 3}.get(where, 3), 0, 0)
+            return (
+                index_path(ref),
+                {"before": 0, "after": 2, "end": 3}.get(where, 3),
+                0,
+                0,
+            )
         return (index_path(parent) + (10**9,), 3, 0, 0)
 
     ordered = sorted(mapped_markers, key=pos_key)
@@ -862,7 +902,9 @@ def _insert_placeholders(after_root: etree._Element, mapped_markers: List[Marker
 
             elif where == "after":
                 insert_at = idx_ref + 1
-                while insert_at < len(parent) and _is_ph_comment(parent[insert_at], PH_END):
+                while insert_at < len(parent) and _is_ph_comment(
+                    parent[insert_at], PH_END
+                ):
                     insert_at += 1
                 parent.insert(insert_at, c)
             else:
@@ -920,6 +962,7 @@ def apply_markers(after_root: etree._Element, mapped_markers: List[Marker]) -> N
 
 # ---------- Stable human-readable path + machine XPath predicates ----------
 
+
 def _stable_key_to_str_for_human(sk: Optional[tuple]) -> Optional[str]:
     if sk is None:
         return None
@@ -962,7 +1005,9 @@ def _stable_key_to_str_for_human(sk: Optional[tuple]) -> Optional[str]:
     return None
 
 
-def stable_xml_path(elem: etree._Element, anchor_root_localname: str = "ClinicalDocument") -> str:
+def stable_xml_path(
+    elem: etree._Element, anchor_root_localname: str = "ClinicalDocument"
+) -> str:
     parts = []
     cur = elem
     while cur is not None:
@@ -1036,23 +1081,35 @@ def _effective_time_parts(node: etree._Element) -> Dict[str, str]:
     v = _first_xpath_attr(node, "./*[local-name()='effectiveTime']/@value")
     if v:
         parts["value"] = v
-    low = _first_xpath_attr(node, "./*[local-name()='effectiveTime']/*[local-name()='low']/@value")
-    high = _first_xpath_attr(node, "./*[local-name()='effectiveTime']/*[local-name()='high']/@value")
+    low = _first_xpath_attr(
+        node, "./*[local-name()='effectiveTime']/*[local-name()='low']/@value"
+    )
+    high = _first_xpath_attr(
+        node, "./*[local-name()='effectiveTime']/*[local-name()='high']/@value"
+    )
     if low or high:
         parts["low"] = low or ""
         parts["high"] = high or ""
-    center = _first_xpath_attr(node, "./*[local-name()='effectiveTime']/*[local-name()='center']/@value")
+    center = _first_xpath_attr(
+        node, "./*[local-name()='effectiveTime']/*[local-name()='center']/@value"
+    )
     if center:
         parts["center"] = center
-    period_value = _first_xpath_attr(node, "./*[local-name()='effectiveTime']/*[local-name()='period']/@value")
-    period_unit = _first_xpath_attr(node, "./*[local-name()='effectiveTime']/*[local-name()='period']/@unit")
+    period_value = _first_xpath_attr(
+        node, "./*[local-name()='effectiveTime']/*[local-name()='period']/@value"
+    )
+    period_unit = _first_xpath_attr(
+        node, "./*[local-name()='effectiveTime']/*[local-name()='period']/@unit"
+    )
     if period_value or period_unit:
         parts["period_value"] = period_value or ""
         parts["period_unit"] = period_unit or ""
     return parts
 
 
-def xpath_with_predicates(elem: etree._Element, anchor_root_localname: str = "ClinicalDocument") -> str:
+def xpath_with_predicates(
+    elem: etree._Element, anchor_root_localname: str = "ClinicalDocument"
+) -> str:
     """
     Machine-readable XPath using local-name() steps.
     Adds stable predicates when possible; otherwise uses positional [n].
@@ -1090,7 +1147,9 @@ def xpath_with_predicates(elem: etree._Element, anchor_root_localname: str = "Cl
                     f"./*[local-name()='td' or local-name()='th'][1][normalize-space()={_xpath_escape_literal(rk[1])}]"
                 )
             elif rk and rk[0] == "row.cells":
-                preds.append(f"contains(normalize-space(string(.)), {_xpath_escape_literal(rk[1][:50])})")
+                preds.append(
+                    f"contains(normalize-space(string(.)), {_xpath_escape_literal(rk[1][:50])})"
+                )
 
         else:
             id_root = _first_xpath_attr(cur, "./*[local-name()='id']/@root")
@@ -1121,34 +1180,48 @@ def xpath_with_predicates(elem: etree._Element, anchor_root_localname: str = "Cl
             et_parts = _effective_time_parts(cur)
             if et_parts:
                 if "value" in et_parts:
-                    preds.append(f"./*[local-name()='effectiveTime'][@value={_xpath_escape_literal(et_parts['value'])}]")
+                    preds.append(
+                        f"./*[local-name()='effectiveTime'][@value={_xpath_escape_literal(et_parts['value'])}]"
+                    )
                 elif "low" in et_parts or "high" in et_parts:
                     lowv = et_parts.get("low", "")
                     highv = et_parts.get("high", "")
                     conds = []
                     if lowv != "":
-                        conds.append(f"./*[local-name()='effectiveTime']/*[local-name()='low'][@value={_xpath_escape_literal(lowv)}]")
+                        conds.append(
+                            f"./*[local-name()='effectiveTime']/*[local-name()='low'][@value={_xpath_escape_literal(lowv)}]"
+                        )
                     if highv != "":
-                        conds.append(f"./*[local-name()='effectiveTime']/*[local-name()='high'][@value={_xpath_escape_literal(highv)}]")
+                        conds.append(
+                            f"./*[local-name()='effectiveTime']/*[local-name()='high'][@value={_xpath_escape_literal(highv)}]"
+                        )
                     if conds:
                         preds.append(" and ".join(conds))
                 elif "center" in et_parts:
-                    preds.append(f"./*[local-name()='effectiveTime']/*[local-name()='center'][@value={_xpath_escape_literal(et_parts['center'])}]")
+                    preds.append(
+                        f"./*[local-name()='effectiveTime']/*[local-name()='center'][@value={_xpath_escape_literal(et_parts['center'])}]"
+                    )
                 elif "period_value" in et_parts or "period_unit" in et_parts:
                     pval = et_parts.get("period_value", "")
                     punit = et_parts.get("period_unit", "")
                     conds = []
                     if pval != "":
-                        conds.append(f"./*[local-name()='effectiveTime']/*[local-name()='period'][@value={_xpath_escape_literal(pval)}]")
+                        conds.append(
+                            f"./*[local-name()='effectiveTime']/*[local-name()='period'][@value={_xpath_escape_literal(pval)}]"
+                        )
                     if punit != "":
-                        conds.append(f"./*[local-name()='effectiveTime']/*[local-name()='period'][@unit={_xpath_escape_literal(punit)}]")
+                        conds.append(
+                            f"./*[local-name()='effectiveTime']/*[local-name()='period'][@unit={_xpath_escape_literal(punit)}]"
+                        )
                     if conds:
                         preds.append(" and ".join(conds))
 
             if cur.get("root"):
                 preds.append(f"@root={_xpath_escape_literal(cur.get('root'))}")
             if cur.get("extension"):
-                preds.append(f"@extension={_xpath_escape_literal(cur.get('extension'))}")
+                preds.append(
+                    f"@extension={_xpath_escape_literal(cur.get('extension'))}"
+                )
 
         if preds:
             step = step + "[" + " and ".join(preds) + "]"
@@ -1166,6 +1239,7 @@ def xpath_with_predicates(elem: etree._Element, anchor_root_localname: str = "Cl
 
 # ---------- JSON helpers ----------
 
+
 def get_doc_metadata(root: etree._Element) -> Tuple[str, str, str]:
     setid = root.xpath("string(./*[local-name()='setId']/@root)") or ""
     doc_id_root = root.xpath("string(./*[local-name()='id']/@root)") or ""
@@ -1178,11 +1252,11 @@ def xml_string(elem: etree._Element) -> str:
 
 
 def write_changes_json(
-        out_path: str,
-        after_root: etree._Element,
-        wraps: List[ChangeWrap],
-        deletes: List[DeleteAnchor],
-        did_change: bool,
+    out_path: str,
+    after_root: etree._Element,
+    wraps: List[ChangeWrap],
+    deletes: List[DeleteAnchor],
+    did_change: bool,
 ):
     setid, doc_id_root, version = get_doc_metadata(after_root)
 
@@ -1192,25 +1266,33 @@ def write_changes_json(
 
     for typ, after_node, before_node in wraps:
         if typ == "added":
-            added.append({
-                "xmlPath": stable_xml_path(after_node),
-                "xPath": xpath_with_predicates(after_node),
-                "xml": xml_string(after_node),
-            })
+            added.append(
+                {
+                    "xmlPath": stable_xml_path(after_node),
+                    "xPath": xpath_with_predicates(after_node),
+                    "xml": xml_string(after_node),
+                }
+            )
         elif typ == "updated":
-            updated.append({
-                "xmlPath": stable_xml_path(after_node),
-                "xPath": xpath_with_predicates(after_node),
-                "xmlBefore": xml_string(before_node) if before_node is not None else "",
-                "xmlAfter": xml_string(after_node),
-            })
+            updated.append(
+                {
+                    "xmlPath": stable_xml_path(after_node),
+                    "xPath": xpath_with_predicates(after_node),
+                    "xmlBefore": xml_string(before_node)
+                    if before_node is not None
+                    else "",
+                    "xmlAfter": xml_string(after_node),
+                }
+            )
 
     for _parent_after, _ref_after, _where, deleted_before in deletes:
-        deleted.append({
-            "xmlPath": stable_xml_path(deleted_before),
-            "xPath": xpath_with_predicates(deleted_before),
-            "xml": xml_string(deleted_before),
-        })
+        deleted.append(
+            {
+                "xmlPath": stable_xml_path(deleted_before),
+                "xPath": xpath_with_predicates(deleted_before),
+                "xml": xml_string(deleted_before),
+            }
+        )
 
     payload = {
         "setId": setid,
@@ -1226,78 +1308,3 @@ def write_changes_json(
 
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
-
-
-# ---------- Main / CLI ----------
-
-def main():
-    global PREFER_UPDATES, DEBUG_MATCH
-
-    ap = argparse.ArgumentParser(
-        description="Diff two CDA/eICR XML files and output pruned before/after + AFTER with typed change marker comments + JSON change summary."
-    )
-    ap.add_argument("file1", help="Original CDA/eICR XML (before)")
-    ap.add_argument("file2", help="New CDA/eICR XML (after)")
-    ap.add_argument("--out1", default="orig_changed.xml")
-    ap.add_argument("--out2", default="new_changed.xml")
-    ap.add_argument("--out3", default="after_with_change_markers.xml")
-    ap.add_argument("--out5", default="changes.json", help="JSON summary (default: changes.json)")
-    ap.add_argument("--no-prefer-updates", action="store_true",
-                    help="Disable prefer-updates matching (more conservative identity; may yield add/delete).")
-    ap.add_argument("--debug-match", action="store_true",
-                    help="Print debug messages about matching/pairing decisions.")
-    ap.add_argument("--no-huge", action="store_true")
-    args = ap.parse_args()
-
-    PREFER_UPDATES = not args.no_prefer_updates
-    DEBUG_MATCH = bool(args.debug_match)
-
-    parser = etree.XMLParser(remove_blank_text=True, huge_tree=not args.no_huge)
-
-    tree_before = etree.parse(args.file1, parser)
-    tree_after = etree.parse(args.file2, parser)
-    r_before = tree_before.getroot()
-    r_after = tree_after.getroot()
-
-    # Determine if *any* changes exist (order-insensitive)
-    did_change = (fingerprint(r_before) != fingerprint(r_after))
-
-    root_nsmap = r_before.nsmap
-
-    # Outputs 1 & 2: pruned diffs
-    out_r1, out_r2 = diff_nodes(r_before, r_after, is_root=True, root_nsmap=root_nsmap)
-    if out_r1 is None:
-        out_r1 = etree.Element(r_before.tag, nsmap=root_nsmap)
-        strip_values(out_r1)
-    if out_r2 is None:
-        out_r2 = etree.Element(r_after.tag, nsmap=root_nsmap)
-        strip_values(out_r2)
-
-    etree.ElementTree(out_r1).write(args.out1, pretty_print=True, xml_declaration=True, encoding="UTF-8")
-    etree.ElementTree(out_r2).write(args.out2, pretty_print=True, xml_declaration=True, encoding="UTF-8")
-
-    # Collect changes for JSON + markers (matched before/after pairs)
-    wraps, deletes = collect_changes_and_markers(r_before, r_after)
-
-    # Output 4 (JSON): includes didChange boolean
-    write_changes_json(args.out5, r_after, wraps, deletes, did_change=did_change)
-
-    # Output 3: AFTER with markers (fresh parse)
-    tree_after_fresh = etree.parse(args.file2, parser)
-    r_after_fresh = tree_after_fresh.getroot()
-
-    markers = build_markers_from_changes(wraps, deletes)
-    mapped_markers = map_markers_to_fresh_after(markers, r_after_fresh)
-    apply_markers(r_after_fresh, mapped_markers)
-
-    etree.ElementTree(r_after_fresh).write(args.out3, pretty_print=True, xml_declaration=True, encoding="UTF-8")
-
-    print(f"Wrote:\n  {args.out1}\n  {args.out2}\n  {args.out3}\n  {args.out5}")
-    if PREFER_UPDATES:
-        print("Mode: prefer-updates (default). Use --no-prefer-updates to disable.")
-    if DEBUG_MATCH:
-        print("Debug: --debug-match enabled.")
-
-
-if __name__ == "__main__":
-    main()

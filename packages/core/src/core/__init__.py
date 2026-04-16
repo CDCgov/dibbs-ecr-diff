@@ -1,6 +1,10 @@
 """Core Difference in Docs functionality."""
 
+from lxml import etree
 
-def diff_xml() -> str:
+from .models import DiffingOptions
+
+
+def diff_xml(opts: DiffingOptions) -> str:
     """Returns a hello world string."""
     return "hello world"
