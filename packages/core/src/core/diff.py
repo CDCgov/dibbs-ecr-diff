@@ -9,6 +9,7 @@ from .util import (
     is_table_cell_list,
     normalize_text,
 )
+from .xpath import stable_key, unique_keys
 
 
 def match_children(list_1: list[etree.Element], list_2: list[etree.Element]) -> bool:
@@ -27,6 +28,12 @@ def match_children(list_1: list[etree.Element], list_2: list[etree.Element]) -> 
         for i in range(n, len(list_2)):
             yield None, list_2[i]
         return
+
+
+    keys_1 = unique_keys(list_1)
+    keys_2 = unique_keys(list_2)
+    if keys_1 is not None and keys_2 is not None and list_1 and list_2:
+
 
 
 def collect_node_diffs(

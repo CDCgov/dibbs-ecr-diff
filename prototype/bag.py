@@ -441,6 +441,8 @@ def match_children_ignore_order(
 
     k1 = unique_keys(list1)
     k2 = unique_keys(list2)
+    # wait the unique_keys calls before this loop through all the elements and create stable keys
+    # are we doing that again down here for m1 and m2??
     if k1 is not None and k2 is not None and list1 and list2:
         m1 = {stable_key(e): e for e in list1}
         m2 = {stable_key(e): e for e in list2}
