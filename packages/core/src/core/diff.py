@@ -33,6 +33,7 @@ def match_children(list_1: list[etree.Element], list_2: list[etree.Element]) -> 
     keys_1 = unique_keys(list_1)
     keys_2 = unique_keys(list_2)
     if keys_1 is not None and keys_2 is not None and list_1 and list_2:
+        # this is where i left off
 
 
 
