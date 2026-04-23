@@ -18,3 +18,26 @@ services:
         # rebuild the image if dependencies change by checking uv.lock
         - action: rebuild
           path: ./uv.lock
+  lambda:
+    build:
+      context: .
+      dockerfile: ./docker/lambda.Dockerfile
+    ports:
+      - "9000:8080"
+    environment:
+      - VERSION=local
+    restart: unless-stopped
+    develop:
+      watch:
+        # rebuild image when there are changes to core or lambda packages
+        - action: rebuild
+          path: ./packages/core
+          ignore:
+            - test
+        - action: rebuild
+          path: ./packages/lambda
+          ignore:
+            - test
+        # rebuild the image if dependencies change by checking uv.lock
+        - action: rebuild
+          path: ./uv.lock
