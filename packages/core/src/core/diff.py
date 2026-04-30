@@ -29,12 +29,12 @@ def match_children(list_1: list[etree.Element], list_2: list[etree.Element]) -> 
             yield None, list_2[i]
         return
 
-
     keys_1 = unique_keys(list_1)
     keys_2 = unique_keys(list_2)
+    # TODO: wait the unique_keys calls before this loop through all the elements and create stable keys
+    # are we doing that again down here for m1 and m2??
     if keys_1 is not None and keys_2 is not None and list_1 and list_2:
-        # this is where i left off
-
+        print("sup")
 
 
 def collect_node_diffs(

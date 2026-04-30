@@ -4,6 +4,7 @@ version = "0.1.0"
 description = ""
 dependencies = [
     "lxml>=6.0.2",
+    "xmldiff>=2.7.0",
 ]
 
 [dependency-groups]
