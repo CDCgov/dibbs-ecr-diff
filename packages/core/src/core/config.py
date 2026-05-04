@@ -12,7 +12,7 @@ at startup before any diffing work begins.
 # Enable with --debug-match.
 DEBUG_MATCH: bool = False
 
-def debug_log(*args, **kwargs):
+def debug_log(*args, **kwargs) -> None:
     """Print only when DEBUG_MATCH is active."""
     if DEBUG_MATCH:
         print(*args, **kwargs)

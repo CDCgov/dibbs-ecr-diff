@@ -120,8 +120,8 @@ def _xpath_single_node(elem: etree._Element, xpath_expression: str) -> Optional[
     return results[0] if results else None
 
 
-def _complete_attr_pair(node: Optional[etree._Element],
-               attr1: str, attr2: str) -> Optional[Tuple[str, str]]:
+def _complete_attribute_pair(node: Optional[etree._Element],
+                             attr1: str, attr2: str) -> Optional[Tuple[str, str]]:
     """
     Return the values of two related attributes only when both are present.
 
@@ -258,7 +258,7 @@ def _build_standalone_xml_snippet_namespace_map(elem: etree._Element) -> Dict[Op
 
 def build_standalone_xml_string(snippet_root_elem: etree._Element) -> str:
     """
-    Serialise elem to a self-contained, namespace-correct XML string.
+    Serialize `snippet_root_elem` to a self-contained, namespace-correct XML string.
 
     Parentless elements are assumed to already be standalone; call this before
     detaching a subtree if it relies on namespace declarations from ancestors.
