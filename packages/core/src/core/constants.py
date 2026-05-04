@@ -31,7 +31,15 @@ HL7_PREFIX = "hl7"
 
 # Passed as namespaces= to every .xpath() call so we can write hl7:tag
 # instead of *[local-name()='tag']
-NS = {HL7_PREFIX: HL7_NS}
+HL7_NAMESPACE = {HL7_PREFIX: HL7_NS}
+
+NAMESPACES = {
+    "hl7": "urn:hl7-org:v3",
+    "sdtc": "urn:hl7-org:sdtc",
+    "xsi": "http://www.w3.org/2001/XMLSchema-instance",
+}
+
+XSI_TYPE_ATTR = f"{{{NAMESPACES['xsi']}}}type"
 
 # ---------------------------------------------------------------------------
 # Type aliases
