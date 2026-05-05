@@ -22,13 +22,13 @@ class Status(StrEnum):
     Enum of statuses assigned when a change is detected after rule evaluation.
 
     This is used to determine "actionability".
-    - IGNORED: Change is not significant.
-    - FLAGGED: Change is considered significant and potentially actionable.
+    - INACTIONABLE: Change is not significant.
+    - ACTIONABLE: Change is considered significant and potentially actionable.
     - UNKNOWN: Fallback state when no rule applies (should be set in ConfigDefaults).
     """
 
-    IGNORED = "IGNORED"
-    FLAGGED = "FLAGGED"
+    INACTIONABLE = "INACTIONABLE"
+    ACTIONABLE = "ACTIONABLE"
     UNKNOWN = "UNKNOWN"
 
 
@@ -39,6 +39,8 @@ class RuleApply(BaseModel):
     This object determines the "then" part of a rule.
     If a change satisfies the XPath match conditions, this config
     should determine how it is labeled.
+
+    - status: Status to apply when a change is detected.
     """
 
     status: Status
@@ -48,8 +50,7 @@ class RuleDefaults(BaseModel):
     """
     Default rule configurations.
 
-    A RuleApply must be defined to apply statuses for changes
-    without matching rules.
+    - apply: Default apply properties.
     """
 
     apply: RuleApply
@@ -59,10 +60,10 @@ class RuleConfig(BaseModel):
     """
     Defines a single rule configuration.
 
-    - id: Unique identifier for the rule
-    - xpaths: List of XPath expressions used for matching
-    - changeTypes: Types used to restrict the rule for specific changes
-    - apply: Configuration used to classify changes for this rule
+    - id: Unique identifier for the rule.
+    - xpaths: List of XPath expressions used for matching.
+    - changeTypes: Types used to restrict the rule for specific changes.
+    - apply: Configuration used to classify changes for this rule.
     """
 
     id: str = Field(min_length=1)
@@ -75,9 +76,9 @@ class Configuration(BaseModel):
     """
     Difference in Docs configuration object.
 
-    - version: Semver string for config version
-    - defaults: Default rule configuration properties
-    - rules: List of rule configurations
+    - version: Semver string for config version.
+    - defaults: Default rule configuration properties.
+    - rules: List of rule configurations.
     """
 
     version: str

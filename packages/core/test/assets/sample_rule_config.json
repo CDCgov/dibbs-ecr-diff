@@ -2,7 +2,7 @@
   "version": "1.0.0",
   "defaults": {
     "apply": {
-      "status": "IGNORED"
+      "status": "INACTIONABLE"
     }
   },
   "rules": [
@@ -17,7 +17,7 @@
       ],
       "changeTypes": ["UPDATED", "NEW", "DELETED"],
       "apply": {
-        "status": "IGNORED"
+        "status": "INACTIONABLE"
       }
     },
     {
@@ -27,17 +27,18 @@
       ],
       "changeTypes": ["UPDATED", "NEW", "DELETED"],
       "apply": {
-        "status": "FLAGGED"
+        "status": "ACTIONABLE"
       }
     },
     {
       "id": "diagnoses",
       "xpaths": [
+        "//encounter[templateId/@root=2.16.840.1.113883.10.20.22.4.49]/effectiveTime/low",
         "//encounter[templateId/@root=2.16.840.1.113883.10.20.22.4.49]/entryRelationship/act[templateId/@root=2.16.840.1.113883.10.20.22.4.80]/entryRelationship/observation[templateId/@root=2.16.840.1.113883.10.20.22.4.4]/value"
       ],
       "changeTypes": ["UPDATED", "NEW", "DELETED"],
       "apply": {
-        "status": "FLAGGED"
+        "status": "ACTIONABLE"
       }
     }
   ]
