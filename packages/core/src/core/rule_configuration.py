@@ -75,9 +75,11 @@ class Configuration(BaseModel):
     """
     Difference in Docs configuration object.
 
+    - version: Semver string for config version
     - defaults: Default rule configuration properties
     - rules: List of rule configurations
     """
 
+    version: str
     defaults: RuleDefaults
     rules: list[RuleConfig] = Field(default_factory=list)

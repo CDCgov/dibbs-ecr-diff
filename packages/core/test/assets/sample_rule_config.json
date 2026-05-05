@@ -1,0 +1,44 @@
+{
+  "version": "1.0.0",
+  "defaults": {
+    "apply": {
+      "status": "IGNORED"
+    }
+  },
+  "rules": [
+    {
+      "id": "ignore-document-properties",
+      "xpaths": [
+        "/ClinicalDocument/realmCode",
+        "/ClinicalDocument/typeId",
+        "/ClinicalDocument/code",
+        "/ClinicalDocument/id",
+        "/ClinicalDocument/templateId"
+      ],
+      "changeTypes": ["UPDATED", "NEW", "DELETED"],
+      "apply": {
+        "status": "IGNORED"
+      }
+    },
+    {
+      "id": "date-of-diagnosis",
+      "xpaths": [
+        "//encounter[templateId/@root=2.16.840.1.113883.10.20.22.4.49]/effectiveTime/low"
+      ],
+      "changeTypes": ["UPDATED", "NEW", "DELETED"],
+      "apply": {
+        "status": "FLAGGED"
+      }
+    },
+    {
+      "id": "diagnoses",
+      "xpaths": [
+        "//encounter[templateId/@root=2.16.840.1.113883.10.20.22.4.49]/entryRelationship/act[templateId/@root=2.16.840.1.113883.10.20.22.4.80]/entryRelationship/observation[templateId/@root=2.16.840.1.113883.10.20.22.4.4]/value"
+      ],
+      "changeTypes": ["UPDATED", "NEW", "DELETED"],
+      "apply": {
+        "status": "FLAGGED"
+      }
+    }
+  ]
+}
