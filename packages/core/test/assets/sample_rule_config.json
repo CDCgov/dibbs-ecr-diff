@@ -1,13 +1,9 @@
 {
   "version": "1.0.0",
-  "defaults": {
-    "apply": {
-      "status": "INACTIONABLE"
-    }
-  },
   "rules": [
     {
-      "id": "ignore-document-properties",
+      "id": "e654b542-c0bd-4166-8320-4e0a7651d612",
+      "displayName": "Ignore Document Properties",
       "xpaths": [
         "/ClinicalDocument/realmCode",
         "/ClinicalDocument/typeId",
@@ -15,31 +11,24 @@
         "/ClinicalDocument/id",
         "/ClinicalDocument/templateId"
       ],
-      "changeTypes": ["UPDATED", "NEW", "DELETED"],
-      "apply": {
-        "status": "INACTIONABLE"
-      }
+      "changeTypes": ["UPDATED", "NEW", "DELETED"]
     },
     {
-      "id": "date-of-diagnosis",
+      "id": "d92c9890-4a85-4b21-a6dd-57864ae40ccc",
+      "displayName": "Date of Diagnosis",
       "xpaths": [
         "//encounter[templateId/@root=2.16.840.1.113883.10.20.22.4.49]/effectiveTime/low"
       ],
-      "changeTypes": ["UPDATED", "NEW", "DELETED"],
-      "apply": {
-        "status": "ACTIONABLE"
-      }
+      "changeTypes": ["UPDATED", "NEW"]
     },
     {
-      "id": "diagnoses",
+      "id": "1f989163-596d-4eae-b2f2-8b9f00ddb635",
+      "displayName": "Diagnoses",
       "xpaths": [
         "//encounter[templateId/@root=2.16.840.1.113883.10.20.22.4.49]/effectiveTime/low",
         "//encounter[templateId/@root=2.16.840.1.113883.10.20.22.4.49]/entryRelationship/act[templateId/@root=2.16.840.1.113883.10.20.22.4.80]/entryRelationship/observation[templateId/@root=2.16.840.1.113883.10.20.22.4.4]/value"
       ],
-      "changeTypes": ["UPDATED", "NEW", "DELETED"],
-      "apply": {
-        "status": "ACTIONABLE"
-      }
+      "changeTypes": ["UPDATED", "NEW"]
     }
   ]
 }
