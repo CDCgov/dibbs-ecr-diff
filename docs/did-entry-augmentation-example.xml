@@ -1,0 +1,56 @@
+<entry>
+    <substanceAdministration classCode="SBADM" moodCode="EVN"
+                             negationInd="false">
+        <!-- [C-CDA 2.1] Immunization Activity (V3) -->
+        <templateId root="2.16.840.1.113883.10.20.22.4.52"
+                    extension="2015-08-01" />
+        <id root="00000000-5CF3-EC63-0513-4A4838595787"
+            extension="11369-6_3-1_1.3.6.1.4.1.22812.11.2016.163.1_14168" />
+        <statusCode code="completed" />
+        <effectiveTime value="20201107" />
+        <routeCode nullFlavor="NI" />
+        <doseQuantity nullFlavor="NI" />
+        <consumable>
+            <manufacturedProduct classCode="MANU">
+                <!-- [C-CDA R2.1] Immunization Medication Information (V3) -->
+                <templateId root="2.16.840.1.113883.10.20.22.4.54"
+                            extension="2014-06-09" />
+                <manufacturedMaterial>
+                    <code code="106" codeSystem="2.16.840.1.113883.12.292"
+                          displayName="diphtheria, tetanus toxoids and acellular pertussis vaccine, 5 pertussis antigens" />
+                    <lotNumberText nullFlavor="NI" />
+                </manufacturedMaterial>
+            </manufacturedProduct>
+        </consumable>
+        <!-- DATA AUGMENTATION: Comment added by difference-in-docs to mark a change between versions -->
+        <entryRelationship typeCode="SUBJ" inversionInd="true">
+            <act classCode="ACT" moodCode="EVN">
+                <templateId root="2.16.840.1.113883.10.20.22.4.64"/>
+                <code code="48767-8" codeSystem="2.16.840.1.113883.6.1"
+                      codeSystemName="LOINC" displayName="Annotation comment"/>
+                <text>VALUE CHANGED: Previous manufactured material was MMR vaccine.</text>
+                <author>
+                    <!-- DATA AUGMENTATION: functionCode specifies type of change
+                         "changed" which signifies that the containing template has been
+                         modified from a previous version of the document -->
+                    <functionCode code="changed" codeSystem="2.16.840.1.113883.10.20.15.2.7.1"
+                                  codeSystemName="eCRDataAugmentation" />
+                    <!-- DATA AUGMENTATION: <time of data augmentation operation> -->
+                    <time value="20260507103000-0500" />
+                    <assignedAuthor>
+                        <!-- DATA AUGMENTATION: set to nullFlavor 'NA' -->
+                        <id nullFlavor="NA" />
+                        <!-- DATA AUGMENTATION: set to nullFlavor 'NA' -->
+                        <addr nullFlavor="NA" />
+                        <!-- DATA AUGMENTATION: set to nullFlavor 'NA' -->
+                        <telecom nullFlavor="NA" />
+                        <!-- DATA AUGMENTATION: set to 'Data Augmentation Tool' -->
+                        <assignedAuthoringDevice>
+                            <manufacturerModelName displayName="Data Augmentation Tool" />
+                        </assignedAuthoringDevice>
+                    </assignedAuthor>
+                </author>
+            </act>
+        </entryRelationship>
+    </substanceAdministration>
+</entry>
