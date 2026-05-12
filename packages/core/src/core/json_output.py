@@ -11,16 +11,16 @@ from typing import List, Tuple
 
 from lxml import etree
 
-from core.constants import AddedEntry, UpdatedEntry, DeletedEntry, HL7_NS, HL7_PREFIX, NS
+from core.constants import AddedEntry, UpdatedEntry, DeletedEntry, HL7_NS, HL7_PREFIX, HL7_NAMESPACE
 from core.paths import stable_xml_path, xpath_with_predicates
-from core.xml_utils import xml_string
+from core.xml_utils import build_standalone_xml_string
 
 
 def get_doc_metadata(root: etree._Element) -> Tuple[str, str, str]:
     """Extract setId, clinicalDocumentId, and versionNumber from the document root."""
-    set_id         = root.xpath("string(hl7:setId/@root)",          namespaces=NS) or ""
-    doc_id         = root.xpath("string(hl7:id/@root)",             namespaces=NS) or ""
-    version_number = root.xpath("string(hl7:versionNumber/@value)", namespaces=NS) or ""
+    set_id         = root.xpath("string(hl7:setId/@root)",          namespaces=HL7_NAMESPACE) or ""
+    doc_id         = root.xpath("string(hl7:id/@root)",             namespaces=HL7_NAMESPACE) or ""
+    version_number = root.xpath("string(hl7:versionNumber/@value)", namespaces=HL7_NAMESPACE) or ""
     return set_id, doc_id, version_number
 
 
@@ -61,7 +61,7 @@ def write_changes_json(
             "sourceDocument": "after",
             "xmlPath": stable_xml_path(added_node),
             "xPath":   xpath_with_predicates(added_node),
-            "xml":     xml_string(added_node),
+            "xml":     build_standalone_xml_string(added_node),
         })
 
     for before_node, after_node in updated:
@@ -69,8 +69,8 @@ def write_changes_json(
             "sourceDocument": "after",
             "xmlPath":   stable_xml_path(after_node),
             "xPath":     xpath_with_predicates(after_node),
-            "xmlBefore": xml_string(before_node),
-            "xmlAfter":  xml_string(after_node),
+            "xmlBefore": build_standalone_xml_string(before_node),
+            "xmlAfter":  build_standalone_xml_string(after_node),
         })
 
     for deleted_node in deleted:
@@ -78,7 +78,7 @@ def write_changes_json(
             "sourceDocument": "before",
             "xmlPath": stable_xml_path(deleted_node),
             "xPath":   xpath_with_predicates(deleted_node),
-            "xml":     xml_string(deleted_node),
+            "xml":     build_standalone_xml_string(deleted_node),
         })
 
     payload = {

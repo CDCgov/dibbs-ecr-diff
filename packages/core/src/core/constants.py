@@ -29,9 +29,27 @@ KEY_ATTRS = ("ID", "id", "root", "extension", "code",
 HL7_NS     = "urn:hl7-org:v3"
 HL7_PREFIX = "hl7"
 
+# SDTC extension namespace used in CDA/eICR documents.
+SDTC_NS = "urn:hl7-org:sdtc"
+SDTC_PREFIX = "sdtc"
+
+# XML Schema instance namespace, used by attributes like xsi:type.
+XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
+XSI_PREFIX = "xsi"
+
 # Passed as namespaces= to every .xpath() call so we can write hl7:tag
 # instead of *[local-name()='tag']
-NS = {HL7_PREFIX: HL7_NS}
+HL7_NAMESPACE = {HL7_PREFIX: HL7_NS}
+
+# Passed as namespaces= to XPath/ElementPath calls so code can use
+# hl7:tag, sdtc:tag, etc. instead of local-name() expressions.
+NAMESPACES = {
+    HL7_PREFIX: HL7_NS,
+    SDTC_PREFIX: SDTC_NS,
+    XSI_PREFIX: XSI_NS,
+}
+
+XSI_TYPE_ATTR = f"{{{XSI_NS}}}type"
 
 # ---------------------------------------------------------------------------
 # Type aliases

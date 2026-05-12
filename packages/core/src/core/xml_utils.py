@@ -7,11 +7,11 @@ fingerprinting, and self-contained XML snippet serialisation.
 """
 
 from copy import deepcopy
-from typing import Dict, List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple, Dict
 
 from lxml import etree
 
-from core.constants import HL7_NS, HL7_PREFIX, NS
+from core.constants import NAMESPACES, XSI_TYPE_ATTR
 
 
 # ---------------------------------------------------------------------------
@@ -30,11 +30,6 @@ def localname(elem: etree._Element) -> str:
     return etree.QName(elem).localname
 
 
-def _pfx(tag: str) -> str:
-    """Prefixed tag for generated XPath output, e.g. 'id' → 'hl7:id'."""
-    return f"{HL7_PREFIX}:{tag}"
-
-
 # ---------------------------------------------------------------------------
 # Fingerprinting
 # ---------------------------------------------------------------------------
@@ -44,126 +39,260 @@ def fingerprint(elem: etree._Element) -> tuple:
     Order-insensitive recursive fingerprint for an element subtree.
 
     Two elements with identical fingerprints are considered unchanged.
-    Child fingerprints are sorted before hashing so that sibling reordering
-    does not produce a false positive change — intentional for CDA where
-    element order within a type group is often not semantically significant.
+    Child fingerprints are sorted before returning the parent fingerprint.
+    Any reordering of child fingerprints is not considered a change.
+
+    Note: elem.tail is included so that tail-text differences in mixed-content
+    narrative (e.g. text between inline <content> elements) are detected. 
+    e.g. two elem.tail in the following are "and chills, as well as" and "."
+    <text>
+      <paragraph>The patient presented with 
+        <content styleCode="Bold">fever</content>
+         and chills, as well as 
+        <content styleCode="Bold">cough</content>
+        .
+      </paragraph>
+    </text>
     """
     tag      = elem.tag
     text     = normalize_text(elem.text)
+    tail     = normalize_text(elem.tail)
     attrs    = tuple(sorted(elem.attrib.items()))
     children = sorted(fingerprint(child) for child in elem if isinstance(child.tag, str))
-    return (tag, text, attrs, tuple(children))
+    return (tag, text, tail, attrs, tuple(children))
 
 
 # ---------------------------------------------------------------------------
 # XPath query helpers (all use the hl7: namespace prefix)
 # ---------------------------------------------------------------------------
 
-def _xpath_attr(elem: etree._Element, expr: str) -> Optional[str]:
-    """Return the first string result of an XPath attribute expression, or None."""
-    results = elem.xpath(expr, namespaces=NS)
-    return results[0] if results else None
-
-
-def _xpath_attrs(elem: etree._Element, expr: str, limit: int = 6) -> List[str]:
-    """Return up to `limit` string results of an XPath attribute expression."""
-    return list(elem.xpath(expr, namespaces=NS)[:limit])
-
-
-def _xpath_node(elem: etree._Element, expr: str) -> Optional[etree._Element]:
-    """Return the first element result of an XPath node expression, or None."""
-    results = elem.xpath(expr, namespaces=NS)
-    return results[0] if results else None
-
-
-def _attr_pair(node: Optional[etree._Element],
-               attr1: str, attr2: str) -> Optional[Tuple[str, str]]:
+def _xpath_single_attribute(elem: etree._Element, xpath_expression: str) -> Optional[str]:
     """
-    Return (attr1_value, attr2_value) from node if both attributes are present,
-    otherwise None.
+    Evaluate an XPath expression expected to match at most one attribute,
+    returning its string value or None if unmatched.
+
+    lxml always returns a list from .xpath() — this helper unwraps the
+    common case of selecting a single optional attribute value such as
+    ./hl7:templateId/@root or ./hl7:id/@extension.
+    """
+    results = elem.xpath(xpath_expression, namespaces=NAMESPACES)
+    return results[0] if results else None
+
+
+def _collect_subtree_attribute_values(elem: etree._Element, node_path: str, attribute_name: str, limit: int = 6) -> List[str]:
+    """
+    Used when collecting several attribute values from a subtree, such as
+    gathering all templateId/@root values from nested elements to build a
+    composite identity key.
+    
+    Collect up to `limit` values of `attribute_name` from elements matched by
+    the ElementPath `node_path`, relative to `elem`.
+
+    Matching nodes that do not have `attribute_name` are skipped.
+
+    Uses iterfind() so iteration can stop as soon as enough values are found,
+    unlike xpath(), which evaluates the full result set first. This guards 
+    against large subtree evaluation.
+    """
+    if limit <= 0:
+        return []
+    
+    attribute_values: List[str] = []
+    for node in elem.iterfind(node_path, namespaces=NAMESPACES):
+        attribute_value = node.get(attribute_name)
+        if attribute_value is not None:
+            attribute_values.append(attribute_value)
+            if len(attribute_values) >= limit:
+                break
+    return attribute_values
+
+
+def _xpath_single_node(elem: etree._Element, xpath_expression: str) -> Optional[etree._Element]:
+    """
+    Evaluate an XPath expression expected to match at most one element,
+    returning the element or None if unmatched.
+
+    lxml always returns a list from .xpath() — this helper unwraps the
+    common case of selecting a single optional child element such as
+    ./hl7:id or ./hl7:code.
+    """
+    results = elem.xpath(xpath_expression, namespaces=NAMESPACES)
+    return results[0] if results else None
+
+
+def _complete_attribute_pair(node: Optional[etree._Element],
+                             attr1: str, attr2: str) -> Optional[Tuple[str, str]]:
+    """
+    Return the values of two related attributes only when both are present.
+
+    This is useful when the two attributes are meaningful as a single
+    composite value, such as `root` + `extension` or `code` + `codeSystem`.
+    Returning None for partial data lets callers treat the pair as one
+    atomic value for matching, identity checks, or key construction.
     """
     if node is None:
         return None
     value1 = node.get(attr1)
     value2 = node.get(attr2)
-    return (value1, value2) if value1 and value2 else None
+    return (value1, value2) if value1 is not None and value2 is not None else None
 
 
 # ---------------------------------------------------------------------------
 # Self-contained XML snippet serialisation
 # ---------------------------------------------------------------------------
 
-def _used_namespaces(elem: etree._Element) -> Set[str]:
+def _collect_standalone_namespace_requirements(snippet_root_elem: etree._Element) -> tuple[Set[str], Dict[str, str]]:
     """
-    Return the set of namespace URIs actually referenced within elem's subtree —
-    either as element namespaces or as attribute namespaces (xsi:type, sdtc:valueSet, …).
-    Only referenced namespaces need to appear in the snippet's xmlns declarations.
+    Return the namespace data needed to serialize `snippet_root_elem`
+    as a standalone snippet.
+
+    Returns:
+    - `self_and_subtree_tag_and_attr_namespaces`: namespace URIs referenced by element names and attribute names
+    - `attribute_value_prefix_namespace_dict`: prefix-to-URI bindings used lexically in
+      QName-valued attribute values that must remain in scope on the snippet root
+
+    Currently, this only looks for prefixed `xsi:type` attribute values, which is the main
+    QName-valued attribute pattern seen in CDA.
     """
-    used: Set[str] = set()
-    for node in elem.iter():
-        if not isinstance(node.tag, str):
-            continue
-        namespace = etree.QName(node.tag).namespace
+    self_and_subtree_tag_and_attr_namespaces: Set[str] = set()
+    attribute_value_prefix_namespace_dict: Dict[str, str] = {}
+    
+    # elem.iter() walks the entire descendant tree recursively and includes elem itself
+    for current_node in snippet_root_elem.iter(tag=etree.Element):
+        namespace = etree.QName(current_node.tag).namespace
         if namespace:
-            used.add(namespace)
-        for attr_name in node.attrib:
-            if attr_name.startswith("{"):
-                used.add(etree.QName(attr_name).namespace)
-    return used
+            self_and_subtree_tag_and_attr_namespaces.add(namespace)
+        for attr_name, attr_value in current_node.attrib.items():
+            qname = etree.QName(attr_name)
+            if qname.namespace:
+                self_and_subtree_tag_and_attr_namespaces.add(qname.namespace)
+            # Preserve prefixes used lexically in QName-valued attribute values,
+            # e.g. xsi:type="cda:CD".
+            if attr_name == XSI_TYPE_ATTR and ":" in attr_value:
+                attr_value_prefix = attr_value.split(":")[0]
+                current_node_namespace_for_attr_value_prefix = current_node.nsmap.get(attr_value_prefix)
+                if not current_node_namespace_for_attr_value_prefix:
+                    continue
+                
+                root_namespace_for_prefix = snippet_root_elem.nsmap.get(attr_value_prefix)
+
+                # If the snippet root already binds this prefix to a different URI,
+                # do not hoist the current node's binding to the root. That prefix
+                # is being rebound lower in the subtree and should stay local.
+                if (
+                        root_namespace_for_prefix is not None
+                        and root_namespace_for_prefix != current_node_namespace_for_attr_value_prefix
+                ):
+                    continue
+
+                existing_namespace_for_prefix = attribute_value_prefix_namespace_dict.get(
+                    attr_value_prefix
+                )
+
+                # If the snippet root already binds this prefix, only hoist the binding when
+                # the current node resolves the prefix to the same URI. If the snippet root
+                # does not bind the prefix, hoist it so QName-valued strings like
+                # xsi:type="cda:CD" still have a matching xmlns:cda declaration.
+                #
+                # If the same prefix resolves to multiple URIs within the snippet, fail
+                # instead of silently choosing one root-level binding.
+                if (
+                        existing_namespace_for_prefix is not None
+                        and existing_namespace_for_prefix != current_node_namespace_for_attr_value_prefix
+                ):
+                    raise ValueError(
+                        f"Cannot safely hoist namespace prefix {attr_value_prefix!r}: "
+                        f"it resolves to both {existing_namespace_for_prefix!r} and "
+                        f"{current_node_namespace_for_attr_value_prefix!r} within the snippet."
+                    )
+
+                attribute_value_prefix_namespace_dict[attr_value_prefix] = (
+                    current_node_namespace_for_attr_value_prefix
+                )
+   
+    return self_and_subtree_tag_and_attr_namespaces, attribute_value_prefix_namespace_dict
 
 
-def _snippet_nsmap(elem: etree._Element) -> dict:
+def _build_standalone_xml_snippet_namespace_map(elem: etree._Element) -> Dict[Optional[str], str]:
     """
-    Build a minimal namespace map for a self-contained XML snippet.
+    Build the namespace map for serialising elem as a standalone XML snippet.
 
-    Handles the common CDA pattern of declaring urn:hl7-org:v3 twice —
-    once as the default namespace (xmlns=) and once as a named prefix
-    (xmlns:cda=).  When both are present, lxml silently drops the default
-    namespace when rebuilding an element, leaving snippets namespace-orphaned.
+    The element's own namespace is always written as the default namespace
+    using the `None` key. Prefixes required by QName-valued attribute strings,
+    such as `xsi:type="cda:CD"`, are added next, even when they point to the
+    same URI as the default namespace.
 
-    Fix: always set the element's own namespace as the default (None key) first,
-    then add only named prefixes for other namespaces actually used in the subtree,
-    skipping any named alias that would duplicate the default namespace URI.
+    Other in-scope prefixes are added only when their namespace URI is used by
+    element names or attribute names in the subtree. Unneeded same-URI aliases
+    are skipped to keep the standalone output compact.
     """
     elem_namespace = etree.QName(elem.tag).namespace
-    used_namespaces = _used_namespaces(elem)
+    (self_and_subtree_tag_and_attr_namespaces, 
+     attribute_value_prefix_namespace_dict) = _collect_standalone_namespace_requirements(elem)
 
-    nsmap: dict = {}
+    standalone_namespace_map: Dict[Optional[str], str] = {}
     if elem_namespace:
-        nsmap[None] = elem_namespace
+        standalone_namespace_map[None] = elem_namespace
 
-    for prefix, uri in elem.nsmap.items():
+    standalone_namespace_map.update(attribute_value_prefix_namespace_dict)
+
+    self_and_inherited_namespace_map = elem.nsmap
+    for prefix, namespace in self_and_inherited_namespace_map.items():
         if prefix is None:
             continue
-        if uri == elem_namespace:
+        # This prefix was already added explicitly, usually because an
+        # attribute value like xsi:type="cda:CD" needs that exact prefix.
+        # Do not overwrite or re-process it.
+        if prefix in standalone_namespace_map:
             continue
-        if uri in used_namespaces:
-            nsmap[prefix] = uri
+        # The element's own namespace is already set as the default namespace.
+        # Skip extra named prefixes for that same URI unless they were already
+        # added above because an attribute value needs the exact prefix.
+        if namespace == elem_namespace:
+            continue
+        if namespace in self_and_subtree_tag_and_attr_namespaces:
+            standalone_namespace_map[prefix] = namespace
 
-    return nsmap
+    return standalone_namespace_map
 
 
-def xml_string(elem: etree._Element) -> str:
+def build_standalone_xml_string(snippet_root_elem: etree._Element) -> str:
     """
-    Serialise elem to a self-contained, namespace-correct XML string.
+    Serialize `snippet_root_elem` to a self-contained, namespace-correct XML string.
 
-    Elements extracted from within a CDA document inherit their namespace
-    declarations from ancestor elements, so a plain etree.tostring() produces
-    namespace-orphaned snippets with no xmlns= declaration.
+    Parentless elements are assumed to already be standalone; call this before
+    detaching a subtree if it relies on namespace declarations from ancestors.
 
-    We fix this by rebuilding the snippet root with a minimal but complete
-    namespace map so the output is valid standalone XML.
+    When an element is extracted from inside a CDA document, some namespace
+    declarations it relies on may live on ancestor elements. For attached
+    subtrees, rebuild only the snippet root with a complete namespace map,
+    then deep-copy the original children so subtree content, child tails, and
+    child-local namespace declarations are preserved.
+
+    Child tails are preserved by the deep copy, which keeps mixed-content text
+    inside the snippet. The snippet root's own tail is intentionally excluded
+    because it belongs to the surrounding parent, not to the standalone root.
     """
-    if elem.getparent() is None:
-        return etree.tostring(elem, encoding="unicode", pretty_print=True,
+    if snippet_root_elem.getparent() is None:
+        return etree.tostring(snippet_root_elem, encoding="unicode", pretty_print=True,
                               with_tail=False)
 
-    nsmap    = _snippet_nsmap(elem)
-    new_root = etree.Element(elem.tag, attrib=elem.attrib, nsmap=nsmap)
-    new_root.text = elem.text
-    new_root.tail = None
-    for child in elem:
-        new_root.append(deepcopy(child))
+    standalone_namespace_map = _build_standalone_xml_snippet_namespace_map(snippet_root_elem)
+    standalone_root_elem = etree.Element(
+        snippet_root_elem.tag,
+        attrib=dict(snippet_root_elem.attrib),
+        nsmap=standalone_namespace_map,
+    )
+    standalone_root_elem.text = snippet_root_elem.text
+    standalone_root_elem.tail = None
+    for child in snippet_root_elem:
+        # Deep-copy each child so its subtree content is preserved, including text,
+        # child tails, attributes, and descendant-local namespace declarations.
+        #
+        # When the copied child is appended, lxml may suppress namespace declarations
+        # that are already available on the rebuilt root. Prefix rebindings that are
+        # local to a child subtree can still appear when needed.
+        standalone_root_elem.append(deepcopy(child))
 
-    return etree.tostring(new_root, encoding="unicode", pretty_print=True,
+    return etree.tostring(standalone_root_elem, encoding="unicode", pretty_print=True,
                           with_tail=False)
