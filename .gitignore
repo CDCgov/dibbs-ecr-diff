@@ -46,3 +46,6 @@ coverage.xml
 
 # macOS
 **/.DS_Store
+
+# Structurizr
+.structurizr/

@@ -101,6 +101,20 @@ Dependencies can be added to workspace packages by specifying the package using 
 uv add --package lambda aws-lambda-powertools
 ```
 
+## Architecture
+
+### Structurizr
+
+The Difference in Docs project uses [Structurizr](https://docs.structurizr.com/) to visualize the software architecture using the [C4 Model](https://c4model.com/).
+
+To run Structurizr locally, you'll first need to have [Docker](https://www.docker.com/) installed and then run:
+
+```bash
+just arch view
+```
+
+View it in your browser at http://localhost:7268.
+
 ## Repository Structure
 
 This project is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/) consisting of multiple Python packages.
