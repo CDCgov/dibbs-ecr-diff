@@ -66,17 +66,40 @@ def fingerprint(elem: etree._Element) -> tuple:
 # XPath query helpers (all use the hl7: namespace prefix)
 # ---------------------------------------------------------------------------
 
-def _xpath_single_attribute(elem: etree._Element, xpath_expression: str) -> Optional[str]:
+def _xpath_first_attribute_value(
+        element: etree._Element,
+        xpath_expression: str,
+) -> Optional[str]:
     """
-    Evaluate an XPath expression expected to match at most one attribute,
-    returning its string value or None if unmatched.
+    Return the first attribute value matched by an XPath expression. 
 
-    lxml always returns a list from .xpath() — this helper unwraps the
-    common case of selecting a single optional attribute value such as
-    ./hl7:templateId/@root or ./hl7:id/@extension.
+    Returns None when there are no matches. If multiple values match, the first
+    value in document order is returned. 
+
+    The expression should select a node-set, such as './hl7:id/@root'. Scalar
+    XPath expressions such as string(...), count(...), or boolean(...) are not
+    accepted.
     """
-    results = elem.xpath(xpath_expression, namespaces=NAMESPACES)
-    return results[0] if results else None
+    attribute_values = element.xpath(xpath_expression, namespaces=NAMESPACES)
+
+    if not isinstance(attribute_values, list):
+        raise TypeError(
+            f"XPath expression {xpath_expression!r} returned "
+            f"{type(attribute_values).__name__}, expected a list of attribute values."
+        )
+
+    if not attribute_values:
+        return None
+
+    first_attribute_value = attribute_values[0]
+
+    if not isinstance(first_attribute_value, str):
+        raise TypeError(
+            f"XPath expression {xpath_expression!r} returned "
+            f"{type(first_attribute_value).__name__}, expected an attribute string."
+        )
+
+    return str(first_attribute_value)
 
 
 def _collect_subtree_attribute_values(elem: etree._Element, node_path: str, attribute_name: str, limit: int = 6) -> List[str]:
@@ -107,17 +130,36 @@ def _collect_subtree_attribute_values(elem: etree._Element, node_path: str, attr
     return attribute_values
 
 
-def _xpath_single_node(elem: etree._Element, xpath_expression: str) -> Optional[etree._Element]:
+def _xpath_first_element(
+        element: etree._Element,
+        xpath_expression: str,
+) -> Optional[etree._Element]:
     """
-    Evaluate an XPath expression expected to match at most one element,
-    returning the element or None if unmatched.
+    Return the first element matched by an XPath expression.
 
-    lxml always returns a list from .xpath() — this helper unwraps the
-    common case of selecting a single optional child element such as
-    ./hl7:id or ./hl7:code.
+    Returns None when there are no matches. If multiple elements match, the
+    first element in document order is returned.
     """
-    results = elem.xpath(xpath_expression, namespaces=NAMESPACES)
-    return results[0] if results else None
+    elements = element.xpath(xpath_expression, namespaces=NAMESPACES)
+    
+    if not isinstance(elements, list):
+        raise TypeError(
+            f"XPath expression {xpath_expression!r} returned "
+            f"{type(elements).__name__}, expected a list of elements."
+        )
+
+    if not elements:
+        return None
+    
+    first_element = elements[0]
+    
+    if not isinstance(first_element, etree._Element):
+        raise TypeError(
+            f"XPath expression {xpath_expression!r} returned "
+            f"{type(first_element).__name__}, expected an XML element."
+        )
+    
+    return first_element
 
 
 def _complete_attribute_pair(node: Optional[etree._Element],
