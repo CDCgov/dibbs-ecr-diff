@@ -84,6 +84,7 @@ def _prefer_updates_pairing(
         pair_count   = min(len(before_group), len(after_group))
         for index in range(pair_count):
             matched_pairs.append((before_group[index], after_group[index]))
+            #replace the below line with python's logging library
             _cfg.debug_log(f"[soft-pair] key={key}")
         unmatched_before.extend(before_group[pair_count:])
         unmatched_after.extend(after_group[pair_count:])
