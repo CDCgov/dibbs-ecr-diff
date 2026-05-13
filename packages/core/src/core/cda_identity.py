@@ -12,7 +12,7 @@ If the tool ever needs to support a different CDA profile or implementation
 guide, this is the primary file to modify.
 """
 
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 from lxml import etree
 
