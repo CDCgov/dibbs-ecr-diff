@@ -22,7 +22,7 @@ from core.cda_identity import (
     narrative_table_key, narrative_row_key,
     secondary_discriminator, soft_context_key, stable_key,
 )
-from core.xml_utils import _xpath_single_attribute, localname
+from core.xml_utils import _xpath_first_attribute_value, localname
 
 
 # ---------------------------------------------------------------------------
@@ -153,7 +153,7 @@ def match_children_ignore_order(
         row_key = narrative_row_key(elem)
         if row_key:
             return ("narr_row", row_key)
-        template_root = _xpath_single_attribute(elem, "./hl7:templateId/@root")
+        template_root = _xpath_first_attribute_value(elem, "./hl7:templateId/@root")
         if template_root:
             return ("templateId.root", template_root)
         elem_stable_key = stable_key(elem)

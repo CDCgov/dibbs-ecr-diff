@@ -13,7 +13,7 @@ from lxml import etree
 
 from core.cda_identity import narrative_table_key, narrative_row_key, stable_key
 from core.constants import HL7_NS, HL7_PREFIX
-from core.xml_utils import _xpath_single_attribute, localname
+from core.xml_utils import _xpath_first_attribute_value, localname
 
 
 def _pfx(tag: str) -> str:
@@ -161,25 +161,25 @@ def _effective_time_predicates(node: etree._Element) -> Dict[str, str]:
     """
     result: Dict[str, str] = {}
 
-    point_value = _xpath_single_attribute(node, "./hl7:effectiveTime/@value")
+    point_value = _xpath_first_attribute_value(node, "./hl7:effectiveTime/@value")
     if point_value:
         result["value"] = point_value
         return result
 
-    low_value  = _xpath_single_attribute(node, "./hl7:effectiveTime/hl7:low/@value")
-    high_value = _xpath_single_attribute(node, "./hl7:effectiveTime/hl7:high/@value")
+    low_value  = _xpath_first_attribute_value(node, "./hl7:effectiveTime/hl7:low/@value")
+    high_value = _xpath_first_attribute_value(node, "./hl7:effectiveTime/hl7:high/@value")
     if low_value or high_value:
         result["low"]  = low_value  or ""
         result["high"] = high_value or ""
         return result
 
-    center_value = _xpath_single_attribute(node, "./hl7:effectiveTime/hl7:center/@value")
+    center_value = _xpath_first_attribute_value(node, "./hl7:effectiveTime/hl7:center/@value")
     if center_value:
         result["center"] = center_value
         return result
 
-    period_value = _xpath_single_attribute(node, "./hl7:effectiveTime/hl7:period/@value")
-    period_unit  = _xpath_single_attribute(node, "./hl7:effectiveTime/hl7:period/@unit")
+    period_value = _xpath_first_attribute_value(node, "./hl7:effectiveTime/hl7:period/@value")
+    period_unit  = _xpath_first_attribute_value(node, "./hl7:effectiveTime/hl7:period/@unit")
     if period_value or period_unit:
         result["period_value"] = period_value or ""
         result["period_unit"]  = period_unit  or ""
@@ -240,8 +240,8 @@ def xpath_with_predicates(
                 )
 
         else:
-            id_root = _xpath_single_attribute(current, "./hl7:id/@root")
-            id_ext  = _xpath_single_attribute(current, "./hl7:id/@extension")
+            id_root = _xpath_first_attribute_value(current, "./hl7:id/@root")
+            id_ext  = _xpath_first_attribute_value(current, "./hl7:id/@extension")
             if id_root and id_ext:
                 predicates.append(
                     f"{_pfx('id')}[@root={_xpath_literal(id_root)}"
@@ -250,14 +250,14 @@ def xpath_with_predicates(
             elif id_root:
                 predicates.append(f"{_pfx('id')}[@root={_xpath_literal(id_root)}]")
 
-            template_root = _xpath_single_attribute(current, "./hl7:templateId/@root")
+            template_root = _xpath_first_attribute_value(current, "./hl7:templateId/@root")
             if template_root:
                 predicates.append(
                     f"{_pfx('templateId')}[@root={_xpath_literal(template_root)}]"
                 )
 
-            code_value  = _xpath_single_attribute(current, "./hl7:code/@code")
-            code_system = _xpath_single_attribute(current, "./hl7:code/@codeSystem")
+            code_value  = _xpath_first_attribute_value(current, "./hl7:code/@code")
+            code_system = _xpath_first_attribute_value(current, "./hl7:code/@codeSystem")
             if code_value and code_system:
                 predicates.append(
                     f"{_pfx('code')}[@code={_xpath_literal(code_value)}"
