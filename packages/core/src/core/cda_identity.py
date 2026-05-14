@@ -18,7 +18,7 @@ from lxml import etree
 
 from core.constants import KEY_ATTRS, HL7_NAMESPACE
 from core.xml_utils import (
-    _complete_attribute_pair, _xpath_single_attribute, _collect_subtree_attribute_values, _xpath_single_node,
+    _complete_attribute_pair, _xpath_first_attribute_value, _collect_subtree_attribute_values, _xpath_first_element,
     fingerprint, localname, normalize_text,
 )
 
@@ -45,12 +45,12 @@ def _get_statement(elem: etree._Element) -> Optional[etree._Element]:
     Return the primary clinical statement node nested under elem (via an <entry>),
     or None if elem does not contain one.
     """
-    return _xpath_single_node(elem, _clinical_statement_xpath())
+    return _xpath_first_element(elem, _clinical_statement_xpath())
 
 
 def _template_root(elem: etree._Element) -> Optional[str]:
     """Return the @root of the first <templateId> child of elem, or None."""
-    return _xpath_single_attribute(elem, "./hl7:templateId/@root")
+    return _xpath_first_attribute_value(elem, "./hl7:templateId/@root")
 
 
 # ---------------------------------------------------------------------------
@@ -132,14 +132,14 @@ def stable_key(elem: etree._Element) -> Optional[tuple]:
     if items:
         return ("@attrs", tuple(items))
 
-    template_root = _xpath_single_attribute(elem, "./hl7:templateId/@root")
+    template_root = _xpath_first_attribute_value(elem, "./hl7:templateId/@root")
     if template_root:
-        template_ext = _xpath_single_attribute(elem, "./hl7:templateId/@extension") or ""
+        template_ext = _xpath_first_attribute_value(elem, "./hl7:templateId/@extension") or ""
         return ("templateId", ("root", template_root), ("extension", template_ext))
 
-    id_root = _xpath_single_attribute(elem, "./hl7:id/@root")
+    id_root = _xpath_first_attribute_value(elem, "./hl7:id/@root")
     if id_root:
-        id_ext = _xpath_single_attribute(elem, "./hl7:id/@extension")
+        id_ext = _xpath_first_attribute_value(elem, "./hl7:id/@extension")
         return ("id", ("root", id_root), ("extension", id_ext)) if id_ext \
             else ("id", ("root", id_root))
 
@@ -154,8 +154,8 @@ def stable_key(elem: etree._Element) -> Optional[tuple]:
 
     statement = _get_statement(elem)
     if statement is not None:
-        stmt_id_root = _xpath_single_attribute(statement, "./hl7:id/@root")
-        stmt_id_ext  = _xpath_single_attribute(statement, "./hl7:id/@extension")
+        stmt_id_root = _xpath_first_attribute_value(statement, "./hl7:id/@root")
+        stmt_id_ext  = _xpath_first_attribute_value(statement, "./hl7:id/@extension")
         if stmt_id_root and stmt_id_ext:
             return ("nested.entry.statement.id",
                     ("root", stmt_id_root), ("extension", stmt_id_ext))
@@ -170,8 +170,8 @@ def stable_key(elem: etree._Element) -> Optional[tuple]:
             return ("nested.entry.statement.templateId.roots",
                     tuple(sorted(stmt_template_roots)))
 
-    any_id_root = _xpath_single_attribute(elem, ".//hl7:id/@root")
-    any_id_ext  = _xpath_single_attribute(elem, ".//hl7:id/@extension")
+    any_id_root = _xpath_first_attribute_value(elem, ".//hl7:id/@root")
+    any_id_ext  = _xpath_first_attribute_value(elem, ".//hl7:id/@extension")
     if any_id_root and any_id_ext:
         return ("nested.any.id", ("root", any_id_root), ("extension", any_id_ext))
 
@@ -186,20 +186,20 @@ def _statement_id_pair(elem: etree._Element) -> Optional[Tuple[str, str]]:
     """Return (root, extension) from the clinical statement's <id>, or None."""
     statement = _get_statement(elem)
     if statement is not None:
-        pair = _complete_attribute_pair(_xpath_single_node(statement, "./hl7:id"), "root", "extension")
+        pair = _complete_attribute_pair(_xpath_first_element(statement, "./hl7:id"), "root", "extension")
         if pair:
             return pair
-    return _complete_attribute_pair(_xpath_single_node(elem, "./hl7:id"), "root", "extension")
+    return _complete_attribute_pair(_xpath_first_element(elem, "./hl7:id"), "root", "extension")
 
 
 def _statement_code_pair(elem: etree._Element) -> Optional[Tuple[str, str]]:
     """Return (code, codeSystem) from the clinical statement's <code>, or None."""
     statement = _get_statement(elem)
     if statement is not None:
-        pair = _complete_attribute_pair(_xpath_single_node(statement, "./hl7:code"), "code", "codeSystem")
+        pair = _complete_attribute_pair(_xpath_first_element(statement, "./hl7:code"), "code", "codeSystem")
         if pair:
             return pair
-    return _complete_attribute_pair(_xpath_single_node(elem, "./hl7:code"), "code", "codeSystem")
+    return _complete_attribute_pair(_xpath_first_element(elem, "./hl7:code"), "code", "codeSystem")
 
 
 def _observation_value_discriminator(elem: etree._Element) -> Optional[tuple]:
@@ -213,7 +213,7 @@ def _observation_value_discriminator(elem: etree._Element) -> Optional[tuple]:
     ) else None
 
     def _from_node(node: etree._Element) -> Optional[tuple]:
-        value_elem = _xpath_single_node(node, "./hl7:value")
+        value_elem = _xpath_first_element(node, "./hl7:value")
         if value_elem is None:
             return None
         code = value_elem.get("code")
@@ -241,21 +241,21 @@ def _effective_time_discriminator(node: etree._Element) -> Optional[tuple]:
     representation in order: point value, low/high interval, center, period.
     Returns None if no effectiveTime is found.
     """
-    point_value = _xpath_single_attribute(node, "./hl7:effectiveTime/@value")
+    point_value = _xpath_first_attribute_value(node, "./hl7:effectiveTime/@value")
     if point_value:
         return ("effectiveTime.value", point_value)
 
-    low_value  = _xpath_single_attribute(node, "./hl7:effectiveTime/hl7:low/@value")
-    high_value = _xpath_single_attribute(node, "./hl7:effectiveTime/hl7:high/@value")
+    low_value  = _xpath_first_attribute_value(node, "./hl7:effectiveTime/hl7:low/@value")
+    high_value = _xpath_first_attribute_value(node, "./hl7:effectiveTime/hl7:high/@value")
     if low_value or high_value:
         return ("effectiveTime.lowhigh", (low_value or "", high_value or ""))
 
-    center_value = _xpath_single_attribute(node, "./hl7:effectiveTime/hl7:center/@value")
+    center_value = _xpath_first_attribute_value(node, "./hl7:effectiveTime/hl7:center/@value")
     if center_value:
         return ("effectiveTime.center", center_value)
 
-    period_value = _xpath_single_attribute(node, "./hl7:effectiveTime/hl7:period/@value")
-    period_unit  = _xpath_single_attribute(node, "./hl7:effectiveTime/hl7:period/@unit")
+    period_value = _xpath_first_attribute_value(node, "./hl7:effectiveTime/hl7:period/@value")
+    period_unit  = _xpath_first_attribute_value(node, "./hl7:effectiveTime/hl7:period/@unit")
     if period_value or period_unit:
         return ("effectiveTime.period", (period_value or "", period_unit or ""))
 
