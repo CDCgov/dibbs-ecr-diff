@@ -11,7 +11,7 @@ from typing import List, Optional, Set, Tuple, Dict
 
 from lxml import etree
 
-from packages.core.src.core.constants import NAMESPACES, XSI_TYPE_ATTR
+from core.constants import NAMESPACES, XSI_TYPE_ATTR
 
 
 # ---------------------------------------------------------------------------
