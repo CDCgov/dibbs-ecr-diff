@@ -16,36 +16,126 @@ from typing import Optional, Tuple
 
 from lxml import etree
 
-from core.constants import KEY_ATTRS, HL7_NAMESPACE
+from core.constants import KEY_ATTRS, HL7_NAMESPACE, HL7_NS
 from core.xml_utils import (
     _complete_attribute_pair, _xpath_first_attribute_value, _collect_subtree_attribute_values, _xpath_first_element,
     fingerprint, localname, normalize_text,
 )
 
+CDA_CLINICAL_STATEMENT_LOCAL_NAMES = frozenset({
+    "act",
+    "observation",
+    "encounter",
+    "procedure",
+    "substanceAdministration",
+    "supply",
+    "organizer",
+    "observationMedia",
+    "regionOfInterest",
+})
+
+
+CDA_CLINICAL_STATEMENT_WRAPPER_LOCAL_NAMES = frozenset({
+    "entry",
+    "entryRelationship",
+    "component",
+})
 
 # ---------------------------------------------------------------------------
 # CDA clinical-statement navigation helpers
 # ---------------------------------------------------------------------------
 
-def _clinical_statement_xpath() -> str:
+def _is_hl7_element_with_local_name(
+        element: etree._Element,
+        local_names: frozenset[str],
+) -> bool:
     """
-    XPath that selects the primary clinical statement child of an <entry> element.
-    Covers all act classes that can appear directly under <entry> in CDA.
+    Return True when element is in the HL7 namespace and is in local_names.
     """
+    if not isinstance(element.tag, str):
+        return False
+    
+    qualified_name = etree.QName(element.tag)
     return (
-        "./hl7:entry"
-        "/*[self::hl7:act or self::hl7:observation or self::hl7:encounter"
-        " or self::hl7:procedure or self::hl7:substanceAdministration"
-        " or self::hl7:supply or self::hl7:organizer]"
+            qualified_name.namespace == HL7_NS
+            and qualified_name.localname in local_names
     )
 
 
-def _get_statement(elem: etree._Element) -> Optional[etree._Element]:
+def _is_cda_clinical_statement(element: etree._Element) -> bool:
+    """Return True when element is a CDA clinical statement element."""
+    return _is_hl7_element_with_local_name(
+        element,
+        CDA_CLINICAL_STATEMENT_LOCAL_NAMES,
+    )
+
+
+def _first_direct_clinical_statement_child(
+        element: etree._Element,
+) -> Optional[etree._Element]:
     """
-    Return the primary clinical statement node nested under elem (via an <entry>),
-    or None if elem does not contain one.
+    Return the first direct child that is a CDA clinical statement element.
+
+    This intentionally checks only direct children. A deep descendant search
+    could accidentally select a nested statement that is not the primary 
+    statement represented by the current wrapper.
     """
-    return _xpath_first_element(elem, _clinical_statement_xpath())
+    for child_element in element.iterchildren(tag=etree.Element):
+        if _is_cda_clinical_statement(child_element):
+            return child_element
+
+    return None
+
+
+def _first_clinical_statement_wrapped_by_direct_child(
+        element: etree._Element,
+) -> Optional[etree._Element]:
+    """
+    Return the first clinical statement found inside a direct CDA wrapper child.
+
+    Checks direct wrapper children such as <entry>, <entryRelationship>, or a 
+    <component> that directly contains a clinical statement.
+    """
+    for child_element in element.iterchildren(tag=etree.Element):
+        if _is_hl7_element_with_local_name(
+                child_element,
+                CDA_CLINICAL_STATEMENT_WRAPPER_LOCAL_NAMES,
+        ):
+            clinical_statement = _first_direct_clinical_statement_child(child_element)
+            if clinical_statement is not None:
+                return clinical_statement
+
+    return None
+
+
+def _clinical_statement_for_identity(
+        element: etree._Element,
+) -> Optional[etree._Element]:
+    """
+    Return the clinical statement element that should be used for identity.
+
+    Handles:
+      - a clinical statement element itself, such as <observation>
+      - elements whose direct child is a statement, such as <entry>
+      - parents with direct <entry>, <entryRelationship>, or <component>
+        children that wrap a clinical statement
+
+    Returns None when no suitable clinical statement is found.
+    """
+    if _is_cda_clinical_statement(element):
+        return element
+
+    direct_clinical_statement_child = _first_direct_clinical_statement_child(element)
+    if direct_clinical_statement_child is not None:
+        return direct_clinical_statement_child
+
+    wrapped_clinical_statement_grandchild = _first_clinical_statement_wrapped_by_direct_child(
+        element,
+    )
+    if wrapped_clinical_statement_grandchild is not None:
+        return wrapped_clinical_statement_grandchild
+
+    return None
 
 
 def _template_root(elem: etree._Element) -> Optional[str]:
@@ -152,7 +242,7 @@ def stable_key(elem: etree._Element) -> Optional[tuple]:
     if section_template_roots:
         return ("nested.section.templateId.roots", tuple(sorted(section_template_roots)))
 
-    statement = _get_statement(elem)
+    statement = _clinical_statement_for_identity(elem)
     if statement is not None:
         stmt_id_root = _xpath_first_attribute_value(statement, "./hl7:id/@root")
         stmt_id_ext  = _xpath_first_attribute_value(statement, "./hl7:id/@extension")
@@ -184,7 +274,7 @@ def stable_key(elem: etree._Element) -> Optional[tuple]:
 
 def _statement_id_pair(elem: etree._Element) -> Optional[Tuple[str, str]]:
     """Return (root, extension) from the clinical statement's <id>, or None."""
-    statement = _get_statement(elem)
+    statement = _clinical_statement_for_identity(elem)
     if statement is not None:
         pair = _complete_attribute_pair(_xpath_first_element(statement, "./hl7:id"), "root", "extension")
         if pair:
@@ -194,7 +284,7 @@ def _statement_id_pair(elem: etree._Element) -> Optional[Tuple[str, str]]:
 
 def _statement_code_pair(elem: etree._Element) -> Optional[Tuple[str, str]]:
     """Return (code, codeSystem) from the clinical statement's <code>, or None."""
-    statement = _get_statement(elem)
+    statement = _clinical_statement_for_identity(elem)
     if statement is not None:
         pair = _complete_attribute_pair(_xpath_first_element(statement, "./hl7:code"), "code", "codeSystem")
         if pair:
@@ -207,7 +297,7 @@ def _observation_value_discriminator(elem: etree._Element) -> Optional[tuple]:
     Return a discriminator tuple derived from an observation's <value> element.
     Tries coded value, numeric value, then text content — returns None if none found.
     """
-    statement = _get_statement(elem)
+    statement = _clinical_statement_for_identity(elem)
     observation = statement if (
             statement is not None and localname(statement) == "observation"
     ) else None
@@ -267,7 +357,7 @@ def _statement_effective_time(elem: etree._Element) -> Optional[tuple]:
     Return an effectiveTime discriminator from the nested clinical statement
     if present, otherwise from elem itself.
     """
-    statement = _get_statement(elem)
+    statement = _clinical_statement_for_identity(elem)
     if statement is not None:
         effective_time = _effective_time_discriminator(statement)
         if effective_time:
