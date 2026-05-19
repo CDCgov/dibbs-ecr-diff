@@ -11,7 +11,7 @@ stable keys for matching elements across document versions.
 If the tool ever needs to support a different CDA profile or implementation
 guide, this is the primary file to modify.
 """
-
+from dataclasses import dataclass
 from typing import Optional, Tuple
 
 from lxml import etree
@@ -40,6 +40,25 @@ CDA_CLINICAL_STATEMENT_WRAPPER_LOCAL_NAMES = frozenset({
     "entryRelationship",
     "component",
 })
+
+DIRECT_TEMPLATE_ID_TAG = f"{{{HL7_NS}}}templateId"
+ROOT_ATTRIBUTE = "root"
+EXTENSION_ATTRIBUTE = "extension"
+
+@dataclass(frozen=True, order=True)
+class TemplateIdIdentity:
+    """
+    Comparable identity values from a CDA <templateId> element.
+
+    The root identifies the template. The extension, when present, further
+    qualifies that template identifier. Missing extensions are represented as
+    an empty string so identities can be compared and sorted consistently.
+    """
+
+    root: str
+    extension: str = ""
+
+TemplateIdIdentities = tuple[TemplateIdIdentity, ...]
 
 # ---------------------------------------------------------------------------
 # CDA clinical-statement navigation helpers
@@ -142,6 +161,40 @@ def _template_root(elem: etree._Element) -> Optional[str]:
     """Return the @root of the first <templateId> child of elem, or None."""
     return _xpath_first_attribute_value(elem, "./hl7:templateId/@root")
 
+#replace _template_root with this method, but make sure it's return type is compatible through the stack
+def _direct_template_id_identities(
+        element: etree._Element,
+) -> TemplateIdIdentities:
+    """
+    Return sorted identities from direct <templateId> children.
+
+    Template IDs are treated as an unordered set because their document order
+    should not affect identity matching. Duplicate template IDs are returned
+    only once. Template IDs without @root are skipped because they are not
+    useful for identity matching.
+    """
+    template_id_identities: set[TemplateIdIdentity] = set()
+
+    for template_id_element in element.iterchildren(
+            tag=DIRECT_TEMPLATE_ID_TAG,
+    ):
+        template_id_root = template_id_element.get(ROOT_ATTRIBUTE)
+        if not template_id_root:
+            continue
+
+        template_id_extension = (
+                template_id_element.get(EXTENSION_ATTRIBUTE) or ""
+        )
+
+        template_id_identities.add(
+            TemplateIdIdentity(
+                root=template_id_root,
+                extension=template_id_extension,
+            ),
+        )
+
+    return tuple(sorted(template_id_identities))
+
 
 # ---------------------------------------------------------------------------
 # Narrative table / row identity
@@ -242,16 +295,16 @@ def stable_key(elem: etree._Element) -> Optional[tuple]:
     if section_template_roots:
         return ("nested.section.templateId.roots", tuple(sorted(section_template_roots)))
 
-    statement = _clinical_statement_for_identity(elem)
-    if statement is not None:
-        stmt_id_root = _xpath_first_attribute_value(statement, "./hl7:id/@root")
-        stmt_id_ext  = _xpath_first_attribute_value(statement, "./hl7:id/@extension")
+    clinical_statement_element = _clinical_statement_for_identity(elem)
+    if clinical_statement_element is not None:
+        stmt_id_root = _xpath_first_attribute_value(clinical_statement_element, "./hl7:id/@root")
+        stmt_id_ext  = _xpath_first_attribute_value(clinical_statement_element, "./hl7:id/@extension")
         if stmt_id_root and stmt_id_ext:
             return ("nested.entry.statement.id",
                     ("root", stmt_id_root), ("extension", stmt_id_ext))
 
         stmt_template_roots = _collect_subtree_attribute_values(
-            elem=statement,
+            elem=clinical_statement_element,
             node_path="./hl7:templateId",
             attribute_name="root",
             limit=6,
@@ -274,9 +327,9 @@ def stable_key(elem: etree._Element) -> Optional[tuple]:
 
 def _statement_id_pair(elem: etree._Element) -> Optional[Tuple[str, str]]:
     """Return (root, extension) from the clinical statement's <id>, or None."""
-    statement = _clinical_statement_for_identity(elem)
-    if statement is not None:
-        pair = _complete_attribute_pair(_xpath_first_element(statement, "./hl7:id"), "root", "extension")
+    clinical_statement_element = _clinical_statement_for_identity(elem)
+    if clinical_statement_element is not None:
+        pair = _complete_attribute_pair(_xpath_first_element(clinical_statement_element, "./hl7:id"), "root", "extension")
         if pair:
             return pair
     return _complete_attribute_pair(_xpath_first_element(elem, "./hl7:id"), "root", "extension")
@@ -284,9 +337,9 @@ def _statement_id_pair(elem: etree._Element) -> Optional[Tuple[str, str]]:
 
 def _statement_code_pair(elem: etree._Element) -> Optional[Tuple[str, str]]:
     """Return (code, codeSystem) from the clinical statement's <code>, or None."""
-    statement = _clinical_statement_for_identity(elem)
-    if statement is not None:
-        pair = _complete_attribute_pair(_xpath_first_element(statement, "./hl7:code"), "code", "codeSystem")
+    clinical_statement_element = _clinical_statement_for_identity(elem)
+    if clinical_statement_element is not None:
+        pair = _complete_attribute_pair(_xpath_first_element(clinical_statement_element, "./hl7:code"), "code", "codeSystem")
         if pair:
             return pair
     return _complete_attribute_pair(_xpath_first_element(elem, "./hl7:code"), "code", "codeSystem")
@@ -297,9 +350,9 @@ def _observation_value_discriminator(elem: etree._Element) -> Optional[tuple]:
     Return a discriminator tuple derived from an observation's <value> element.
     Tries coded value, numeric value, then text content — returns None if none found.
     """
-    statement = _clinical_statement_for_identity(elem)
-    observation = statement if (
-            statement is not None and localname(statement) == "observation"
+    clinical_statement_element = _clinical_statement_for_identity(elem)
+    observation = clinical_statement_element if (
+            clinical_statement_element is not None and localname(clinical_statement_element) == "observation"
     ) else None
 
     def _from_node(node: etree._Element) -> Optional[tuple]:
@@ -357,9 +410,9 @@ def _statement_effective_time(elem: etree._Element) -> Optional[tuple]:
     Return an effectiveTime discriminator from the nested clinical statement
     if present, otherwise from elem itself.
     """
-    statement = _clinical_statement_for_identity(elem)
-    if statement is not None:
-        effective_time = _effective_time_discriminator(statement)
+    clinical_statement_element = _clinical_statement_for_identity(elem)
+    if clinical_statement_element is not None:
+        effective_time = _effective_time_discriminator(clinical_statement_element)
         if effective_time:
             return effective_time
     return _effective_time_discriminator(elem)
