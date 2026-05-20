@@ -19,7 +19,7 @@ from lxml import etree
 #   typeCode   — distinguishes relationship semantics on entryRelationship, participant etc.
 #   use        — distinguishes address/telecom purpose: H (home) vs WP (work) vs MC (mobile)
 KEY_ATTRS = ("ID", "id", "root", "extension", "code",
-             "moodCode", "classCode", "typeCode", "use")
+             "classCode", "typeCode", "use")
 
 # ---------------------------------------------------------------------------
 # HL7 namespace
