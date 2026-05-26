@@ -14,7 +14,6 @@ from lxml import etree
 # Attributes treated as stable identity keys when present directly on an element.
 #
 #   ID, id, root, extension, code  — primary CDA identifiers and coded concept keys
-#   moodCode   — distinguishes intent: EVN (occurred) vs RQO (ordered) vs INT (planned)
 #   classCode  — distinguishes act class: ACT vs OBS vs ENC etc. on the same tag
 #   typeCode   — distinguishes relationship semantics on entryRelationship, participant etc.
 #   use        — distinguishes address/telecom purpose: H (home) vs WP (work) vs MC (mobile)

@@ -189,68 +189,87 @@ def _collect_standalone_namespace_requirements(snippet_root_elem: etree._Element
     as a standalone snippet.
 
     Returns:
-    - `self_and_subtree_tag_and_attr_namespaces`: namespace URIs referenced by element names and attribute names
-    - `attribute_value_prefix_namespace_dict`: prefix-to-URI bindings used lexically in
-      QName-valued attribute values that must remain in scope on the snippet root
+    - `self_and_subtree_tag_and_attr_namespaces`: namespace URIs referenced 
+      by element names and attribute names in the self and subtree
+    - `attribute_value_prefix_namespace_dict`: prefix-to-URI bindings used 
+      lexically in QName-valued attribute values that should be declared on 
+      the snippet root when it is safe to do so
 
-    Currently, this only looks for prefixed `xsi:type` attribute values, which is the main
-    QName-valued attribute pattern seen in CDA.
+    Currently, QName-valued attribute handling is limited to prefixed
+    `xsi:type` values, which are common in CDA.
+    
+    Currently, QName-valued attribute handling is limited to prefixed
+    `xsi:type` values, which is the main QName-valued attribute pattern 
+    seen in CDA.
     """
     self_and_subtree_tag_and_attr_namespaces: Set[str] = set()
     attribute_value_prefix_namespace_dict: Dict[str, str] = {}
     
-    # elem.iter() walks the entire descendant tree recursively and includes elem itself
+    # snippet_root_elem.iter() walks the entire descendant tree 
+    # recursively and includes snippet_root_elem itself
     for current_node in snippet_root_elem.iter(tag=etree.Element):
         namespace = etree.QName(current_node.tag).namespace
         if namespace:
             self_and_subtree_tag_and_attr_namespaces.add(namespace)
         for attr_name, attr_value in current_node.attrib.items():
-            qname = etree.QName(attr_name)
-            if qname.namespace:
-                self_and_subtree_tag_and_attr_namespaces.add(qname.namespace)
+            attr_qname = etree.QName(attr_name)
+            if attr_qname.namespace:
+                self_and_subtree_tag_and_attr_namespaces.add(attr_qname.namespace)
+
             # Preserve prefixes used lexically in QName-valued attribute values,
-            # e.g. xsi:type="cda:CD".
-            if attr_name == XSI_TYPE_ATTR and ":" in attr_value:
-                attr_value_prefix = attr_value.split(":")[0]
-                current_node_namespace_for_attr_value_prefix = current_node.nsmap.get(attr_value_prefix)
-                if not current_node_namespace_for_attr_value_prefix:
-                    continue
-                
-                root_namespace_for_prefix = snippet_root_elem.nsmap.get(attr_value_prefix)
+            # e.g. `cda` inside of xsi:type="cda:CD". 
+            # lxml will preserve namespaces in element and attribute names, but 
+            # it does not understand that the string value "cda:CD" also depends 
+            # on the lexical prefix `cda` remaining bound.
+            if attr_name != XSI_TYPE_ATTR:
+                continue
 
-                # If the snippet root already binds this prefix to a different URI,
-                # do not hoist the current node's binding to the root. That prefix
-                # is being rebound lower in the subtree and should stay local.
-                if (
-                        root_namespace_for_prefix is not None
-                        and root_namespace_for_prefix != current_node_namespace_for_attr_value_prefix
-                ):
-                    continue
+            attr_value_text = attr_value.strip()
+            attr_value_prefix, separator, _ = attr_value_text.partition(":")
+            if not separator:
+                continue
 
-                existing_namespace_for_prefix = attribute_value_prefix_namespace_dict.get(
-                    attr_value_prefix
-                )
+            # Resolve the prefix used inside the xsi:type value against the namespace
+            # bindings that are in scope on this node. For xsi:type="cda:CD", this finds
+            # the URI for "cda".
+            current_node_namespace_for_attr_value_prefix = current_node.nsmap.get(attr_value_prefix)
+            # If the prefix is not actually declared in this node's namespace context,
+            # there is no safe namespace binding to hoist onto the standalone root.
+            if not current_node_namespace_for_attr_value_prefix:
+                continue
+            
+            root_namespace_for_prefix = snippet_root_elem.nsmap.get(attr_value_prefix)
+            # If the snippet root already binds this prefix to a different URI,
+            # do not hoist the current node's binding to the root. A single root
+            # namespace map cannot bind the same prefix to two different URIs.
+            #
+            # The conflicting binding is expected to remain local to the descendant
+            # subtree when children are deep-copied.
+            if (root_namespace_for_prefix is not None
+                    and root_namespace_for_prefix != current_node_namespace_for_attr_value_prefix
+            ):
+                continue
 
-                # If the snippet root already binds this prefix, only hoist the binding when
-                # the current node resolves the prefix to the same URI. If the snippet root
-                # does not bind the prefix, hoist it so QName-valued strings like
-                # xsi:type="cda:CD" still have a matching xmlns:cda declaration.
-                #
-                # If the same prefix resolves to multiple URIs within the snippet, fail
-                # instead of silently choosing one root-level binding.
-                if (
-                        existing_namespace_for_prefix is not None
-                        and existing_namespace_for_prefix != current_node_namespace_for_attr_value_prefix
-                ):
-                    raise ValueError(
-                        f"Cannot safely hoist namespace prefix {attr_value_prefix!r}: "
-                        f"it resolves to both {existing_namespace_for_prefix!r} and "
-                        f"{current_node_namespace_for_attr_value_prefix!r} within the snippet."
-                    )
+            existing_namespace_for_prefix = attribute_value_prefix_namespace_dict.get(
+                attr_value_prefix
+            )
 
-                attribute_value_prefix_namespace_dict[attr_value_prefix] = (
-                    current_node_namespace_for_attr_value_prefix
-                )
+            # First safe binding seen for this prefix: add it to the snippet root.
+            if existing_namespace_for_prefix is None:
+                attribute_value_prefix_namespace_dict[attr_value_prefix] = current_node_namespace_for_attr_value_prefix
+                continue
+
+            # Same prefix and same URI: already handled.
+            if existing_namespace_for_prefix == current_node_namespace_for_attr_value_prefix:
+                continue
+
+            # The same prefix resolves to another URI somewhere else in the snippet.
+            # A single root namespace map cannot declare both meanings for the same prefix.
+            #
+            # Keep the binding we already chose for the standalone root. The conflicting
+            # binding should remain local to the descendant subtree when children are
+            # deep-copied into the rebuilt root.
+            continue
    
     return self_and_subtree_tag_and_attr_namespaces, attribute_value_prefix_namespace_dict
 
