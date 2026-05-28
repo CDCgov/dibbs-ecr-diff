@@ -13,6 +13,7 @@ def main() -> None:
     args = ap.parse_args()
     opts = DiffingOptions(**vars(args))
 
+    print(opts)
     _xml = diff_xml(opts)
     # print(_xml)
 

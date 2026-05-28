@@ -8,11 +8,11 @@ Provides one public function:
     additions, updates, and deletions for JSON output.
 """
 
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple, cast
 
 from lxml import etree
 
-from core.constants import AddedEntry, UpdatedEntry, DeletedEntry
+from core.constants import AddedEntry, UpdatedEntry, DeletedEntry, UpdatedAttr
 from core.matching import build_child_groups, match_children_ignore_order
 from core.xml_utils import fingerprint, normalize_text
 
@@ -21,13 +21,33 @@ from core.xml_utils import fingerprint, normalize_text
 # Change collection
 # ---------------------------------------------------------------------------
 
+
 def _node_updated(before_node: etree._Element, after_node: etree._Element) -> bool:
     """Return True if the two nodes differ in tag, attributes, or text content."""
     return (
-            before_node.tag != after_node.tag
-            or before_node.attrib != after_node.attrib
-            or normalize_text(before_node.text) != normalize_text(after_node.text)
+        before_node.tag != after_node.tag
+        or before_node.attrib != after_node.attrib
+        or normalize_text(before_node.text) != normalize_text(after_node.text)
     )
+
+
+def _updated_attributes(
+    before_node: etree._Element,
+    after_node: etree._Element,
+):
+    attr_updates = []
+
+    before_attrs = before_node.attrib
+    after_attrs = after_node.attrib
+
+    for name in sorted(set(before_attrs) | set(after_attrs), key=str):
+        before_value = before_attrs.get(cast(str, name))
+        after_value = after_attrs.get(cast(str, name))
+
+        if before_value != after_value:
+            attr_updates.append((cast(str, name), (before_value, after_value)))
+
+    return attr_updates or None
 
 
 def _prune_to_outermost(nodes: List[etree._Element]) -> List[etree._Element]:
@@ -36,7 +56,7 @@ def _prune_to_outermost(nodes: List[etree._Element]) -> List[etree._Element]:
     outermost (highest-level) changed nodes to avoid redundant entries.
     """
     node_set = set(id(node) for node in nodes)
-    result   = []
+    result = []
     for node in nodes:
         ancestor = node.getparent()
         dominated = False
@@ -51,8 +71,8 @@ def _prune_to_outermost(nodes: List[etree._Element]) -> List[etree._Element]:
 
 
 def collect_additions_updates_deletes(
-        before_root: etree._Element,
-        after_root: etree._Element,
+    before_root: etree._Element,
+    after_root: etree._Element,
 ) -> Tuple[List[AddedEntry], List[UpdatedEntry], List[DeletedEntry]]:
     """
     Walk the before/after tree pair and collect:
@@ -66,18 +86,18 @@ def collect_additions_updates_deletes(
 
     Returns (added, updated, deleted).
     """
-    added_nodes:   List[AddedEntry]   = []
+    added_nodes: List[AddedEntry] = []
     updated_nodes: List[UpdatedEntry] = []
     deleted_nodes: List[DeletedEntry] = []
 
     # Track seen node ids to prevent duplicates across recursion paths
-    seen_added:   Set[int] = set()
+    seen_added: Set[int] = set()
     seen_updated: Set[int] = set()  # keyed on id(after_node)
     seen_deleted: Set[int] = set()
 
     def recurse(
-            before_node: Optional[etree._Element],
-            after_node:  Optional[etree._Element],
+        before_node: Optional[etree._Element],
+        after_node: Optional[etree._Element],
     ) -> None:
         if before_node is None and after_node is None:
             return
@@ -97,35 +117,43 @@ def collect_additions_updates_deletes(
         if _node_updated(before_node, after_node):
             if id(after_node) not in seen_updated:
                 seen_updated.add(id(after_node))
-                updated_nodes.append((before_node, after_node))
+                updated_nodes.append(
+                    (
+                        before_node,
+                        after_node,
+                        _updated_attributes(before_node, after_node),
+                    )
+                )
 
         if fingerprint(before_node) == fingerprint(after_node):
             return
 
         before_groups = build_child_groups(before_node)
-        after_groups  = build_child_groups(after_node)
+        after_groups = build_child_groups(after_node)
 
         for tag in sorted(set(before_groups) | set(after_groups), key=str):
             for before_child, after_child in match_children_ignore_order(
-                    before_groups.get(tag, []),
-                    after_groups.get(tag, []),
+                before_groups.get(tag, []),
+                after_groups.get(tag, []),
             ):
                 recurse(before_child, after_child)
 
     recurse(before_root, after_root)
 
     # Additions take precedence over updates for the same after_node
-    added_ids  = set(id(node) for node in added_nodes)
+    added_ids = set(id(node) for node in added_nodes)
     updated_nodes = [
-        (before, after) for before, after in updated_nodes
+        (before, after, attr_updates)
+        for before, after, attr_updates in updated_nodes
         if id(after) not in added_ids
     ]
 
-    pruned_added:   List[AddedEntry]   = _prune_to_outermost(added_nodes)
-    pruned_updated_after               = _prune_to_outermost([after for _, after in updated_nodes])
-    pruned_updated_ids                 = set(id(node) for node in pruned_updated_after)
+    pruned_added: List[AddedEntry] = _prune_to_outermost(added_nodes)
+    pruned_updated_after = _prune_to_outermost([after for _, after, _ in updated_nodes])
+    pruned_updated_ids = set(id(node) for node in pruned_updated_after)
     pruned_updated: List[UpdatedEntry] = [
-        (before, after) for before, after in updated_nodes
+        (before, after, attr_updates)
+        for before, after, attr_updates in updated_nodes
         if id(after) in pruned_updated_ids
     ]
     pruned_deleted: List[DeletedEntry] = _prune_to_outermost(deleted_nodes)
