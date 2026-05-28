@@ -8,14 +8,13 @@ Provides one public function:
     additions, updates, and deletions for JSON output.
 """
 
-from typing import List, Optional, Set, Tuple, cast
+from typing import List, Optional, Set, Tuple
 
 from lxml import etree
 
-from core.constants import AddedEntry, UpdatedEntry, DeletedEntry, UpdatedAttr
+from core.constants import AddedEntry, DeletedEntry, UpdatedEntry
 from core.matching import build_child_groups, match_children_ignore_order
 from core.xml_utils import fingerprint, normalize_text
-
 
 # ---------------------------------------------------------------------------
 # Change collection
@@ -29,25 +28,6 @@ def _node_updated(before_node: etree._Element, after_node: etree._Element) -> bo
         or before_node.attrib != after_node.attrib
         or normalize_text(before_node.text) != normalize_text(after_node.text)
     )
-
-
-def _updated_attributes(
-    before_node: etree._Element,
-    after_node: etree._Element,
-):
-    attr_updates = []
-
-    before_attrs = before_node.attrib
-    after_attrs = after_node.attrib
-
-    for name in sorted(set(before_attrs) | set(after_attrs), key=str):
-        before_value = before_attrs.get(cast(str, name))
-        after_value = after_attrs.get(cast(str, name))
-
-        if before_value != after_value:
-            attr_updates.append((cast(str, name), (before_value, after_value)))
-
-    return attr_updates or None
 
 
 def _prune_to_outermost(nodes: List[etree._Element]) -> List[etree._Element]:
@@ -117,13 +97,7 @@ def collect_additions_updates_deletes(
         if _node_updated(before_node, after_node):
             if id(after_node) not in seen_updated:
                 seen_updated.add(id(after_node))
-                updated_nodes.append(
-                    (
-                        before_node,
-                        after_node,
-                        _updated_attributes(before_node, after_node),
-                    )
-                )
+                updated_nodes.append((before_node, after_node))
 
         if fingerprint(before_node) == fingerprint(after_node):
             return
@@ -143,17 +117,15 @@ def collect_additions_updates_deletes(
     # Additions take precedence over updates for the same after_node
     added_ids = set(id(node) for node in added_nodes)
     updated_nodes = [
-        (before, after, attr_updates)
-        for before, after, attr_updates in updated_nodes
-        if id(after) not in added_ids
+        (before, after) for before, after in updated_nodes if id(after) not in added_ids
     ]
 
     pruned_added: List[AddedEntry] = _prune_to_outermost(added_nodes)
-    pruned_updated_after = _prune_to_outermost([after for _, after, _ in updated_nodes])
+    pruned_updated_after = _prune_to_outermost([after for _, after in updated_nodes])
     pruned_updated_ids = set(id(node) for node in pruned_updated_after)
     pruned_updated: List[UpdatedEntry] = [
-        (before, after, attr_updates)
-        for before, after, attr_updates in updated_nodes
+        (before, after)
+        for before, after in updated_nodes
         if id(after) in pruned_updated_ids
     ]
     pruned_deleted: List[DeletedEntry] = _prune_to_outermost(deleted_nodes)

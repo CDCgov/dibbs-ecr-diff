@@ -7,7 +7,8 @@ from lxml import etree
 from .constants import HL7_NAMESPACE
 from .diff_engine import collect_additions_updates_deletes
 from .models import DiffingOptions
-from .xml_utils import build_standalone_xml_string
+
+# from .xml_utils import build_standalone_xml_string
 
 MODE = "WATCH"
 # MODE = "IGNORE"
@@ -17,8 +18,8 @@ MODE = "WATCH"
 # ]
 
 XPATHS = [
-    "/hl7:ClinicalDocument/hl7:component/hl7:structuredBody/hl7:component/hl7:section//hl7:value/@displayName",
-    "/hl7:ClinicalDocument/hl7:component/hl7:structuredBody/hl7:component/hl7:section/hl7:text",
+    "/hl7:ClinicalDocument/hl7:component/hl7:structuredBody/hl7:component/hl7:section//hl7:value",
+    # "/hl7:ClinicalDocument/hl7:component/hl7:structuredBody/hl7:component/hl7:section/hl7:text",
 ]
 
 
@@ -28,21 +29,21 @@ def eval_xpath(elem: etree._Element | etree._ElementTree, xpath_expr: str) -> li
 
 def build_watched(elem: etree._ElementTree):
     nodes = {}
-    attrs = {}
+    # attrs = {}
 
     for xpath in XPATHS:
         vals = eval_xpath(elem, xpath)
 
         for val in vals:
-            is_attribute = getattr(val, "is_attribute", False)
+            nodes[val] = {"tag": val.tag}
+            # is_attribute = getattr(val, "is_attribute", False)
 
-            if is_attribute:
-                parent = val.getparent()
-                attrs[parent] = {"name": val.attrname}
-            else:
-                nodes[val] = {"tag": val.tag}
+            # if is_attribute:
+            #     parent = val.getparent()
+            #     attrs[parent] = {"name": val.attrname}
+            # else:
 
-    return nodes, attrs
+    return nodes
 
 
 def diff_xml(opts: DiffingOptions) -> str:
@@ -54,23 +55,27 @@ def diff_xml(opts: DiffingOptions) -> str:
     tree_right = etree.parse(opts.file2, parser)
 
     # execute xpath + get watched nodes
-    watched_left_nodes, watched_left_attrs = build_watched(tree_left)
-    watched_right_nodes, watched_right_attrs = build_watched(tree_right)
+    watched_left_nodes = build_watched(tree_left)
+    watched_right_nodes = build_watched(tree_right)
 
     added, updated, deleted = collect_additions_updates_deletes(
         tree_left.getroot(), tree_right.getroot()
     )
 
     for u in updated:
-        left, right, attr_updates = u
-        print(attr_updates)
+        before, after = u
 
-        # if left in watched_left_attrs:
-        #     print("its watched")
-        #     print(build_standalone_xml_string(left))
-        # if right in watched_right_attrs:
-        #     print("its watched (right)")
-        #     print(build_standalone_xml_string(left))
+        if before in watched_left_nodes:
+            print("this is being watched in the left tree")
+        if after in watched_right_nodes:
+            print("this is being watched in the right tree")
+
+    # if left in watched_left_attrs:
+    #     print("its watched")
+    #     print(build_standalone_xml_string(left))
+    # if right in watched_right_attrs:
+    #     print("its watched (right)")
+    #     print(build_standalone_xml_string(left))
 
     # for w in wraps:
     #     change_type, after_node, before_node_or_None = w

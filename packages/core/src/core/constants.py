@@ -56,13 +56,8 @@ XSI_TYPE_ATTR = f"{{{XSI_NS}}}type"
 # element present only in the after tree
 AddedEntry = etree._Element
 
-# (before_node, after_node, Optional[(attribute_name, (before_value, after_value))]) — element present in both trees with changed content
-UpdatedAttr = tuple[str, tuple[str, str]]
-UpdatedEntry = tuple[
-    etree._Element,
-    etree._Element,
-    list[UpdatedAttr] | None,
-]
+# (before_node, after_node) — element present in both trees with changed content
+UpdatedEntry = Tuple[etree._Element, etree._Element]
 
 # the deleted element from the before tree
 DeletedEntry = etree._Element
