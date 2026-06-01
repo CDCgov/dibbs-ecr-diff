@@ -62,7 +62,7 @@ def fingerprint(elem: etree._Element) -> tuple:
 
 
 # ---------------------------------------------------------------------------
-# XPath query helpers (all use the hl7: namespace prefix)
+# XPath query helpers using the shared CDA namespace map
 # ---------------------------------------------------------------------------
 
 
@@ -177,7 +177,7 @@ def _complete_attribute_pair(
         return None
     value1 = node.get(attr1)
     value2 = node.get(attr2)
-    return (value1, value2) if value1 is not None and value2 is not None else None
+    return (value1, value2) if value1 and value2 else None
 
 
 # ---------------------------------------------------------------------------
