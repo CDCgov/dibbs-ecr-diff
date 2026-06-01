@@ -105,22 +105,6 @@ def _stable_key_to_label(stable_key_tuple: Optional[StableKey]) -> Optional[str]
             if part[1]
         )
 
-    if kind == "templateId":
-        parts = [
-            f"{part[0]}={part[1]}"
-            for part in stable_key_tuple[1:]
-            if isinstance(part, tuple) and part[1]
-        ]
-        return "template:" + ";".join(parts) if parts else "template"
-
-    if kind in ("id", "nested.entry.statement.id"):
-        parts = [
-            f"{part[0]}={part[1]}"
-            for part in stable_key_tuple[1:]
-            if isinstance(part, tuple) and part[1]
-        ]
-        return "id:" + ";".join(parts) if parts else "id"
-
     if kind in ("@attrs", "nested.entry.statement.@attrs"):
         return "attrs:" + ";".join(f"{key}={val}" for key, val in stable_key_tuple[1])
 

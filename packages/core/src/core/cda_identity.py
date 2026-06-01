@@ -489,39 +489,6 @@ def _statement_code_pair(elem: etree._Element) -> Optional[Tuple[str, str]]:
     return _complete_attribute_pair(_xpath_first_element(elem, "./hl7:code"), "code", "codeSystem")
 
 
-def _observation_value_discriminator(elem: etree._Element) -> Optional[tuple]:
-    """
-    Return a discriminator tuple derived from an observation's <value> element.
-    Tries coded value, numeric value, then text content — returns None if none found.
-    """
-    clinical_statement_element = _clinical_statement_for_identity(elem)
-    observation = clinical_statement_element if (
-            clinical_statement_element is not None and localname(clinical_statement_element) == "observation"
-    ) else None
-
-    def _from_node(node: etree._Element) -> Optional[tuple]:
-        value_elem = _xpath_first_element(node, "./hl7:value")
-        if value_elem is None:
-            return None
-        code = value_elem.get("code")
-        code_system = value_elem.get("codeSystem")
-        if code and code_system:
-            return ("value.code", (code, code_system))
-        numeric_value = value_elem.get("value")
-        if numeric_value:
-            return ("value.value", numeric_value)
-        text_value = normalize_text(value_elem.text)
-        if text_value:
-            return ("value.text", text_value)
-        return None
-
-    if observation is not None:
-        discriminator = _from_node(observation)
-        if discriminator:
-            return ("obs", discriminator)
-    return _from_node(elem)
-
-
 def _effective_time_discriminator(node: etree._Element) -> Optional[tuple]:
     """
     Return a discriminator tuple from a node's <effectiveTime>, trying each
