@@ -11,7 +11,13 @@ from typing import Dict, List, Optional
 
 from lxml import etree
 
-from core.cda_identity import narrative_table_key, narrative_row_key, stable_key
+from core.cda_identity import (
+    StableKey,
+    _direct_template_id_identities,
+    narrative_row_key,
+    narrative_table_key,
+    stable_key,
+)
 from core.constants import HL7_NS, HL7_PREFIX
 from core.xml_utils import _xpath_first_attribute_value, localname
 
@@ -25,11 +31,41 @@ def _pfx(tag: str) -> str:
 # Human-readable xmlPath
 # ---------------------------------------------------------------------------
 
-def _stable_key_to_label(stable_key_tuple: Optional[tuple]) -> Optional[str]:
+def _stable_key_to_label(stable_key_tuple: Optional[StableKey]) -> Optional[str]:
     """Convert a stable_key tuple into a concise human-readable bracket label."""
     if stable_key_tuple is None:
         return None
     kind = stable_key_tuple[0]
+
+    def _template_identities_to_label(template_identities: tuple) -> str | None:
+        parts = []
+        for template_id_identity in template_identities:
+            part = f"root={template_id_identity.root}"
+            if template_id_identity.extension:
+                part += f";extension={template_id_identity.extension}"
+            parts.append(part)
+
+        if not parts:
+            return None
+
+        prefix = "template" if len(parts) == 1 else "templates"
+        return f"{prefix}:{'|'.join(parts)}"
+
+    def _root_extension_identities_to_label(
+            prefix: str,
+            root_extension_identities: tuple,
+    ) -> str | None:
+        parts = []
+        for root_extension_identity in root_extension_identities:
+            part = f"root={root_extension_identity.root}"
+            if root_extension_identity.extension:
+                part += f";extension={root_extension_identity.extension}"
+            parts.append(part)
+
+        if not parts:
+            return None
+
+        return f"{prefix}:{'|'.join(parts)}"
 
     if kind == "narr_table":
         inner = stable_key_tuple[1]
@@ -45,6 +81,30 @@ def _stable_key_to_label(stable_key_tuple: Optional[tuple]) -> Optional[str]:
         if inner and inner[0] == "row.cells":
             return f'cells="{inner[1]}"'
 
+    if kind in (
+        "templateIds",
+        "nested.entry.statement.templateIds",
+        "nested.section.templateIds",
+    ):
+        return _template_identities_to_label(stable_key_tuple[1])
+
+    if kind in ("ids", "nested.entry.statement.ids", "nested.section.ids"):
+        return _root_extension_identities_to_label("ids", stable_key_tuple[1])
+
+    if kind == "@root":
+        return "id:" + ";".join(
+            f"{part[0]}={part[1]}"
+            for part in stable_key_tuple[1]
+            if part[1]
+        )
+
+    if kind == "@code":
+        return "code:" + ";".join(
+            f"{part[0]}={part[1]}"
+            for part in stable_key_tuple[1]
+            if part[1]
+        )
+
     if kind == "templateId":
         parts = [
             f"{part[0]}={part[1]}"
@@ -53,7 +113,7 @@ def _stable_key_to_label(stable_key_tuple: Optional[tuple]) -> Optional[str]:
         ]
         return "template:" + ";".join(parts) if parts else "template"
 
-    if kind in ("id", "nested.any.id", "nested.entry.statement.id"):
+    if kind in ("id", "nested.entry.statement.id"):
         parts = [
             f"{part[0]}={part[1]}"
             for part in stable_key_tuple[1:]
@@ -61,7 +121,7 @@ def _stable_key_to_label(stable_key_tuple: Optional[tuple]) -> Optional[str]:
         ]
         return "id:" + ";".join(parts) if parts else "id"
 
-    if kind == "@attrs":
+    if kind in ("@attrs", "nested.entry.statement.@attrs"):
         return "attrs:" + ";".join(f"{key}={val}" for key, val in stable_key_tuple[1])
 
     return None
@@ -139,6 +199,51 @@ def _xpath_literal(value: str) -> str:
     if concat_parts and concat_parts[-1] == '"\'"':
         concat_parts.pop()
     return "concat(" + ",".join(concat_parts) + ")"
+
+
+def _direct_template_id_predicates(node: etree._Element) -> list[str]:
+    """Return XPath predicates for every direct templateId identity on node."""
+    predicates = []
+    for template_id_identity in _direct_template_id_identities(node):
+        conditions = [
+            f"@root={_xpath_literal(template_id_identity.root)}",
+        ]
+        if template_id_identity.extension:
+            conditions.append(
+                f"@extension={_xpath_literal(template_id_identity.extension)}"
+            )
+        else:
+            conditions.append("(not(@extension) or @extension='')")
+
+        predicates.append(
+            f"{_pfx('templateId')}[{' and '.join(conditions)}]"
+        )
+
+    return predicates
+
+
+def _append_xpath_predicate(predicates: List[str], predicate: str) -> None:
+    """Append predicate unless an earlier identity helper already produced it."""
+    if predicate not in predicates:
+        predicates.append(predicate)
+
+
+def _direct_attribute_stable_key_predicates(
+        stable_key_tuple: Optional[StableKey],
+) -> list[str]:
+    """Return XPath predicates for direct attribute stable-key variants."""
+    if stable_key_tuple is None:
+        return []
+
+    kind = stable_key_tuple[0]
+    if kind not in ("@attrs", "@root", "@code"):
+        return []
+
+    return [
+        f"@{attr}={_xpath_literal(value)}"
+        for attr, value in stable_key_tuple[1]
+        if value
+    ]
 
 
 def _position_among_siblings(node: etree._Element) -> int:
@@ -240,6 +345,10 @@ def xpath_with_predicates(
                 )
 
         else:
+            elem_key = stable_key(current)
+            for predicate in _direct_attribute_stable_key_predicates(elem_key):
+                _append_xpath_predicate(predicates, predicate)
+
             id_root = _xpath_first_attribute_value(current, "./hl7:id/@root")
             id_ext  = _xpath_first_attribute_value(current, "./hl7:id/@extension")
             if id_root and id_ext:
@@ -250,11 +359,7 @@ def xpath_with_predicates(
             elif id_root:
                 predicates.append(f"{_pfx('id')}[@root={_xpath_literal(id_root)}]")
 
-            template_root = _xpath_first_attribute_value(current, "./hl7:templateId/@root")
-            if template_root:
-                predicates.append(
-                    f"{_pfx('templateId')}[@root={_xpath_literal(template_root)}]"
-                )
+            predicates.extend(_direct_template_id_predicates(current))
 
             code_value  = _xpath_first_attribute_value(current, "./hl7:code/@code")
             code_system = _xpath_first_attribute_value(current, "./hl7:code/@codeSystem")
@@ -305,9 +410,15 @@ def xpath_with_predicates(
                         predicates.append(" and ".join(period_conditions))
 
             if current.get("root"):
-                predicates.append(f"@root={_xpath_literal(current.get('root'))}")
+                _append_xpath_predicate(
+                    predicates,
+                    f"@root={_xpath_literal(current.get('root'))}",
+                )
             if current.get("extension"):
-                predicates.append(f"@extension={_xpath_literal(current.get('extension'))}")
+                _append_xpath_predicate(
+                    predicates,
+                    f"@extension={_xpath_literal(current.get('extension'))}",
+                )
 
         step = tag_step
         step += ("[" + " and ".join(predicates) + "]") if predicates \

@@ -6,26 +6,76 @@ Core change collection logic.
 Provides one public function:
   - collect_additions_updates_deletes: walks the paired trees to collect
     additions, updates, and deletions for JSON output.
+
+Expected eICR version metadata, such as document instance ID, version number,
+replacement lineage, and direct document effectiveTime, is ignored so document
+bookkeeping does not appear as clinical/content changes.
 """
 
 from typing import List, Optional, Set, Tuple
 
 from lxml import etree
 
-from core.constants import AddedEntry, UpdatedEntry, DeletedEntry
+from core.constants import XSI_NS, AddedEntry, DeletedEntry, UpdatedEntry
 from core.matching import build_child_groups, match_children_ignore_order
-from core.xml_utils import fingerprint, normalize_text
-
+from core.xml_utils import fingerprint, localname, normalize_text
 
 # ---------------------------------------------------------------------------
 # Change collection
 # ---------------------------------------------------------------------------
 
+IGNORED_CLINICAL_DOCUMENT_CHILD_LOCAL_NAMES = frozenset({
+    "id",
+    "effectiveTime",
+    "versionNumber",
+})
+IGNORED_CLINICAL_DOCUMENT_ATTRS = frozenset({
+    f"{{{XSI_NS}}}schemaLocation",
+})
+
+
+def _is_direct_child_of_clinical_document(node: etree._Element) -> bool:
+    """Return True when node is a direct child of the CDA ClinicalDocument."""
+    parent = node.getparent()
+    return parent is not None and localname(parent) == "ClinicalDocument"
+
+
+def _is_ignored_version_metadata(node: etree._Element) -> bool:
+    """
+    Return True for expected eICR document-version bookkeeping nodes.
+
+    These nodes are useful metadata for the after document, but they should not
+    be reported as content changes between sequential eICR versions.
+    """
+    if not isinstance(node.tag, str):
+        return False
+
+    if not _is_direct_child_of_clinical_document(node):
+        return False
+
+    node_local_name = localname(node)
+    if node_local_name in IGNORED_CLINICAL_DOCUMENT_CHILD_LOCAL_NAMES:
+        return True
+
+    return node_local_name == "relatedDocument" and node.get("typeCode") == "RPLC"
+
+
+def _attributes_for_update(node: etree._Element) -> dict:
+    """Return attributes used for update detection after metadata filtering."""
+    attributes = dict(node.attrib)
+    if localname(node) == "ClinicalDocument":
+        for ignored_attr in IGNORED_CLINICAL_DOCUMENT_ATTRS:
+            attributes.pop(ignored_attr, None)
+    return attributes
+
+
 def _node_updated(before_node: etree._Element, after_node: etree._Element) -> bool:
-    """Return True if the two nodes differ in tag, attributes, or text content."""
+    """
+    Return True if two nodes differ in tag, filtered attributes, or text content.
+    """
     return (
             before_node.tag != after_node.tag
-            or before_node.attrib != after_node.attrib
+            or _attributes_for_update(before_node) != _attributes_for_update(after_node)
             or normalize_text(before_node.text) != normalize_text(after_node.text)
     )
 
@@ -61,6 +111,10 @@ def collect_additions_updates_deletes(
                   as (before_node, after_node) pairs
       - deleted : elements present only in the before tree
 
+    Expected eICR version bookkeeping directly under ClinicalDocument is
+    ignored: document id, document effectiveTime, versionNumber, and RPLC
+    relatedDocument lineage.
+
     After collection, ancestor pruning ensures that if both a parent and a
     child are marked, only the outermost node is kept.
 
@@ -79,6 +133,11 @@ def collect_additions_updates_deletes(
             before_node: Optional[etree._Element],
             after_node:  Optional[etree._Element],
     ) -> None:
+        if before_node is not None and _is_ignored_version_metadata(before_node):
+            return
+        if after_node is not None and _is_ignored_version_metadata(after_node):
+            return
+
         if before_node is None and after_node is None:
             return
 
