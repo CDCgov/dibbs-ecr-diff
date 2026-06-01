@@ -1,8 +1,11 @@
 """Core Difference in Docs functionality."""
 
-from typing import Any
+import json
+from enum import StrEnum
+from typing import Any, NamedTuple
 
 from lxml import etree
+from pydantic import BaseModel
 
 from core.xml_utils import build_standalone_xml_string
 
@@ -10,7 +13,31 @@ from .constants import HL7_NAMESPACE
 from .diff_engine import collect_additions_updates_deletes
 from .models import DiffingOptions
 
-# from .xml_utils import build_standalone_xml_string
+
+class ChangeType(StrEnum):
+    ADDED = "ADDED"
+    DELETED = "DELETED"
+    UPDATED = "UPDATED"
+
+
+class Change(BaseModel):
+    xpath: str
+    changeType: ChangeType
+    xml: str
+    ancestor_xml: str | None
+
+
+class DiffOutput(BaseModel):
+    changes: list[Change] = []
+
+
+class MapMatch(NamedTuple):
+    """Match found elements from diff to watch/ignore lists."""
+
+    xpath: str | None
+    node: etree._Element | None
+    ancestor: etree._Element | None = None
+
 
 MODE = "WATCH"
 # MODE = "IGNORE"
@@ -18,8 +45,6 @@ MODE = "WATCH"
 #     "/hl7:ClinicalDocument/hl7:component/hl7:structuredBody/hl7:component/hl7:section[hl7:templateId/@root='2.16.840.1.113883.10.20.22.2.5.1']/hl7:entry/hl7:act/hl7:entryRelationship/hl7:observation/hl7:value",
 #     "//hl7:observation[@moodCode = 'EVN']/hl7:value/@displayName",
 # ]
-
-# what if i watched for hl7:value, and it *is* added, but deeply nested somewhere?
 
 XPATHS = [
     "/hl7:ClinicalDocument/hl7:component/hl7:structuredBody/hl7:component/hl7:section//hl7:value",
@@ -32,15 +57,16 @@ def eval_xpath(elem: etree._Element | etree._ElementTree, xpath_expr: str) -> li
     return elem.xpath(xpath_expr, namespaces=HL7_NAMESPACE) or []
 
 
+# TODO: might make more sense to return this as part of the diff
 def node_or_child_in_map(
-    elem: etree._Element, list: dict[etree._Element, dict[str, str]]
-) -> etree._Element | None:
-    if elem in list:
-        return elem
+    elem: etree._Element, mapping: dict[etree._Element, dict[str, str]]
+) -> MapMatch:
+    if elem in mapping:
+        return MapMatch(xpath=mapping[elem]["xpath"], node=elem)
     for x in elem.iterdescendants():
-        if x in list:
-            return x
-    return None
+        if x in mapping:
+            return MapMatch(xpath=mapping[x]["xpath"], node=x, ancestor=elem)
+    return MapMatch(xpath=None, node=None)
 
 
 def build_watched(elem: etree._ElementTree) -> dict[etree._Element, dict[str, str]]:
@@ -48,12 +74,13 @@ def build_watched(elem: etree._ElementTree) -> dict[etree._Element, dict[str, st
     for xpath in XPATHS:
         vals = eval_xpath(elem, xpath)
         for val in vals:
-            nodes[val] = {"tag": val.tag}
+            nodes[val] = {"tag": val.tag, "xpath": xpath}
     return nodes
 
 
 def diff_xml(opts: DiffingOptions) -> str:
     """Returns a XML diff string."""
+    diff_output = DiffOutput()
     parser = etree.XMLParser(remove_blank_text=True, huge_tree=True)
 
     # parse xml files
@@ -68,43 +95,55 @@ def diff_xml(opts: DiffingOptions) -> str:
         tree_left.getroot(), tree_right.getroot()
     )
 
-    for x in added:
-        added_node = node_or_child_in_map(x, watched_right_nodes)
-        if isinstance(added_node, etree._Element):
-            print("a watched xpath has been added")
-            # TODO: maybe good to include the *actual* added parent element
-            print(build_standalone_xml_string(added_node))
-            print(tree_right.getelementpath(added_node))
+    for after in added:
+        xpath, node, ancestor = node_or_child_in_map(after, watched_right_nodes)
+        if isinstance(node, etree._Element):
+            diff_output.changes.append(
+                Change(
+                    xpath=xpath or "",
+                    changeType=ChangeType.ADDED,
+                    xml=build_standalone_xml_string(node),
+                    ancestor_xml=build_standalone_xml_string(ancestor)
+                    if ancestor
+                    else None,
+                )
+            )
 
-    # for deleted_node in deleted:
-    #     if node_or_child_in_map(deleted_node, watched_left_nodes):
-    #         print("yes that node was in the first tree")
-    #         if not node_or_child_in_map(deleted_node, watched_right_nodes):
-    #             print("and is no longer in the right tree")
-    #         print(build_standalone_xml_string(deleted_node))
+    for [before, after] in updated:
+        xpath, left_node, left_ancestor = node_or_child_in_map(
+            before, watched_left_nodes
+        )
 
-    # for u in updated:
-    #     before, after = u
+        _xpath, right_node, right_ancestor = node_or_child_in_map(
+            after, watched_right_nodes
+        )
 
-    #     if before in watched_left_nodes:
-    #         print("this is being watched in the left tree")
-    #     if after in watched_right_nodes:
-    #         print("this is being watched in the right tree")
+        if left_node is not None and right_node is not None:
+            diff_output.changes.append(
+                Change(
+                    xpath=xpath or "",
+                    changeType=ChangeType.UPDATED,
+                    xml=build_standalone_xml_string(right_node),
+                    ancestor_xml=build_standalone_xml_string(right_ancestor)
+                    if right_ancestor
+                    else None,
+                )
+            )
 
-    # if left in watched_left_attrs:
-    #     print("its watched")
-    #     print(build_standalone_xml_string(left))
-    # if right in watched_right_attrs:
-    #     print("its watched (right)")
-    #     print(build_standalone_xml_string(left))
+    for after in deleted:
+        xpath, node, ancestor = node_or_child_in_map(after, watched_right_nodes)
+        if isinstance(node, etree._Element):
+            diff_output.changes.append(
+                Change(
+                    xpath=xpath or "",
+                    changeType=ChangeType.DELETED,
+                    xml=build_standalone_xml_string(node),
+                    ancestor_xml=build_standalone_xml_string(ancestor)
+                    if ancestor
+                    else None,
+                )
+            )
 
-    # for w in wraps:
-    #     change_type, after_node, before_node_or_None = w
-    #     print(build_standalone_xml_string(after_node))
-    #     print("---")
-
-    # for d in deletes:
-    #     parent_in_after, reference_sibling_or_None, placement, deleted_before_node = d
-    #     # print(build_standalone_xml_string(reference_sibling_or_None))
-
-    return "hello world"
+    output = diff_output.model_dump_json(indent=2)
+    print(output)
+    return output
