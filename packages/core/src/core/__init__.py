@@ -104,7 +104,7 @@ def diff_xml(opts: DiffingOptions) -> str:
                     changeType=ChangeType.ADDED,
                     xml=build_standalone_xml_string(node),
                     ancestor_xml=build_standalone_xml_string(ancestor)
-                    if ancestor
+                    if ancestor is not None
                     else None,
                 )
             )
@@ -125,7 +125,7 @@ def diff_xml(opts: DiffingOptions) -> str:
                     changeType=ChangeType.UPDATED,
                     xml=build_standalone_xml_string(right_node),
                     ancestor_xml=build_standalone_xml_string(right_ancestor)
-                    if right_ancestor
+                    if right_ancestor is not None
                     else None,
                 )
             )
@@ -139,11 +139,13 @@ def diff_xml(opts: DiffingOptions) -> str:
                     changeType=ChangeType.DELETED,
                     xml=build_standalone_xml_string(node),
                     ancestor_xml=build_standalone_xml_string(ancestor)
-                    if ancestor
+                    if ancestor is not None
                     else None,
                 )
             )
 
     output = diff_output.model_dump_json(indent=2)
     print(output)
+    # print(deleted)
+    # print(watched_left_nodes.keys())
     return output
