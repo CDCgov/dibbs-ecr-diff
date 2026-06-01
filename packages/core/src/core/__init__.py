@@ -48,7 +48,7 @@ MODE = "WATCH"
 
 XPATHS = [
     "/hl7:ClinicalDocument/hl7:component/hl7:structuredBody/hl7:component/hl7:section//hl7:value",
-    # "/hl7:ClinicalDocument/hl7:component/hl7:structuredBody/hl7:component/hl7:section//hl7:value",
+    "/hl7:ClinicalDocument/hl7:component/hl7:structuredBody/hl7:component/hl7:section/hl7:entry",
     # "/hl7:ClinicalDocument/hl7:component/hl7:structuredBody/hl7:component/hl7:section/hl7:text",
 ]
 
@@ -130,8 +130,8 @@ def diff_xml(opts: DiffingOptions) -> str:
                 )
             )
 
-    for after in deleted:
-        xpath, node, ancestor = node_or_child_in_map(after, watched_right_nodes)
+    for before in deleted:
+        xpath, node, ancestor = node_or_child_in_map(before, watched_left_nodes)
         if isinstance(node, etree._Element):
             diff_output.changes.append(
                 Change(
