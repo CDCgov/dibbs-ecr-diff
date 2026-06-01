@@ -1,8 +1,6 @@
 """Core Difference in Docs functionality."""
 
-import json
 from enum import StrEnum
-from typing import Any, NamedTuple
 
 from lxml import etree
 from pydantic import BaseModel
@@ -31,14 +29,6 @@ class DiffOutput(BaseModel):
     changes: list[Change] = []
 
 
-class MapMatch(NamedTuple):
-    """Match found elements from diff to watch/ignore lists."""
-
-    xpath: str | None
-    node: etree._Element | None
-    ancestor: etree._Element | None = None
-
-
 MODE = "WATCH"
 # MODE = "IGNORE"
 # XPATHS = [
@@ -53,20 +43,22 @@ XPATHS = [
 ]
 
 
-def eval_xpath(elem: etree._Element | etree._ElementTree, xpath_expr: str) -> list[Any]:
+def eval_xpath(
+    elem: etree._Element | etree._ElementTree, xpath_expr: str
+) -> list[etree._Element]:
     return elem.xpath(xpath_expr, namespaces=HL7_NAMESPACE) or []
 
 
-# TODO: might make more sense to return this as part of the diff
-def node_or_child_in_map(
-    elem: etree._Element, mapping: dict[etree._Element, dict[str, str]]
-) -> MapMatch:
-    if elem in mapping:
-        return MapMatch(xpath=mapping[elem]["xpath"], node=elem)
-    for x in elem.iterdescendants():
-        if x in mapping:
-            return MapMatch(xpath=mapping[x]["xpath"], node=x, ancestor=elem)
-    return MapMatch(xpath=None, node=None)
+def find_watched_nodes(
+    root: etree._Element, mapping: dict[etree._Element, dict[str, str]]
+) -> list[tuple[etree._Element, str, etree._Element | None]]:
+    matches = []
+    if root in mapping:
+        matches.append((root, mapping[root]["xpath"], None))
+    for descendant in root.iterdescendants():
+        if descendant in mapping:
+            matches.append((descendant, mapping[descendant]["xpath"], root))
+    return matches
 
 
 def build_watched(elem: etree._ElementTree) -> dict[etree._Element, dict[str, str]]:
@@ -74,7 +66,7 @@ def build_watched(elem: etree._ElementTree) -> dict[etree._Element, dict[str, st
     for xpath in XPATHS:
         vals = eval_xpath(elem, xpath)
         for val in vals:
-            nodes[val] = {"tag": val.tag, "xpath": xpath}
+            nodes[val] = {"tag": str(val.tag), "xpath": xpath}
     return nodes
 
 
@@ -96,11 +88,10 @@ def diff_xml(opts: DiffingOptions) -> str:
     )
 
     for after in added:
-        xpath, node, ancestor = node_or_child_in_map(after, watched_right_nodes)
-        if isinstance(node, etree._Element):
+        for node, xpath, ancestor in find_watched_nodes(after, watched_right_nodes):
             diff_output.changes.append(
                 Change(
-                    xpath=xpath or "",
+                    xpath=xpath,
                     changeType=ChangeType.ADDED,
                     xml=build_standalone_xml_string(node),
                     ancestor_xml=build_standalone_xml_string(ancestor)
@@ -110,32 +101,29 @@ def diff_xml(opts: DiffingOptions) -> str:
             )
 
     for [before, after] in updated:
-        xpath, left_node, left_ancestor = node_or_child_in_map(
-            before, watched_left_nodes
-        )
+        for node, xpath, ancestor in find_watched_nodes(after, watched_right_nodes):
+            # the before node should be in the watched left tree
+            # TODO: is this necessary? probably not
+            before_node = find_watched_nodes(before, watched_left_nodes)
+            if before_node is None:
+                continue
 
-        _xpath, right_node, right_ancestor = node_or_child_in_map(
-            after, watched_right_nodes
-        )
-
-        if left_node is not None and right_node is not None:
             diff_output.changes.append(
                 Change(
-                    xpath=xpath or "",
+                    xpath=xpath,
                     changeType=ChangeType.UPDATED,
-                    xml=build_standalone_xml_string(right_node),
-                    ancestor_xml=build_standalone_xml_string(right_ancestor)
-                    if right_ancestor is not None
+                    xml=build_standalone_xml_string(node),
+                    ancestor_xml=build_standalone_xml_string(ancestor)
+                    if ancestor is not None
                     else None,
                 )
             )
 
     for before in deleted:
-        xpath, node, ancestor = node_or_child_in_map(before, watched_left_nodes)
-        if isinstance(node, etree._Element):
+        for node, xpath, ancestor in find_watched_nodes(before, watched_left_nodes):
             diff_output.changes.append(
                 Change(
-                    xpath=xpath or "",
+                    xpath=xpath,
                     changeType=ChangeType.DELETED,
                     xml=build_standalone_xml_string(node),
                     ancestor_xml=build_standalone_xml_string(ancestor)
@@ -144,8 +132,4 @@ def diff_xml(opts: DiffingOptions) -> str:
                 )
             )
 
-    output = diff_output.model_dump_json(indent=2)
-    print(output)
-    # print(deleted)
-    # print(watched_left_nodes.keys())
-    return output
+    return diff_output.model_dump_json(indent=2)
