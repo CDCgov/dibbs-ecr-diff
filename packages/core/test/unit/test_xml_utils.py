@@ -12,10 +12,7 @@ from textwrap import dedent
 import pytest
 from lxml import etree
 
-try:
-    from core import constants, xml_utils
-except ModuleNotFoundError:
-    from packages.core.src.core import constants, xml_utils
+from core import constants, xml_utils
 
 
 HL7_NS = constants.HL7_NS
