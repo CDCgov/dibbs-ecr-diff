@@ -5,15 +5,11 @@ These tests use small CDA-like XML fragments rather than generic XML so the
 business cases stay close to eICR/CDA data
 """
 
-from __future__ import annotations
-
 from textwrap import dedent
 
 import pytest
-from lxml import etree
-
 from core import constants, xml_utils
-
+from lxml import etree
 
 HL7_NS = constants.HL7_NS
 SDTC_NS = constants.SDTC_NS
@@ -34,6 +30,7 @@ def find_one(element: etree._Element, xpath_expression: str) -> etree._Element:
     result = results[0]
     assert isinstance(result, etree._Element)
     return result
+
 
 def canonical_xml(xml_text: str) -> bytes:
     parser = etree.XMLParser(remove_blank_text=True)
@@ -123,7 +120,9 @@ def test_namespace_constants_are_internally_consistent() -> None:
         ("already normalized", "already normalized"),
     ],
 )
-def test_normalize_text_collapses_whitespace(raw_text: str | None, expected: str) -> None:
+def test_normalize_text_collapses_whitespace(
+    raw_text: str | None, expected: str
+) -> None:
     assert xml_utils.normalize_text(raw_text) == expected
 
 
@@ -182,7 +181,9 @@ def test_fingerprint_detects_mixed_content_tail_changes() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_xpath_first_attribute_value_returns_first_match(cda_document: etree._Element) -> None:
+def test_xpath_first_attribute_value_returns_first_match(
+    cda_document: etree._Element,
+) -> None:
     section = find_one(cda_document, ".//hl7:section")
 
     assert (
@@ -196,7 +197,10 @@ def test_xpath_first_attribute_value_returns_none_for_missing_attribute(
 ) -> None:
     section = find_one(cda_document, ".//hl7:section")
 
-    assert xml_utils._xpath_first_attribute_value(section, "./hl7:templateId/@extension") is None
+    assert (
+        xml_utils._xpath_first_attribute_value(section, "./hl7:templateId/@extension")
+        is None
+    )
 
 
 @pytest.mark.parametrize(
@@ -225,7 +229,9 @@ def test_xpath_first_element_returns_first_match(cda_document: etree._Element) -
     assert first_id.get("extension") == "SECTION-1"
 
 
-def test_xpath_first_element_returns_none_for_missing_element(cda_document: etree._Element) -> None:
+def test_xpath_first_element_returns_none_for_missing_element(
+    cda_document: etree._Element,
+) -> None:
     section = find_one(cda_document, ".//hl7:section")
 
     assert xml_utils._xpath_first_element(section, "./hl7:author") is None
@@ -346,7 +352,6 @@ def test_collect_standalone_namespace_requirements_finds_used_namespaces_and_qna
     assert "unused" not in used_namespace_uris
 
 
-
 def test_build_namespace_map_preserves_qname_prefix_even_when_it_matches_default_namespace(
     cda_document: etree._Element,
 ) -> None:
@@ -361,7 +366,9 @@ def test_build_namespace_map_preserves_qname_prefix_even_when_it_matches_default
     assert "unused" not in namespace_map
 
 
-def test_build_namespace_map_skips_same_uri_alias_when_no_qname_value_needs_it() -> None:
+def test_build_namespace_map_skips_same_uri_alias_when_no_qname_value_needs_it() -> (
+    None
+):
     document = parse_xml(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}" xmlns:cda="{HL7_NS}" xmlns:xsi="{XSI_NS}">
@@ -420,7 +427,9 @@ def test_build_standalone_xml_string_outputs_parseable_namespace_complete_snippe
     assert_xml_equal(xml_text, expected_xml)
 
 
-def test_build_standalone_xml_string_preserves_child_tail_but_excludes_root_tail() -> None:
+def test_build_standalone_xml_string_preserves_child_tail_but_excludes_root_tail() -> (
+    None
+):
     document = parse_xml(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}">
@@ -446,7 +455,9 @@ def test_build_standalone_xml_string_preserves_child_tail_but_excludes_root_tail
     assert "Text outside the paragraph" not in xml_text
 
 
-def test_descendant_local_prefix_is_hoisted_when_snippet_root_does_not_bind_that_prefix() -> None:
+def test_descendant_local_prefix_is_hoisted_when_snippet_root_does_not_bind_that_prefix() -> (
+    None
+):
     document = parse_xml(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}" xmlns:xsi="{XSI_NS}">
@@ -464,7 +475,9 @@ def test_descendant_local_prefix_is_hoisted_when_snippet_root_does_not_bind_that
     )
     section = find_one(document, ".//hl7:section")
 
-    _, required_prefix_bindings = xml_utils._collect_standalone_namespace_requirements(section)
+    _, required_prefix_bindings = xml_utils._collect_standalone_namespace_requirements(
+        section
+    )
     xml_text = xml_utils.build_standalone_xml_string(section)
     standalone_section = parse_xml(xml_text)
     value = find_one(standalone_section, ".//hl7:value")
@@ -489,7 +502,9 @@ def test_descendant_local_prefix_is_hoisted_when_snippet_root_does_not_bind_that
     assert_xml_equal(xml_text, expected_xml)
 
 
-def test_descendant_local_prefix_rebinding_stays_local_when_root_binds_same_prefix_differently() -> None:
+def test_descendant_local_prefix_rebinding_stays_local_when_root_binds_same_prefix_differently() -> (
+    None
+):
     document = parse_xml(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}" xmlns:a="urn:example:type-one" xmlns:xsi="{XSI_NS}">
@@ -518,7 +533,9 @@ def test_descendant_local_prefix_rebinding_stays_local_when_root_binds_same_pref
 
     xml_text = xml_utils.build_standalone_xml_string(section)
     standalone_section = parse_xml(xml_text)
-    first_value = find_one(standalone_section, "./hl7:entry[1]/hl7:observation/hl7:value")
+    first_value = find_one(
+        standalone_section, "./hl7:entry[1]/hl7:observation/hl7:value"
+    )
     second_value = find_one(
         standalone_section,
         "./hl7:entry[2]/hl7:organizer/hl7:component/hl7:observation/hl7:value",
@@ -552,7 +569,10 @@ def test_descendant_local_prefix_rebinding_stays_local_when_root_binds_same_pref
 
     assert_xml_equal(xml_text, expected_xml)
 
-def test_build_standalone_xml_string_keeps_conflicting_descendant_prefix_binding_local() -> None:
+
+def test_build_standalone_xml_string_keeps_conflicting_descendant_prefix_binding_local() -> (
+    None
+):
     document = parse_xml(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}" xmlns:xsi="{XSI_NS}">

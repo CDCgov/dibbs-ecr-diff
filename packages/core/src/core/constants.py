@@ -1,10 +1,5 @@
-"""
-core/constants.py
+"""Module-level constants and type aliases shared across all core modules."""
 
-Module-level constants and type aliases shared across all core modules.
-"""
-
-from typing import Tuple
 from lxml import etree
 
 # ---------------------------------------------------------------------------
@@ -17,15 +12,14 @@ from lxml import etree
 #   classCode  — distinguishes act class: ACT vs OBS vs ENC etc. on the same tag
 #   typeCode   — distinguishes relationship semantics on entryRelationship, participant etc.
 #   use        — distinguishes address/telecom purpose: H (home) vs WP (work) vs MC (mobile)
-KEY_ATTRS = ("ID", "id", "root", "extension", "code",
-             "classCode", "typeCode", "use")
+KEY_ATTRS = ("ID", "id", "root", "extension", "code", "classCode", "typeCode", "use")
 
 # ---------------------------------------------------------------------------
 # HL7 namespace
 # ---------------------------------------------------------------------------
 
 # HL7 namespace used throughout CDA/eICR documents
-HL7_NS     = "urn:hl7-org:v3"
+HL7_NS = "urn:hl7-org:v3"
 HL7_PREFIX = "hl7"
 
 # SDTC extension namespace used in CDA/eICR documents.
@@ -58,7 +52,7 @@ XSI_TYPE_ATTR = f"{{{XSI_NS}}}type"
 AddedEntry = etree._Element
 
 # (before_node, after_node) — element present in both trees with changed content
-UpdatedEntry = Tuple[etree._Element, etree._Element]
+UpdatedEntry = tuple[etree._Element, etree._Element]
 
 # the deleted element from the before tree
 DeletedEntry = etree._Element
