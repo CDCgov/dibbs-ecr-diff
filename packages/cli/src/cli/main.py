@@ -15,7 +15,7 @@ def main() -> None:
 
     print(opts)
     _xml = diff_xml(opts)
-    # print(_xml)
+    print(_xml)
 
 
 if __name__ == "__main__":
