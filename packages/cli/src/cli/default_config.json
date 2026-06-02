@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "mode": "WATCH",
+  "mode": "WATCH_LIST",
   "rules": [
     {
       "id": "e654b542-c0bd-4166-8320-4e0a7651d612",

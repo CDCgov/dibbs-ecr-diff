@@ -5,8 +5,8 @@ from pydantic import BaseModel, Field
 
 
 class DiffMode(StrEnum):
-    WATCH = "WATCH"
-    IGNORE = "IGNORE"
+    WATCH_LIST = "WATCH_LIST"
+    IGNORE_LIST = "IGNORE_LIST"
 
 
 class DiffingOptions(BaseModel):
@@ -25,6 +25,8 @@ class Change(BaseModel):
     xpath: str
     rule_name: str = ""
     changeType: ChangeType
+    # maybe omit the xml in prod mode?
+    # or omit entirely for PII reasons
     xml: str
     ancestor_xml: str | None
 
