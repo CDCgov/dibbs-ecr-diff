@@ -11,7 +11,14 @@ from typing import List, Tuple
 
 from lxml import etree
 
-from core.constants import AddedEntry, UpdatedEntry, DeletedEntry, HL7_NS, HL7_PREFIX, HL7_NAMESPACE
+from core.constants import (
+    HL7_NAMESPACE,
+    HL7_NS,
+    HL7_PREFIX,
+    AddedEntry,
+    DeletedEntry,
+    UpdatedEntry,
+)
 from core.paths import stable_xml_path, xpath_with_predicates
 from core.xml_utils import build_standalone_xml_string
 
@@ -49,6 +56,9 @@ def write_changes_json(
     sourceDocument indicates which document the xmlPath and xPath refer to:
       "after"  — for additions and updates (element exists in the after document)
       "before" — for deletions (element no longer exists in the after document)
+
+    didChange reflects meaningful changes after ignored document-version
+    metadata has been filtered by the diff engine.
     """
     set_id, doc_id, version_number = get_doc_metadata(after_root)
 
