@@ -1,5 +1,7 @@
 """Core Difference in Docs functionality."""
 
+from dataclasses import dataclass
+
 from lxml import etree
 
 from core.xml_utils import build_standalone_xml_string
@@ -18,6 +20,19 @@ from .models import (
 from .performance import measure_time
 
 
+@dataclass(frozen=True)
+class WatchedNode:
+    """Metadata for watched/ignored node cache."""
+
+    tag: str
+    xpath: str
+    rule_name: str
+
+
+"""Used to cache nodes from evaluated rule XPaths."""
+type NodeCache = dict[etree._Element, WatchedNode]
+
+
 def eval_xpath(
     elem: etree._Element | etree._ElementTree, xpath_expr: str
 ) -> list[etree._Element]:
@@ -26,9 +41,9 @@ def eval_xpath(
 
 
 def find_watched_nodes(
-    root: etree._Element, mapping: dict[etree._Element, dict[str, str]]
+    root: etree._Element, cache: NodeCache
 ) -> list[tuple[etree._Element, str, str, etree._Element | None]]:
-    """Collect all matching nodes from watch/ignore mapping.
+    """Collect all matching nodes from watch/ignore cache.
 
     This traverses the given `root` etree._Element
     and all descendants in document order (root -> leaf)
@@ -39,35 +54,43 @@ def find_watched_nodes(
     """
     matches = []
 
-    if root in mapping:
-        xpath = mapping[root]["xpath"]
-        rule_name = mapping[root]["rule_name"]
+    if root in cache:
+        xpath = cache[root].xpath
+        rule_name = cache[root].rule_name
         matches.append((root, xpath, rule_name, None))
 
     for descendant in root.iterdescendants():
-        if descendant in mapping:
-            xpath = mapping[descendant]["xpath"]
-            rule_name = mapping[descendant]["rule_name"]
+        if descendant in cache:
+            xpath = cache[descendant].xpath
+            rule_name = cache[descendant].rule_name
             matches.append((descendant, xpath, rule_name, root))
 
     return matches
 
 
+def is_node_ignored(node: etree._Element, cache: NodeCache) -> bool:
+    """Given a node, climb the tree and check if node or any ancestors are in cache."""
+    cur = node
+    while cur is not None:
+        if cur in cache:
+            return True
+        cur = cur.getparent()
+    return False
+
+
 def build_watched(
     elem: etree._ElementTree, rules: list[RuleConfig]
-) -> dict[etree._Element, dict[str, str]]:
+) -> dict[etree._Element, WatchedNode]:
     """Execute XPaths against element to build mappings."""
-    nodes: dict[etree._Element, dict[str, str]] = {}
+    nodes: NodeCache = {}
 
     for rule in rules:
         for xpath in rule.xpaths:
             vals = eval_xpath(elem, xpath)
             for val in vals:
-                nodes[val] = {
-                    "tag": str(val.tag),
-                    "xpath": xpath,
-                    "rule_name": rule.name,
-                }
+                nodes[val] = WatchedNode(
+                    tag=str(val.tag), xpath=xpath, rule_name=rule.name
+                )
     return nodes
 
 
@@ -107,7 +130,7 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
                         )
                     )
             elif config.mode == DiffMode.IGNORE_LIST:
-                if after in watched_right_nodes:
+                if is_node_ignored(after, watched_right_nodes):
                     continue
 
                 diff_output.changes.append(
@@ -115,7 +138,6 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
                         xpath=after.getroottree().getpath(after),
                         changeType=ChangeType.ADDED,
                         xml=build_standalone_xml_string(after),
-                        ancestor_xml=None,
                     )
                 )
 
@@ -127,9 +149,9 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
                 ):
                     # the before node should be in the watched left tree
                     # TODO: is this necessary? probably not
-                    before_node = find_watched_nodes(before, watched_left_nodes)
-                    if before_node is None:
-                        continue
+                    # before_node = find_watched_nodes(before, watched_left_nodes)
+                    # if before_node is None:
+                    #     continue
 
                     diff_output.changes.append(
                         Change(
@@ -143,7 +165,9 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
                         )
                     )
             elif config.mode == DiffMode.IGNORE_LIST:
-                if before in watched_left_nodes or after in watched_right_nodes:
+                if is_node_ignored(before, watched_left_nodes) or is_node_ignored(
+                    after, watched_right_nodes
+                ):
                     continue
 
                 diff_output.changes.append(
@@ -151,7 +175,6 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
                         xpath=after.getroottree().getpath(after),
                         changeType=ChangeType.UPDATED,
                         xml=build_standalone_xml_string(after),
-                        ancestor_xml=None,
                     )
                 )
 
@@ -173,7 +196,7 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
                         )
                     )
             elif config.mode == DiffMode.IGNORE_LIST:
-                if before in watched_left_nodes:
+                if is_node_ignored(before, watched_left_nodes):
                     continue
 
                 diff_output.changes.append(
@@ -181,7 +204,6 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
                         xpath=before.getroottree().getpath(before),
                         changeType=ChangeType.DELETED,
                         xml=build_standalone_xml_string(before),
-                        ancestor_xml=None,
                     )
                 )
 

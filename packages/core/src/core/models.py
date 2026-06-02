@@ -23,12 +23,12 @@ class ChangeType(StrEnum):
 
 class Change(BaseModel):
     xpath: str
-    rule_name: str = ""
+    rule_name: str | None = None
     changeType: ChangeType
     # maybe omit the xml in prod mode?
     # or omit entirely for PII reasons
     xml: str
-    ancestor_xml: str | None
+    ancestor_xml: str | None = None
 
 
 class DiffOutput(BaseModel):
