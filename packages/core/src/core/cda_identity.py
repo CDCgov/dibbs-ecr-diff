@@ -1,6 +1,4 @@
 """
-core/cda_identity.py
-
 CDA-domain-specific identity and discriminator key derivation.
 
 This is the most domain-specific module in the package — it encodes knowledge
