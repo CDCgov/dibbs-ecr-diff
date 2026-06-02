@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "mode": "IGNORE",
+  "rules": [
+    {
+      "id": "e654b542-c0bd-4166-8320-4e0a7651d612",
+      "name": "Example Rule",
+      "xpaths": [
+        "/hl7:ClinicalDocument/hl7:component/hl7:structuredBody/hl7:component/hl7:section//hl7:value",
+        "/hl7:ClinicalDocument/hl7:component/hl7:structuredBody/hl7:component/hl7:section/hl7:entry"
+      ]
+    }
+  ]
+}
