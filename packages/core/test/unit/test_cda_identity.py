@@ -263,8 +263,7 @@ def test_nested_section_identities_are_order_insensitive():
 
 def test_too_many_nested_section_identities_do_not_create_partial_key():
     sections = "\n".join(
-        f"""<section><id root="section-{index}"/></section>"""
-        for index in range(13)
+        f"""<section><id root="section-{index}"/></section>""" for index in range(13)
     )
     component = elem(
         f"""
@@ -281,9 +280,7 @@ def test_direct_code_identity_requires_code_system():
     code_with_system = elem(
         f"""<code xmlns="{HL7_NS}" code="123" codeSystem="test-system"/>"""
     )
-    code_without_system = elem(
-        f"""<code xmlns="{HL7_NS}" code="123"/>"""
-    )
+    code_without_system = elem(f"""<code xmlns="{HL7_NS}" code="123"/>""")
 
     assert stable_key(code_with_system) == (
         "@code",
@@ -293,6 +290,25 @@ def test_direct_code_identity_requires_code_system():
         ),
     )
     assert stable_key(code_without_system) is None
+
+
+def test_direct_root_extension_attribute_identity_uses_root_extension_identity():
+    id_element = elem(
+        f"""<id xmlns="{HL7_NS}" root="document-id-root" extension="document-id-ext"/>"""
+    )
+    set_id_element = elem(f"""<setId xmlns="{HL7_NS}" root="set-id-root"/>""")
+
+    assert stable_key(id_element) == (
+        "@root",
+        RootExtensionIdentity(
+            root="document-id-root",
+            extension="document-id-ext",
+        ),
+    )
+    assert stable_key(set_id_element) == (
+        "@root",
+        RootExtensionIdentity(root="set-id-root"),
+    )
 
 
 def test_unrelated_descendant_id_is_not_stable_identity():

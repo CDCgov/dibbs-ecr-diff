@@ -31,6 +31,7 @@ def _pfx(tag: str) -> str:
 # Human-readable xmlPath
 # ---------------------------------------------------------------------------
 
+
 def _stable_key_to_label(stable_key_tuple: Optional[StableKey]) -> Optional[str]:
     """Convert a stable_key tuple into a concise human-readable bracket label."""
     if stable_key_tuple is None:
@@ -52,8 +53,8 @@ def _stable_key_to_label(stable_key_tuple: Optional[StableKey]) -> Optional[str]
         return f"{prefix}:{'|'.join(parts)}"
 
     def _root_extension_identities_to_label(
-            prefix: str,
-            root_extension_identities: tuple,
+        prefix: str,
+        root_extension_identities: tuple,
     ) -> str | None:
         parts = []
         for root_extension_identity in root_extension_identities:
@@ -92,17 +93,15 @@ def _stable_key_to_label(stable_key_tuple: Optional[StableKey]) -> Optional[str]
         return _root_extension_identities_to_label("ids", stable_key_tuple[1])
 
     if kind == "@root":
-        return "id:" + ";".join(
-            f"{part[0]}={part[1]}"
-            for part in stable_key_tuple[1]
-            if part[1]
-        )
+        root_extension_identity = stable_key_tuple[1]
+        label = f"root={root_extension_identity.root}"
+        if root_extension_identity.extension:
+            label += f";extension={root_extension_identity.extension}"
+        return f"id:{label}"
 
     if kind == "@code":
         return "code:" + ";".join(
-            f"{part[0]}={part[1]}"
-            for part in stable_key_tuple[1]
-            if part[1]
+            f"{part[0]}={part[1]}" for part in stable_key_tuple[1] if part[1]
         )
 
     if kind in ("@attrs", "nested.entry.statement.@attrs"):
@@ -112,8 +111,8 @@ def _stable_key_to_label(stable_key_tuple: Optional[StableKey]) -> Optional[str]
 
 
 def stable_xml_path(
-        elem: etree._Element,
-        anchor: str = "ClinicalDocument",
+    elem: etree._Element,
+    anchor: str = "ClinicalDocument",
 ) -> str:
     """
     Return a stable, human-readable path string for elem.
@@ -134,21 +133,22 @@ def stable_xml_path(
 
         if local == "table":
             table_key = narrative_table_key(current)
-            elem_key  = ("narr_table", table_key) if table_key else None
+            elem_key = ("narr_table", table_key) if table_key else None
         elif local == "tr":
-            row_key  = narrative_row_key(current)
+            row_key = narrative_row_key(current)
             elem_key = ("narr_row", row_key) if row_key else None
         else:
             elem_key = stable_key(current)
 
-        label  = _stable_key_to_label(elem_key)
+        label = _stable_key_to_label(elem_key)
         parent = current.getparent()
 
         if parent is None:
             position = 1
         else:
             siblings = [
-                child for child in parent
+                child
+                for child in parent
                 if isinstance(child.tag, str) and localname(child) == local
             ]
             position = (siblings.index(current) + 1) if current in siblings else 1
@@ -165,6 +165,7 @@ def stable_xml_path(
 # ---------------------------------------------------------------------------
 # Machine-readable xPath (hl7: prefix, stable predicates)
 # ---------------------------------------------------------------------------
+
 
 def _xpath_literal(value: str) -> str:
     """
@@ -199,9 +200,7 @@ def _direct_template_id_predicates(node: etree._Element) -> list[str]:
         else:
             conditions.append("(not(@extension) or @extension='')")
 
-        predicates.append(
-            f"{_pfx('templateId')}[{' and '.join(conditions)}]"
-        )
+        predicates.append(f"{_pfx('templateId')}[{' and '.join(conditions)}]")
 
     return predicates
 
@@ -213,14 +212,23 @@ def _append_xpath_predicate(predicates: List[str], predicate: str) -> None:
 
 
 def _direct_attribute_stable_key_predicates(
-        stable_key_tuple: Optional[StableKey],
+    stable_key_tuple: Optional[StableKey],
 ) -> list[str]:
     """Return XPath predicates for direct attribute stable-key variants."""
     if stable_key_tuple is None:
         return []
 
     kind = stable_key_tuple[0]
-    if kind not in ("@attrs", "@root", "@code"):
+    if kind == "@root":
+        root_extension_identity = stable_key_tuple[1]
+        predicates = [f"@root={_xpath_literal(root_extension_identity.root)}"]
+        if root_extension_identity.extension:
+            predicates.append(
+                f"@extension={_xpath_literal(root_extension_identity.extension)}"
+            )
+        return predicates
+
+    if kind not in ("@attrs", "@code"):
         return []
 
     return [
@@ -235,8 +243,12 @@ def _position_among_siblings(node: etree._Element) -> int:
     parent = node.getparent()
     if parent is None:
         return 1
-    local    = localname(node)
-    siblings = [child for child in parent if isinstance(child.tag, str) and localname(child) == local]
+    local = localname(node)
+    siblings = [
+        child
+        for child in parent
+        if isinstance(child.tag, str) and localname(child) == local
+    ]
     try:
         return siblings.index(node) + 1
     except ValueError:
@@ -255,30 +267,38 @@ def _effective_time_predicates(node: etree._Element) -> Dict[str, str]:
         result["value"] = point_value
         return result
 
-    low_value  = _xpath_first_attribute_value(node, "./hl7:effectiveTime/hl7:low/@value")
-    high_value = _xpath_first_attribute_value(node, "./hl7:effectiveTime/hl7:high/@value")
+    low_value = _xpath_first_attribute_value(node, "./hl7:effectiveTime/hl7:low/@value")
+    high_value = _xpath_first_attribute_value(
+        node, "./hl7:effectiveTime/hl7:high/@value"
+    )
     if low_value or high_value:
-        result["low"]  = low_value  or ""
+        result["low"] = low_value or ""
         result["high"] = high_value or ""
         return result
 
-    center_value = _xpath_first_attribute_value(node, "./hl7:effectiveTime/hl7:center/@value")
+    center_value = _xpath_first_attribute_value(
+        node, "./hl7:effectiveTime/hl7:center/@value"
+    )
     if center_value:
         result["center"] = center_value
         return result
 
-    period_value = _xpath_first_attribute_value(node, "./hl7:effectiveTime/hl7:period/@value")
-    period_unit  = _xpath_first_attribute_value(node, "./hl7:effectiveTime/hl7:period/@unit")
+    period_value = _xpath_first_attribute_value(
+        node, "./hl7:effectiveTime/hl7:period/@value"
+    )
+    period_unit = _xpath_first_attribute_value(
+        node, "./hl7:effectiveTime/hl7:period/@unit"
+    )
     if period_value or period_unit:
         result["period_value"] = period_value or ""
-        result["period_unit"]  = period_unit  or ""
+        result["period_unit"] = period_unit or ""
 
     return result
 
 
 def xpath_with_predicates(
-        elem: etree._Element,
-        anchor: str = "ClinicalDocument",
+    elem: etree._Element,
+    anchor: str = "ClinicalDocument",
 ) -> str:
     """
     Return a machine-readable absolute XPath for elem using hl7: namespace prefix.
@@ -295,15 +315,17 @@ def xpath_with_predicates(
             current = current.getparent()
             continue
 
-        local    = localname(current)
-        qname    = etree.QName(current.tag)
+        local = localname(current)
+        qname = etree.QName(current.tag)
         tag_step = _pfx(local) if qname.namespace == HL7_NS else local
         predicates: List[str] = []
 
         if local == "table":
             table_key = narrative_table_key(current)
             if table_key and table_key[0] == "table.headers":
-                for header_index, header_text in enumerate(list(table_key[1])[:4], start=1):
+                for header_index, header_text in enumerate(
+                    list(table_key[1])[:4], start=1
+                ):
                     predicates.append(
                         f"{_pfx('thead')}/{_pfx('tr')}[1]/{_pfx('th')}[{header_index}]"
                         f"[normalize-space()={_xpath_literal(header_text)}]"
@@ -334,7 +356,7 @@ def xpath_with_predicates(
                 _append_xpath_predicate(predicates, predicate)
 
             id_root = _xpath_first_attribute_value(current, "./hl7:id/@root")
-            id_ext  = _xpath_first_attribute_value(current, "./hl7:id/@extension")
+            id_ext = _xpath_first_attribute_value(current, "./hl7:id/@extension")
             if id_root and id_ext:
                 predicates.append(
                     f"{_pfx('id')}[@root={_xpath_literal(id_root)}"
@@ -345,8 +367,10 @@ def xpath_with_predicates(
 
             predicates.extend(_direct_template_id_predicates(current))
 
-            code_value  = _xpath_first_attribute_value(current, "./hl7:code/@code")
-            code_system = _xpath_first_attribute_value(current, "./hl7:code/@codeSystem")
+            code_value = _xpath_first_attribute_value(current, "./hl7:code/@code")
+            code_system = _xpath_first_attribute_value(
+                current, "./hl7:code/@codeSystem"
+            )
             if code_value and code_system:
                 predicates.append(
                     f"{_pfx('code')}[@code={_xpath_literal(code_value)}"
@@ -378,7 +402,9 @@ def xpath_with_predicates(
                         f"{_pfx('effectiveTime')}/{_pfx('center')}"
                         f"[@value={_xpath_literal(effective_time['center'])}]"
                     )
-                elif "period_value" in effective_time or "period_unit" in effective_time:
+                elif (
+                    "period_value" in effective_time or "period_unit" in effective_time
+                ):
                     period_conditions = []
                     if effective_time.get("period_value"):
                         period_conditions.append(
@@ -393,20 +419,26 @@ def xpath_with_predicates(
                     if period_conditions:
                         predicates.append(" and ".join(period_conditions))
 
-            if current.get("root"):
+            root_value = current.get("root")
+            if root_value:
                 _append_xpath_predicate(
                     predicates,
-                    f"@root={_xpath_literal(current.get('root'))}",
+                    f"@root={_xpath_literal(root_value)}",
                 )
-            if current.get("extension"):
+
+            extension_value = current.get("extension")
+            if extension_value:
                 _append_xpath_predicate(
                     predicates,
-                    f"@extension={_xpath_literal(current.get('extension'))}",
+                    f"@extension={_xpath_literal(extension_value)}",
                 )
 
         step = tag_step
-        step += ("[" + " and ".join(predicates) + "]") if predicates \
+        step += (
+            ("[" + " and ".join(predicates) + "]")
+            if predicates
             else f"[{_position_among_siblings(current)}]"
+        )
         steps.append(step)
 
         if local == anchor:
