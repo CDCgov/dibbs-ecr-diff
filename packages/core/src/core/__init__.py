@@ -11,6 +11,7 @@ from .models import (
     ChangeType,
     Configuration,
     DiffingOptions,
+    DiffMode,
     DiffOutput,
     RuleConfig,
 )
@@ -90,7 +91,7 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
 
     with measure_time("Process additions"):
         for after in added:
-            if config.mode == "WATCH":
+            if config.mode == DiffMode.WATCH_LIST:
                 for node, xpath, rule_name, ancestor in find_watched_nodes(
                     after, watched_right_nodes
                 ):
@@ -105,7 +106,7 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
                             else None,
                         )
                     )
-            elif config.mode == "IGNORE":
+            elif config.mode == DiffMode.IGNORE_LIST:
                 if after in watched_right_nodes:
                     continue
 
@@ -120,7 +121,7 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
 
     with measure_time("Process updates"):
         for [before, after] in updated:
-            if config.mode == "WATCH":
+            if config.mode == DiffMode.WATCH_LIST:
                 for node, xpath, rule_name, ancestor in find_watched_nodes(
                     after, watched_right_nodes
                 ):
@@ -141,7 +142,7 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
                             else None,
                         )
                     )
-            elif config.mode == "IGNORE":
+            elif config.mode == DiffMode.IGNORE_LIST:
                 if before in watched_left_nodes or after in watched_right_nodes:
                     continue
 
@@ -156,7 +157,7 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
 
     with measure_time("Process deletions"):
         for before in deleted:
-            if config.mode == "WATCH":
+            if config.mode == DiffMode.WATCH_LIST:
                 for node, xpath, rule_name, ancestor in find_watched_nodes(
                     before, watched_left_nodes
                 ):
@@ -171,7 +172,7 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
                             else None,
                         )
                     )
-            elif config.mode == "IGNORE":
+            elif config.mode == DiffMode.IGNORE_LIST:
                 if before in watched_left_nodes:
                     continue
 
