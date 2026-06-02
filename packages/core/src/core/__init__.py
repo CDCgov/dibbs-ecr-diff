@@ -29,8 +29,8 @@ class DiffOutput(BaseModel):
     changes: list[Change] = []
 
 
-MODE = "WATCH"
-# MODE = "IGNORE"
+# MODE = "WATCH"
+MODE = "IGNORE"
 # XPATHS = [
 #     "/hl7:ClinicalDocument/hl7:component/hl7:structuredBody/hl7:component/hl7:section[hl7:templateId/@root='2.16.840.1.113883.10.20.22.2.5.1']/hl7:entry/hl7:act/hl7:entryRelationship/hl7:observation/hl7:value",
 #     "//hl7:observation[@moodCode = 'EVN']/hl7:value/@displayName",
@@ -53,6 +53,16 @@ def find_watched_nodes(
     root: etree._Element, mapping: dict[etree._Element, dict[str, str]]
 ) -> list[tuple[etree._Element, str, etree._Element | None]]:
     matches = []
+    """
+    Collect all matching nodes from watch/ignore mapping.
+
+    This traverses the given `root` etree._Element
+    and all descendants in document order (root -> leaf)
+    and appends them to the matches list.
+
+    In the case that the matching node is a descendant, the root el
+    is also added to the end of the tuple.
+    """
     if root in mapping:
         matches.append((root, mapping[root]["xpath"], None))
     for descendant in root.iterdescendants():
@@ -88,47 +98,86 @@ def diff_xml(opts: DiffingOptions) -> str:
     )
 
     for after in added:
-        for node, xpath, ancestor in find_watched_nodes(after, watched_right_nodes):
-            diff_output.changes.append(
-                Change(
-                    xpath=xpath,
-                    changeType=ChangeType.ADDED,
-                    xml=build_standalone_xml_string(node),
-                    ancestor_xml=build_standalone_xml_string(ancestor)
-                    if ancestor is not None
-                    else None,
+        if MODE == "WATCH":
+            for node, xpath, ancestor in find_watched_nodes(after, watched_right_nodes):
+                diff_output.changes.append(
+                    Change(
+                        xpath=xpath,
+                        changeType=ChangeType.ADDED,
+                        xml=build_standalone_xml_string(node),
+                        ancestor_xml=build_standalone_xml_string(ancestor)
+                        if ancestor is not None
+                        else None,
+                    )
                 )
-            )
-
-    for [before, after] in updated:
-        for node, xpath, ancestor in find_watched_nodes(after, watched_right_nodes):
-            # the before node should be in the watched left tree
-            # TODO: is this necessary? probably not
-            before_node = find_watched_nodes(before, watched_left_nodes)
-            if before_node is None:
+        elif MODE == "IGNORE":
+            if after in watched_right_nodes:
                 continue
 
             diff_output.changes.append(
                 Change(
-                    xpath=xpath,
+                    xpath=after.getroottree().getpath(after),
+                    changeType=ChangeType.ADDED,
+                    xml=build_standalone_xml_string(after),
+                    ancestor_xml=None,
+                )
+            )
+
+    for [before, after] in updated:
+        if MODE == "WATCH":
+            for node, xpath, ancestor in find_watched_nodes(after, watched_right_nodes):
+                # the before node should be in the watched left tree
+                # TODO: is this necessary? probably not
+                before_node = find_watched_nodes(before, watched_left_nodes)
+                if before_node is None:
+                    continue
+
+                diff_output.changes.append(
+                    Change(
+                        xpath=xpath,
+                        changeType=ChangeType.UPDATED,
+                        xml=build_standalone_xml_string(node),
+                        ancestor_xml=build_standalone_xml_string(ancestor)
+                        if ancestor is not None
+                        else None,
+                    )
+                )
+        elif MODE == "IGNORE":
+            if before in watched_left_nodes or after in watched_right_nodes:
+                continue
+
+            diff_output.changes.append(
+                Change(
+                    xpath=after.getroottree().getpath(after),
                     changeType=ChangeType.UPDATED,
-                    xml=build_standalone_xml_string(node),
-                    ancestor_xml=build_standalone_xml_string(ancestor)
-                    if ancestor is not None
-                    else None,
+                    xml=build_standalone_xml_string(after),
+                    ancestor_xml=None,
                 )
             )
 
     for before in deleted:
-        for node, xpath, ancestor in find_watched_nodes(before, watched_left_nodes):
+        if MODE == "WATCH":
+            for node, xpath, ancestor in find_watched_nodes(before, watched_left_nodes):
+                diff_output.changes.append(
+                    Change(
+                        xpath=xpath,
+                        changeType=ChangeType.DELETED,
+                        xml=build_standalone_xml_string(node),
+                        ancestor_xml=build_standalone_xml_string(ancestor)
+                        if ancestor is not None
+                        else None,
+                    )
+                )
+        elif MODE == "IGNORE":
+            if before in watched_left_nodes:
+                continue
+
             diff_output.changes.append(
                 Change(
-                    xpath=xpath,
+                    xpath=before.getroottree().getpath(before),
                     changeType=ChangeType.DELETED,
-                    xml=build_standalone_xml_string(node),
-                    ancestor_xml=build_standalone_xml_string(ancestor)
-                    if ancestor is not None
-                    else None,
+                    xml=build_standalone_xml_string(before),
+                    ancestor_xml=None,
                 )
             )
 
