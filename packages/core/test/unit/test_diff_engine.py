@@ -1,5 +1,8 @@
 from core.cda_identity import RootExtensionIdentity, stable_key
-from core.diff_engine import collect_additions_updates_deletes
+from core.diff_engine import (
+    _fingerprint_excluding_version_metadata,
+    collect_additions_updates_deletes,
+)
 from helpers import HL7_NS, elem
 
 
@@ -158,6 +161,93 @@ def test_document_version_metadata_is_ignored_by_diff():
     assert added == []
     assert updated == []
     assert deleted == []
+
+
+def test_fingerprint_excluding_version_metadata_ignores_document_version_metadata():
+    before_root = elem(
+        f"""
+        <ClinicalDocument
+            xmlns="{HL7_NS}"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="old-schema">
+          <id root="old-document-id"/>
+          <effectiveTime value="20200101"/>
+          <setId root="same-document-series"/>
+          <versionNumber value="1"/>
+          <component>
+            <observation>
+              <id root="same-observation-id"/>
+              <code code="ASSERTION"/>
+            </observation>
+          </component>
+        </ClinicalDocument>
+        """
+    )
+    after_root = elem(
+        f"""
+        <ClinicalDocument
+            xmlns="{HL7_NS}"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="new-schema">
+          <id root="new-document-id"/>
+          <effectiveTime value="20200102"/>
+          <setId root="same-document-series"/>
+          <versionNumber value="2"/>
+          <relatedDocument typeCode="RPLC">
+            <parentDocument>
+              <id root="old-document-id"/>
+              <setId root="same-document-series"/>
+              <versionNumber value="1"/>
+            </parentDocument>
+          </relatedDocument>
+          <component>
+            <observation>
+              <id root="same-observation-id"/>
+              <code code="ASSERTION"/>
+            </observation>
+          </component>
+        </ClinicalDocument>
+        """
+    )
+
+    assert _fingerprint_excluding_version_metadata(
+        before_root
+    ) == _fingerprint_excluding_version_metadata(after_root)
+
+
+def test_fingerprint_excluding_version_metadata_includes_nested_observation_id():
+    before_root = elem(
+        f"""
+        <ClinicalDocument xmlns="{HL7_NS}">
+          <id root="before-document-id"/>
+          <versionNumber value="1"/>
+          <component>
+            <observation>
+              <id root="before-observation-id"/>
+              <code code="ASSERTION"/>
+            </observation>
+          </component>
+        </ClinicalDocument>
+        """
+    )
+    after_root = elem(
+        f"""
+        <ClinicalDocument xmlns="{HL7_NS}">
+          <id root="after-document-id"/>
+          <versionNumber value="2"/>
+          <component>
+            <observation>
+              <id root="after-observation-id"/>
+              <code code="ASSERTION"/>
+            </observation>
+          </component>
+        </ClinicalDocument>
+        """
+    )
+
+    assert _fingerprint_excluding_version_metadata(
+        before_root
+    ) != _fingerprint_excluding_version_metadata(after_root)
 
 
 def test_clinical_statement_effective_time_is_not_ignored_by_diff():
