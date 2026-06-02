@@ -1,33 +1,12 @@
 """Core Difference in Docs functionality."""
 
-from enum import StrEnum
-
 from lxml import etree
-from pydantic import BaseModel
 
 from core.xml_utils import build_standalone_xml_string
 
 from .constants import HL7_NAMESPACE
 from .diff_engine import collect_additions_updates_deletes
-from .models import DiffingOptions
-
-
-class ChangeType(StrEnum):
-    ADDED = "ADDED"
-    DELETED = "DELETED"
-    UPDATED = "UPDATED"
-
-
-class Change(BaseModel):
-    xpath: str
-    changeType: ChangeType
-    xml: str
-    ancestor_xml: str | None
-
-
-class DiffOutput(BaseModel):
-    changes: list[Change] = []
-
+from .models import Change, ChangeType, DiffingOptions, DiffOutput
 
 # MODE = "WATCH"
 MODE = "IGNORE"
