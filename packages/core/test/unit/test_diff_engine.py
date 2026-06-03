@@ -1,7 +1,8 @@
-from core.cda_identity import (
-    ElementSetKeySource,
-    IdElementSetKey,
+from core.cda_key_models import (
+    DirectChildIdElementSetKey,
     RootExtension,
+)
+from core.cda_stable_key import (
     stable_key,
 )
 from core.diff_engine import (
@@ -116,8 +117,7 @@ def test_added_section_remains_visible_after_nested_section_overlap_match():
     assert [(node.tag, stable_key(node)) for node in added] == [
         (
             f"{{{HL7_NS}}}section",
-            IdElementSetKey(
-                source=ElementSetKeySource.DIRECT_CHILD,
+            DirectChildIdElementSetKey(
                 root_extensions=(RootExtension(root="section-c"),),
             ),
         ),
