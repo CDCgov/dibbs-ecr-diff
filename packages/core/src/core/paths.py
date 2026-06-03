@@ -11,18 +11,23 @@ from typing import Dict, List, Optional
 
 from lxml import etree
 
-from core.cda_identity import (
-    DIRECT_TEMPLATE_ID_TAG,
+from core.cda_key_models import (
     CodeKey,
-    IdAttributeKey,
-    IdAttributeKeySource,
-    IdElementSetKey,
+    DirectChildIdElementSetKey,
+    DirectChildTemplateIdElementSetKey,
+    DirectIdAttributeKey,
+    NestedClinicalStatementIdAttributeKey,
+    NestedClinicalStatementIdElementSetKey,
+    NestedClinicalStatementTemplateIdElementSetKey,
+    NestedSectionIdElementSetKey,
+    NestedSectionTemplateIdElementSetKey,
     RootExtensionKey,
     StableKey,
-    TemplateIdElementSetKey,
+)
+from core.cda_narrative_keys import narrative_row_key, narrative_table_key
+from core.cda_stable_key import (
+    DIRECT_TEMPLATE_ID_TAG,
     _direct_child_root_extensions_for_tag,
-    narrative_row_key,
-    narrative_table_key,
     stable_key,
 )
 from core.constants import HL7_NS, HL7_PREFIX
@@ -99,10 +104,24 @@ def _stable_key_to_label(path_key: StableKey | tuple | None) -> Optional[str]:
 
         return None
 
-    if isinstance(path_key, TemplateIdElementSetKey):
+    if isinstance(
+        path_key,
+        (
+            DirectChildTemplateIdElementSetKey,
+            NestedSectionTemplateIdElementSetKey,
+            NestedClinicalStatementTemplateIdElementSetKey,
+        ),
+    ):
         return _template_root_extensions_to_label(path_key.root_extensions)
 
-    if isinstance(path_key, IdElementSetKey):
+    if isinstance(
+        path_key,
+        (
+            DirectChildIdElementSetKey,
+            NestedClinicalStatementIdElementSetKey,
+            NestedSectionIdElementSetKey,
+        ),
+    ):
         return _root_extensions_to_label("ids", path_key.root_extensions)
 
     if isinstance(path_key, RootExtensionKey):
@@ -114,7 +133,10 @@ def _stable_key_to_label(path_key: StableKey | tuple | None) -> Optional[str]:
     if isinstance(path_key, CodeKey):
         return f"code:code={path_key.code};codeSystem={path_key.code_system}"
 
-    if isinstance(path_key, IdAttributeKey):
+    if isinstance(
+        path_key,
+        (DirectIdAttributeKey, NestedClinicalStatementIdAttributeKey),
+    ):
         return f"attrs:{path_key.name}={path_key.value}"
 
     return None
@@ -242,10 +264,7 @@ def _direct_attribute_stable_key_predicates(
             f"@codeSystem={_xpath_literal(stable_key_value.code_system)}",
         ]
 
-    if (
-        isinstance(stable_key_value, IdAttributeKey)
-        and stable_key_value.source == IdAttributeKeySource.DIRECT
-    ):
+    if isinstance(stable_key_value, DirectIdAttributeKey):
         return [
             f"@{stable_key_value.name}={_xpath_literal(stable_key_value.value)}",
         ]

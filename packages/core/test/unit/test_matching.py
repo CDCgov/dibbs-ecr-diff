@@ -1,4 +1,4 @@
-from core.cda_identity import stable_key
+from core.cda_stable_key import stable_key
 from core.matching import match_children_ignore_order
 from helpers import HL7_NS, elem, observation
 

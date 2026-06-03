@@ -18,37 +18,39 @@ adding or removing conformance identities.
 """
 
 from collections import defaultdict
-from typing import Callable, Dict, List, Tuple, cast
+from typing import Callable, Dict, List, Tuple, TypeAlias, cast
 
 from lxml import etree
 
 import core.config as _cfg
-from core.cda_identity import (
-    ElementSetKeySource,
-    IdElementSetKey,
+from core.cda_fallback_keys import secondary_discriminator, soft_context_key
+from core.cda_key_models import (
+    DirectChildIdElementSetKey,
+    DirectChildTemplateIdElementSetKey,
+    NestedClinicalStatementIdElementSetKey,
+    NestedClinicalStatementTemplateIdElementSetKey,
+    NestedSectionIdElementSetKey,
+    NestedSectionTemplateIdElementSetKey,
     RootExtension,
+    RootExtensionSetKeyBase,
     StableKey,
-    TemplateIdElementSetKey,
-    narrative_row_key,
-    narrative_table_key,
-    secondary_discriminator,
-    soft_context_key,
-    stable_key,
 )
+from core.cda_narrative_keys import narrative_row_key, narrative_table_key
+from core.cda_stable_key import stable_key
 from core.xml_utils import localname
 
-ID_STABLE_KEY_SOURCES = frozenset({
-    ElementSetKeySource.DIRECT_CHILD,
-    ElementSetKeySource.NESTED_CLINICAL_STATEMENT,
-})
-SECTION_ID_STABLE_KEY_SOURCES = frozenset({
-    ElementSetKeySource.NESTED_SECTION,
-})
-TEMPLATE_ID_STABLE_KEY_SOURCES = frozenset({
-    ElementSetKeySource.DIRECT_CHILD,
-    ElementSetKeySource.NESTED_SECTION,
-    ElementSetKeySource.NESTED_CLINICAL_STATEMENT,
-})
+RootExtensionSetKeyTypes: TypeAlias = tuple[type[RootExtensionSetKeyBase], ...]
+
+ID_STABLE_KEY_TYPES: RootExtensionSetKeyTypes = (
+    DirectChildIdElementSetKey,
+    NestedClinicalStatementIdElementSetKey,
+)
+SECTION_ID_STABLE_KEY_TYPES: RootExtensionSetKeyTypes = (NestedSectionIdElementSetKey,)
+TEMPLATE_ID_STABLE_KEY_TYPES: RootExtensionSetKeyTypes = (
+    DirectChildTemplateIdElementSetKey,
+    NestedSectionTemplateIdElementSetKey,
+    NestedClinicalStatementTemplateIdElementSetKey,
+)
 
 # ---------------------------------------------------------------------------
 # Child grouping
@@ -123,13 +125,10 @@ def _prefer_updates_pairing(
 
 def _id_root_extensions_from_stable_key(
         stable_key_value: StableKey | None,
-        allowed_sources: frozenset[ElementSetKeySource],
+        allowed_key_types: RootExtensionSetKeyTypes,
 ) -> tuple[RootExtension, ...]:
-    """Return <id> root/extensions from allowed stable-key sources."""
-    if not isinstance(stable_key_value, IdElementSetKey):
-        return ()
-
-    if stable_key_value.source not in allowed_sources:
+    """Return <id> root/extensions from allowed stable-key classes."""
+    if not isinstance(stable_key_value, allowed_key_types):
         return ()
 
     return stable_key_value.root_extensions
@@ -137,13 +136,10 @@ def _id_root_extensions_from_stable_key(
 
 def _template_id_root_extensions_from_stable_key(
         stable_key_value: StableKey | None,
-        allowed_sources: frozenset[ElementSetKeySource],
+        allowed_key_types: RootExtensionSetKeyTypes,
 ) -> tuple[RootExtension, ...]:
-    """Return <templateId> root/extensions from allowed stable-key sources."""
-    if not isinstance(stable_key_value, TemplateIdElementSetKey):
-        return ()
-
-    if stable_key_value.source not in allowed_sources:
+    """Return <templateId> root/extensions from allowed stable-key classes."""
+    if not isinstance(stable_key_value, allowed_key_types):
         return ()
 
     return stable_key_value.root_extensions
@@ -299,7 +295,7 @@ def _shared_child_id_pairing(
     return _shared_identity_pairing(
         before_list,
         after_list,
-        lambda key: _id_root_extensions_from_stable_key(key, ID_STABLE_KEY_SOURCES),
+        lambda key: _id_root_extensions_from_stable_key(key, ID_STABLE_KEY_TYPES),
     )
 
 
@@ -319,7 +315,7 @@ def _shared_nested_section_id_pairing(
         after_list,
         lambda key: _id_root_extensions_from_stable_key(
             key,
-            SECTION_ID_STABLE_KEY_SOURCES,
+            SECTION_ID_STABLE_KEY_TYPES,
         ),
         require_complete_subset=True,
     )
@@ -334,18 +330,18 @@ def _shared_template_id_pairing(
 
     Template IDs identify CDA conformance/type rather than a specific instance,
     so this fallback is weaker than ID-based matching. Each stable-key kind is
-    matched separately by source so direct templateId keys do not pair with
+    matched separately by key class so direct templateId keys do not pair with
     nested section or nested clinical-statement templateId keys.
     """
     matched_pairs = []
 
-    for source in TEMPLATE_ID_STABLE_KEY_SOURCES:
+    for key_type in TEMPLATE_ID_STABLE_KEY_TYPES:
         template_id_pairs, before_list, after_list = _shared_identity_pairing(
             before_list,
             after_list,
-            lambda key, source=source: _template_id_root_extensions_from_stable_key(
+            lambda key, key_type=key_type: _template_id_root_extensions_from_stable_key(
                 key,
-                frozenset({source}),
+                (key_type,),
             ),
             require_complete_subset=True,
         )
@@ -409,6 +405,8 @@ def match_children_ignore_order(
          2c. Unmatched templateId keys may pair when one templateId set is a
              complete subset of the other
       3. Primary bucket by narrative key / stable key / tag
+         Used when stable keys are missing, duplicated, or too broad to finish
+         one-to-one pairing by themselves.
          3a. Within templateId.root_extensions buckets, apply prefer-updates soft pairing
          3b. Within remaining buckets, use secondary discriminator matching
     """
@@ -499,11 +497,7 @@ def match_children_ignore_order(
             return ("narr_row", row_key)
         elem_stable_key = stable_key(elem)
         if elem_stable_key is not None:
-            if (
-                isinstance(elem_stable_key, TemplateIdElementSetKey)
-                and elem_stable_key.source
-                == ElementSetKeySource.DIRECT_CHILD
-            ):
+            if isinstance(elem_stable_key, DirectChildTemplateIdElementSetKey):
                 return ("templateId.root_extensions", elem_stable_key.root_extensions)
             return ("stable", elem_stable_key)
         return ("tag", elem.tag)

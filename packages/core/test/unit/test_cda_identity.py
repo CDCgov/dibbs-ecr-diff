@@ -1,19 +1,44 @@
-from core.cda_identity import (
-    DIRECT_TEMPLATE_ID_TAG,
+from core.cda_clinical_statement import _clinical_statement_for_identity
+from core.cda_fallback_keys import secondary_discriminator, soft_context_key
+from core.cda_key_models import (
     CodeKey,
-    ElementSetKeySource,
-    IdAttributeKey,
-    IdAttributeKeySource,
-    IdElementSetKey,
+    DirectChildIdElementSetKey,
+    DirectChildTemplateIdElementSetKey,
+    DirectIdAttributeKey,
+    NestedClinicalStatementIdAttributeKey,
+    NestedClinicalStatementIdElementSetKey,
+    NestedClinicalStatementTemplateIdElementSetKey,
+    NestedSectionIdElementSetKey,
+    NestedSectionTemplateIdElementSetKey,
     RootExtension,
     RootExtensionKey,
-    TemplateIdElementSetKey,
-    _clinical_statement_for_identity,
+)
+from core.cda_stable_key import (
+    DIRECT_TEMPLATE_ID_TAG,
     _direct_child_root_extensions_for_tag,
-    soft_context_key,
     stable_key,
 )
 from helpers import HL7_NS, elem, observation
+
+
+def test_id_attribute_key_classes_are_distinct_identity_variants():
+    assert DirectIdAttributeKey(name="ID", value="same-id") != (
+        NestedClinicalStatementIdAttributeKey(name="ID", value="same-id")
+    )
+
+
+def test_root_extension_set_key_classes_are_distinct_identity_variants():
+    root_extensions = (RootExtension(root="same-root", extension="same-extension"),)
+
+    assert DirectChildIdElementSetKey(root_extensions=root_extensions) != (
+        NestedClinicalStatementIdElementSetKey(root_extensions=root_extensions)
+    )
+    assert DirectChildIdElementSetKey(root_extensions=root_extensions) != (
+        NestedSectionIdElementSetKey(root_extensions=root_extensions)
+    )
+    assert DirectChildTemplateIdElementSetKey(root_extensions=root_extensions) != (
+        DirectChildIdElementSetKey(root_extensions=root_extensions)
+    )
 
 
 def test_direct_child_root_extensions_for_tag_sorts_deduplicates_and_skips_missing_root():
@@ -50,8 +75,7 @@ def test_stable_key_uses_order_insensitive_direct_template_id_root_extensions():
     )
 
     assert stable_key(first) == stable_key(second)
-    assert stable_key(first) == TemplateIdElementSetKey(
-        source=ElementSetKeySource.DIRECT_CHILD,
+    assert stable_key(first) == DirectChildTemplateIdElementSetKey(
         root_extensions=(
             RootExtension(root="1"),
             RootExtension(root="2", extension="b"),
@@ -77,8 +101,7 @@ def test_stable_key_prefers_direct_child_id_over_template_ids():
         """
     )
 
-    assert stable_key(element) == IdElementSetKey(
-        source=ElementSetKeySource.DIRECT_CHILD,
+    assert stable_key(element) == DirectChildIdElementSetKey(
         root_extensions=(RootExtension(root="id-a", extension="1"),),
     )
 
@@ -99,8 +122,7 @@ def test_stable_key_uses_order_insensitive_direct_id_children_without_mixing_att
     )
 
     assert stable_key(first) == stable_key(second)
-    assert stable_key(first) == IdElementSetKey(
-        source=ElementSetKeySource.DIRECT_CHILD,
+    assert stable_key(first) == DirectChildIdElementSetKey(
         root_extensions=(
             RootExtension(root="id-a"),
             RootExtension(root="id-b", extension="2"),
@@ -120,8 +142,7 @@ def test_stable_key_uses_template_id_root_extensions_from_nested_sections():
         """
     )
 
-    assert stable_key(component) == TemplateIdElementSetKey(
-        source=ElementSetKeySource.NESTED_SECTION,
+    assert stable_key(component) == NestedSectionTemplateIdElementSetKey(
         root_extensions=(
             RootExtension(root="1"),
             RootExtension(root="2", extension="b"),
@@ -148,8 +169,7 @@ def test_nested_section_template_identities_are_order_insensitive():
     )
 
     assert stable_key(first) == stable_key(second)
-    assert stable_key(first) == TemplateIdElementSetKey(
-        source=ElementSetKeySource.NESTED_SECTION,
+    assert stable_key(first) == NestedSectionTemplateIdElementSetKey(
         root_extensions=(
             RootExtension(root="a"),
             RootExtension(root="b"),
@@ -185,8 +205,7 @@ def test_nested_statement_id_beats_nested_statement_template_ids():
         """
     )
 
-    assert stable_key(entry) == IdElementSetKey(
-        source=ElementSetKeySource.NESTED_CLINICAL_STATEMENT,
+    assert stable_key(entry) == NestedClinicalStatementIdElementSetKey(
         root_extensions=(RootExtension(root="statement-id", extension="1"),),
     )
 
@@ -202,8 +221,7 @@ def test_nested_statement_direct_id_attribute_beats_nested_statement_child_id():
         """
     )
 
-    assert stable_key(entry) == IdAttributeKey(
-        source=IdAttributeKeySource.NESTED_CLINICAL_STATEMENT,
+    assert stable_key(entry) == NestedClinicalStatementIdAttributeKey(
         name="ID",
         value="statement-attribute-id",
     )
@@ -221,8 +239,7 @@ def test_nested_statement_direct_id_attribute_does_not_use_code_attributes():
         """
     )
 
-    assert stable_key(entry) == TemplateIdElementSetKey(
-        source=ElementSetKeySource.NESTED_CLINICAL_STATEMENT,
+    assert stable_key(entry) == NestedClinicalStatementTemplateIdElementSetKey(
         root_extensions=(RootExtension(root="statement-template"),),
     )
 
@@ -239,8 +256,7 @@ def test_nested_section_id_beats_nested_section_template_ids():
         """
     )
 
-    assert stable_key(component) == IdElementSetKey(
-        source=ElementSetKeySource.NESTED_SECTION,
+    assert stable_key(component) == NestedSectionIdElementSetKey(
         root_extensions=(RootExtension(root="section-id", extension="1"),),
     )
 
@@ -264,8 +280,7 @@ def test_nested_section_root_extensions_are_order_insensitive():
     )
 
     assert stable_key(first) == stable_key(second)
-    assert stable_key(first) == IdElementSetKey(
-        source=ElementSetKeySource.NESTED_SECTION,
+    assert stable_key(first) == NestedSectionIdElementSetKey(
         root_extensions=(
             RootExtension(root="a"),
             RootExtension(root="b"),
@@ -402,8 +417,7 @@ def test_organizer_uses_itself_for_clinical_statement_identity():
     )
 
     assert _clinical_statement_for_identity(organizer) is organizer
-    assert stable_key(organizer) == IdElementSetKey(
-        source=ElementSetKeySource.DIRECT_CHILD,
+    assert stable_key(organizer) == DirectChildIdElementSetKey(
         root_extensions=(RootExtension(root="organizer-id", extension="1"),),
     )
 
@@ -430,3 +444,48 @@ def test_soft_context_key_uses_full_direct_template_id_root_extensions():
 
     assert soft_context_key(first) == soft_context_key(second)
     assert soft_context_key(first) != soft_context_key(different_extension)
+
+
+def test_statement_id_fallback_keys_use_root_extension_payloads():
+    element = observation(
+        """
+        <id root="statement-id-root" extension="statement-id-ext"/>
+        """
+    )
+    expected = (
+        "id",
+        (RootExtension(root="statement-id-root", extension="statement-id-ext"),),
+    )
+
+    assert secondary_discriminator(element) == expected
+    assert soft_context_key(element) == expected
+
+
+def test_statement_id_fallback_keys_use_all_complete_direct_id_root_extensions():
+    first = observation(
+        """
+        <id root="statement-b" extension="2"/>
+        <id root="statement-a" extension="1"/>
+        <id root="statement-b" extension="2"/>
+        <id root="root-only-is-ignored"/>
+        <id extension="extension-only-is-ignored"/>
+        """
+    )
+    second = observation(
+        """
+        <id root="statement-a" extension="1"/>
+        <id root="statement-b" extension="2"/>
+        """
+    )
+    expected = (
+        "id",
+        (
+            RootExtension(root="statement-a", extension="1"),
+            RootExtension(root="statement-b", extension="2"),
+        ),
+    )
+
+    assert secondary_discriminator(first) == expected
+    assert secondary_discriminator(first) == secondary_discriminator(second)
+    assert soft_context_key(first) == expected
+    assert soft_context_key(first) == soft_context_key(second)
