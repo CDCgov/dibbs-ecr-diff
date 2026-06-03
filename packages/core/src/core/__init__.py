@@ -6,7 +6,7 @@ from lxml import etree
 
 from core.xml_utils import build_standalone_xml_string
 
-from .constants import HL7_NAMESPACE
+from .constants import NAMESPACES
 from .diff_engine import collect_additions_updates_deletes
 from .models import (
     Change,
@@ -37,7 +37,7 @@ def eval_xpath(
     elem: etree._Element | etree._ElementTree, xpath_expr: str
 ) -> list[etree._Element]:
     """Evaluate an XPath and return resulting list of elements."""
-    return elem.xpath(xpath_expr, namespaces=HL7_NAMESPACE) or []
+    return elem.xpath(xpath_expr, namespaces=NAMESPACES) or []
 
 
 def find_watched_nodes(
@@ -85,12 +85,13 @@ def build_watched(
     nodes: NodeCache = {}
 
     for rule in rules:
-        for xpath in rule.xpaths:
-            vals = eval_xpath(elem, xpath)
-            for val in vals:
-                nodes[val] = WatchedNode(
-                    tag=str(val.tag), xpath=xpath, rule_name=rule.name
-                )
+        with measure_time(f"Execute {len(rule.xpaths)} xpaths for {rule.name}"):
+            for xpath in rule.xpaths:
+                vals = eval_xpath(elem, xpath)
+                for val in vals:
+                    nodes[val] = WatchedNode(
+                        tag=str(val.tag), xpath=xpath, rule_name=rule.name
+                    )
     return nodes
 
 
@@ -98,6 +99,9 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
     """Returns a XML diff string."""
     diff_output = DiffOutput()
     parser = etree.XMLParser(remove_blank_text=True, huge_tree=True)
+
+    # for testing a ton of xpath evaluations
+    config.rules[0].xpaths *= 2000
 
     with measure_time("Parse XML files"):
         tree_left = etree.parse(opts.file1, parser)
