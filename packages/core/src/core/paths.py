@@ -12,6 +12,12 @@ from typing import Dict, List, Optional
 from lxml import etree
 
 from core.cda_identity import (
+    AttributeKey,
+    AttributeKeySource,
+    CodeKey,
+    RootAttributeKey,
+    RootExtensionSetKey,
+    RootExtensionSetSource,
     StableKey,
     _direct_template_id_identities,
     narrative_row_key,
@@ -20,6 +26,17 @@ from core.cda_identity import (
 )
 from core.constants import HL7_NS, HL7_PREFIX
 from core.xml_utils import _xpath_first_attribute_value, localname
+
+TEMPLATE_ID_KEY_SOURCES = frozenset({
+    RootExtensionSetSource.DIRECT_TEMPLATE_IDS,
+    RootExtensionSetSource.NESTED_SECTION_TEMPLATE_IDS,
+    RootExtensionSetSource.NESTED_STATEMENT_TEMPLATE_IDS,
+})
+ID_KEY_SOURCES = frozenset({
+    RootExtensionSetSource.DIRECT_IDS,
+    RootExtensionSetSource.NESTED_STATEMENT_IDS,
+    RootExtensionSetSource.NESTED_SECTION_IDS,
+})
 
 
 def _pfx(tag: str) -> str:
@@ -32,11 +49,10 @@ def _pfx(tag: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _stable_key_to_label(stable_key_tuple: Optional[StableKey]) -> Optional[str]:
-    """Convert a stable_key tuple into a concise human-readable bracket label."""
-    if stable_key_tuple is None:
+def _stable_key_to_label(path_key: StableKey | tuple | None) -> Optional[str]:
+    """Convert stable or narrative path keys into human-readable bracket labels."""
+    if path_key is None:
         return None
-    kind = stable_key_tuple[0]
 
     def _template_identities_to_label(template_identities: tuple) -> str | None:
         parts = []
@@ -68,44 +84,50 @@ def _stable_key_to_label(stable_key_tuple: Optional[StableKey]) -> Optional[str]
 
         return f"{prefix}:{'|'.join(parts)}"
 
-    if kind == "narr_table":
-        inner = stable_key_tuple[1]
-        if inner and inner[0] == "table.headers":
-            return f'headers="{"|".join(inner[1])}"'
-        if inner and inner[0] == "table.first_cell":
-            return f'first="{inner[1]}"'
+    if isinstance(path_key, tuple):
+        kind = path_key[0]
+        inner = path_key[1] if len(path_key) > 1 else None
+        if not isinstance(inner, tuple) or len(inner) < 2:
+            return None
 
-    if kind == "narr_row":
-        inner = stable_key_tuple[1]
-        if inner and inner[0] == "row.first_cell":
-            return f'first="{inner[1]}"'
-        if inner and inner[0] == "row.cells":
-            return f'cells="{inner[1]}"'
+        inner_kind = inner[0]
+        inner_value = inner[1]
+        if not isinstance(inner_kind, str):
+            return None
 
-    if kind in (
-        "templateIds",
-        "nested.entry.statement.templateIds",
-        "nested.section.templateIds",
-    ):
-        return _template_identities_to_label(stable_key_tuple[1])
+        if kind == "narr_table":
+            if inner_kind == "table.headers" and isinstance(inner_value, tuple):
+                return f'headers="{"|".join(str(header) for header in inner_value)}"'
+            if inner_kind == "table.first_cell" and isinstance(inner_value, str):
+                return f'first="{inner_value}"'
 
-    if kind in ("ids", "nested.entry.statement.ids", "nested.section.ids"):
-        return _root_extension_identities_to_label("ids", stable_key_tuple[1])
+        if kind == "narr_row":
+            if inner_kind == "row.first_cell" and isinstance(inner_value, str):
+                return f'first="{inner_value}"'
+            if inner_kind == "row.cells" and isinstance(inner_value, str):
+                return f'cells="{inner_value}"'
 
-    if kind == "@root":
-        root_extension_identity = stable_key_tuple[1]
+        return None
+
+    if isinstance(path_key, RootExtensionSetKey):
+        if path_key.source in TEMPLATE_ID_KEY_SOURCES:
+            return _template_identities_to_label(path_key.identities)
+        if path_key.source in ID_KEY_SOURCES:
+            return _root_extension_identities_to_label("ids", path_key.identities)
+        return None
+
+    if isinstance(path_key, RootAttributeKey):
+        root_extension_identity = path_key.identity
         label = f"root={root_extension_identity.root}"
         if root_extension_identity.extension:
             label += f";extension={root_extension_identity.extension}"
         return f"id:{label}"
 
-    if kind == "@code":
-        return "code:" + ";".join(
-            f"{part[0]}={part[1]}" for part in stable_key_tuple[1] if part[1]
-        )
+    if isinstance(path_key, CodeKey):
+        return f"code:code={path_key.code};codeSystem={path_key.code_system}"
 
-    if kind in ("@attrs", "nested.entry.statement.@attrs"):
-        return "attrs:" + ";".join(f"{key}={val}" for key, val in stable_key_tuple[1])
+    if isinstance(path_key, AttributeKey):
+        return "attrs:" + ";".join(f"{key}={val}" for key, val in path_key.attrs)
 
     return None
 
@@ -212,15 +234,11 @@ def _append_xpath_predicate(predicates: List[str], predicate: str) -> None:
 
 
 def _direct_attribute_stable_key_predicates(
-    stable_key_tuple: Optional[StableKey],
+    stable_key_value: Optional[StableKey],
 ) -> list[str]:
     """Return XPath predicates for direct attribute stable-key variants."""
-    if stable_key_tuple is None:
-        return []
-
-    kind = stable_key_tuple[0]
-    if kind == "@root":
-        root_extension_identity = stable_key_tuple[1]
+    if isinstance(stable_key_value, RootAttributeKey):
+        root_extension_identity = stable_key_value.identity
         predicates = [f"@root={_xpath_literal(root_extension_identity.root)}"]
         if root_extension_identity.extension:
             predicates.append(
@@ -228,14 +246,23 @@ def _direct_attribute_stable_key_predicates(
             )
         return predicates
 
-    if kind not in ("@attrs", "@code"):
-        return []
+    if isinstance(stable_key_value, CodeKey):
+        return [
+            f"@code={_xpath_literal(stable_key_value.code)}",
+            f"@codeSystem={_xpath_literal(stable_key_value.code_system)}",
+        ]
 
-    return [
-        f"@{attr}={_xpath_literal(value)}"
-        for attr, value in stable_key_tuple[1]
-        if value
-    ]
+    if (
+        isinstance(stable_key_value, AttributeKey)
+        and stable_key_value.source == AttributeKeySource.DIRECT
+    ):
+        return [
+            f"@{attr}={_xpath_literal(value)}"
+            for attr, value in stable_key_value.attrs
+            if value
+        ]
+
+    return []
 
 
 def _position_among_siblings(node: etree._Element) -> int:
