@@ -1,15 +1,9 @@
-"""
-core/constants.py
-
-Module-level constants and type aliases shared across all core modules.
-"""
-
-from typing import Tuple
+"""Module-level constants and type aliases shared across all core modules."""
 
 from lxml import etree
 
 # ---------------------------------------------------------------------------
-# Identity key attributes
+# Stable key attributes
 # ---------------------------------------------------------------------------
 
 # Attributes that can participate in stable identity keys when present directly
@@ -19,11 +13,11 @@ from lxml import etree
 #   ID, id             — direct ID attributes
 #   root, extension    — CDA II-style identifiers on id/templateId-like nodes
 #   code, codeSystem   — coded concept keys when both are available
-DIRECT_ID_IDENTITY_ATTRS = ("ID", "id")
+DIRECT_ID_KEY_ATTRS = ("ID", "id")
 ROOT_EXTENSION_KEY_ATTRS = ("root", "extension")
 CODE_KEY_ATTRS = ("code", "codeSystem")
 STRONG_KEY_ATTRS = (
-    *DIRECT_ID_IDENTITY_ATTRS,
+    *DIRECT_ID_KEY_ATTRS,
     *ROOT_EXTENSION_KEY_ATTRS,
     *CODE_KEY_ATTRS,
 )
@@ -41,7 +35,7 @@ WEAK_KEY_ATTRS = ("classCode", "typeCode", "use")
 # ---------------------------------------------------------------------------
 
 # HL7 namespace used throughout CDA/eICR documents
-HL7_NS     = "urn:hl7-org:v3"
+HL7_NS = "urn:hl7-org:v3"
 HL7_PREFIX = "hl7"
 
 # SDTC extension namespace used in CDA/eICR documents.
@@ -74,7 +68,7 @@ XSI_TYPE_ATTR = f"{{{XSI_NS}}}type"
 AddedEntry = etree._Element
 
 # (before_node, after_node) — element present in both trees with changed content
-UpdatedEntry = Tuple[etree._Element, etree._Element]
+UpdatedEntry = tuple[etree._Element, etree._Element]
 
 # the deleted element from the before tree
 DeletedEntry = etree._Element

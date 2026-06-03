@@ -9,8 +9,8 @@ def test_namespace_constants_are_internally_consistent():
     assert constants.XSI_TYPE_ATTR == f"{{{constants.XSI_NS}}}type"
 
 
-def test_identity_key_constants_separate_strong_and_weak_attributes():
-    assert constants.DIRECT_ID_IDENTITY_ATTRS == ("ID", "id")
+def test_stable_key_constants_separate_strong_and_weak_attributes():
+    assert constants.DIRECT_ID_KEY_ATTRS == ("ID", "id")
     assert constants.ROOT_EXTENSION_KEY_ATTRS == ("root", "extension")
     assert constants.CODE_KEY_ATTRS == ("code", "codeSystem")
     assert constants.STRONG_KEY_ATTRS == (
