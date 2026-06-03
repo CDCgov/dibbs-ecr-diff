@@ -1,7 +1,7 @@
 from core.cda_identity import (
-    IdIdentitySetKey,
-    IdIdentitySetSource,
-    RootExtensionIdentity,
+    ElementSetKeySource,
+    IdElementSetKey,
+    RootExtension,
     stable_key,
 )
 from core.diff_engine import (
@@ -116,9 +116,9 @@ def test_added_section_remains_visible_after_nested_section_overlap_match():
     assert [(node.tag, stable_key(node)) for node in added] == [
         (
             f"{{{HL7_NS}}}section",
-            IdIdentitySetKey(
-                source=IdIdentitySetSource.DIRECT_CHILD,
-                identities=(RootExtensionIdentity(root="section-c"),),
+            IdElementSetKey(
+                source=ElementSetKeySource.DIRECT_CHILD,
+                root_extensions=(RootExtension(root="section-c"),),
             ),
         ),
     ]

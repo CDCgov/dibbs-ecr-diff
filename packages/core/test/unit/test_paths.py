@@ -28,7 +28,7 @@ def test_paths_include_all_direct_template_id_identities():
     assert "hl7:templateId[@root='2' and @extension='b']" in x_path
 
 
-def test_paths_include_direct_id_attribute_identity():
+def test_paths_include_direct_id_attribute_key():
     root = elem(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}">

@@ -3,7 +3,7 @@
 from lxml import etree
 
 # ---------------------------------------------------------------------------
-# Identity key attributes
+# Stable key attributes
 # ---------------------------------------------------------------------------
 
 # Attributes that can participate in stable identity keys when present directly
@@ -13,11 +13,11 @@ from lxml import etree
 #   ID, id             — direct ID attributes
 #   root, extension    — CDA II-style identifiers on id/templateId-like nodes
 #   code, codeSystem   — coded concept keys when both are available
-DIRECT_ID_IDENTITY_ATTRS = ("ID", "id")
+DIRECT_ID_KEY_ATTRS = ("ID", "id")
 ROOT_EXTENSION_KEY_ATTRS = ("root", "extension")
 CODE_KEY_ATTRS = ("code", "codeSystem")
 STRONG_KEY_ATTRS = (
-    *DIRECT_ID_IDENTITY_ATTRS,
+    *DIRECT_ID_KEY_ATTRS,
     *ROOT_EXTENSION_KEY_ATTRS,
     *CODE_KEY_ATTRS,
 )

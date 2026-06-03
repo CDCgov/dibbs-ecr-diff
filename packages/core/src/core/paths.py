@@ -12,14 +12,15 @@ from typing import Dict, List, Optional
 from lxml import etree
 
 from core.cda_identity import (
+    DIRECT_TEMPLATE_ID_TAG,
     CodeKey,
     IdAttributeKey,
     IdAttributeKeySource,
-    IdIdentitySetKey,
+    IdElementSetKey,
     RootExtensionKey,
     StableKey,
-    TemplateIdIdentitySetKey,
-    _direct_child_template_id_identities,
+    TemplateIdElementSetKey,
+    _direct_child_root_extensions_for_tag,
     narrative_row_key,
     narrative_table_key,
     stable_key,
@@ -43,12 +44,12 @@ def _stable_key_to_label(path_key: StableKey | tuple | None) -> Optional[str]:
     if path_key is None:
         return None
 
-    def _template_identities_to_label(template_identities: tuple) -> str | None:
+    def _template_root_extensions_to_label(root_extensions: tuple) -> str | None:
         parts = []
-        for template_id_identity in template_identities:
-            part = f"root={template_id_identity.root}"
-            if template_id_identity.extension:
-                part += f";extension={template_id_identity.extension}"
+        for root_extension in root_extensions:
+            part = f"root={root_extension.root}"
+            if root_extension.extension:
+                part += f";extension={root_extension.extension}"
             parts.append(part)
 
         if not parts:
@@ -57,15 +58,15 @@ def _stable_key_to_label(path_key: StableKey | tuple | None) -> Optional[str]:
         prefix = "template" if len(parts) == 1 else "templates"
         return f"{prefix}:{'|'.join(parts)}"
 
-    def _root_extension_identities_to_label(
+    def _root_extensions_to_label(
         prefix: str,
-        root_extension_identities: tuple,
+        root_extensions: tuple,
     ) -> str | None:
         parts = []
-        for root_extension_identity in root_extension_identities:
-            part = f"root={root_extension_identity.root}"
-            if root_extension_identity.extension:
-                part += f";extension={root_extension_identity.extension}"
+        for root_extension in root_extensions:
+            part = f"root={root_extension.root}"
+            if root_extension.extension:
+                part += f";extension={root_extension.extension}"
             parts.append(part)
 
         if not parts:
@@ -98,27 +99,23 @@ def _stable_key_to_label(path_key: StableKey | tuple | None) -> Optional[str]:
 
         return None
 
-    if isinstance(path_key, TemplateIdIdentitySetKey):
-        return _template_identities_to_label(path_key.identities)
+    if isinstance(path_key, TemplateIdElementSetKey):
+        return _template_root_extensions_to_label(path_key.root_extensions)
 
-    if isinstance(path_key, IdIdentitySetKey):
-        return _root_extension_identities_to_label("ids", path_key.identities)
+    if isinstance(path_key, IdElementSetKey):
+        return _root_extensions_to_label("ids", path_key.root_extensions)
 
     if isinstance(path_key, RootExtensionKey):
-        root_extension_identity = path_key.identity
-        label = f"root={root_extension_identity.root}"
-        if root_extension_identity.extension:
-            label += f";extension={root_extension_identity.extension}"
+        label = f"root={path_key.root}"
+        if path_key.extension:
+            label += f";extension={path_key.extension}"
         return f"id:{label}"
 
     if isinstance(path_key, CodeKey):
-        return (
-            f"code:code={path_key.identity.code};"
-            f"codeSystem={path_key.identity.code_system}"
-        )
+        return f"code:code={path_key.code};codeSystem={path_key.code_system}"
 
     if isinstance(path_key, IdAttributeKey):
-        return f"attrs:{path_key.identity.name}={path_key.identity.value}"
+        return f"attrs:{path_key.name}={path_key.value}"
 
     return None
 
@@ -200,15 +197,18 @@ def _xpath_literal(value: str) -> str:
 
 
 def _direct_template_id_predicates(node: etree._Element) -> list[str]:
-    """Return XPath predicates for every direct templateId identity on node."""
+    """Return XPath predicates for every direct templateId root/extension."""
     predicates = []
-    for template_id_identity in _direct_child_template_id_identities(node):
+    for root_extension in _direct_child_root_extensions_for_tag(
+        node,
+        DIRECT_TEMPLATE_ID_TAG,
+    ):
         conditions = [
-            f"@root={_xpath_literal(template_id_identity.root)}",
+            f"@root={_xpath_literal(root_extension.root)}",
         ]
-        if template_id_identity.extension:
+        if root_extension.extension:
             conditions.append(
-                f"@extension={_xpath_literal(template_id_identity.extension)}"
+                f"@extension={_xpath_literal(root_extension.extension)}"
             )
         else:
             conditions.append("(not(@extension) or @extension='')")
@@ -229,18 +229,17 @@ def _direct_attribute_stable_key_predicates(
 ) -> list[str]:
     """Return XPath predicates for direct attribute stable-key variants."""
     if isinstance(stable_key_value, RootExtensionKey):
-        root_extension_identity = stable_key_value.identity
-        predicates = [f"@root={_xpath_literal(root_extension_identity.root)}"]
-        if root_extension_identity.extension:
+        predicates = [f"@root={_xpath_literal(stable_key_value.root)}"]
+        if stable_key_value.extension:
             predicates.append(
-                f"@extension={_xpath_literal(root_extension_identity.extension)}"
+                f"@extension={_xpath_literal(stable_key_value.extension)}"
             )
         return predicates
 
     if isinstance(stable_key_value, CodeKey):
         return [
-            f"@code={_xpath_literal(stable_key_value.identity.code)}",
-            f"@codeSystem={_xpath_literal(stable_key_value.identity.code_system)}",
+            f"@code={_xpath_literal(stable_key_value.code)}",
+            f"@codeSystem={_xpath_literal(stable_key_value.code_system)}",
         ]
 
     if (
@@ -248,8 +247,7 @@ def _direct_attribute_stable_key_predicates(
         and stable_key_value.source == IdAttributeKeySource.DIRECT
     ):
         return [
-            f"@{stable_key_value.identity.name}="
-            f"{_xpath_literal(stable_key_value.identity.value)}",
+            f"@{stable_key_value.name}={_xpath_literal(stable_key_value.value)}",
         ]
 
     return []
