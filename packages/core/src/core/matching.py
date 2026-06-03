@@ -18,16 +18,18 @@ adding or removing conformance identities.
 """
 
 from collections import defaultdict
-from typing import Dict, List, Tuple, cast
+from typing import Callable, Dict, List, Tuple, cast
 
 from lxml import etree
 
 import core.config as _cfg
 from core.cda_identity import (
+    IdIdentitySetKey,
+    IdIdentitySetSource,
     RootExtensionIdentity,
-    RootExtensionSetKey,
-    RootExtensionSetSource,
     StableKey,
+    TemplateIdIdentitySetKey,
+    TemplateIdIdentitySetSource,
     narrative_row_key,
     narrative_table_key,
     secondary_discriminator,
@@ -37,16 +39,16 @@ from core.cda_identity import (
 from core.xml_utils import localname
 
 ID_STABLE_KEY_SOURCES = frozenset({
-    RootExtensionSetSource.DIRECT_IDS,
-    RootExtensionSetSource.NESTED_STATEMENT_IDS,
+    IdIdentitySetSource.DIRECT_CHILD,
+    IdIdentitySetSource.NESTED_CLINICAL_STATEMENT,
 })
 SECTION_ID_STABLE_KEY_SOURCES = frozenset({
-    RootExtensionSetSource.NESTED_SECTION_IDS,
+    IdIdentitySetSource.NESTED_SECTION,
 })
 TEMPLATE_ID_STABLE_KEY_SOURCES = (
-    RootExtensionSetSource.DIRECT_TEMPLATE_IDS,
-    RootExtensionSetSource.NESTED_SECTION_TEMPLATE_IDS,
-    RootExtensionSetSource.NESTED_STATEMENT_TEMPLATE_IDS,
+    TemplateIdIdentitySetSource.DIRECT_CHILD,
+    TemplateIdIdentitySetSource.NESTED_SECTION,
+    TemplateIdIdentitySetSource.NESTED_CLINICAL_STATEMENT,
 )
 
 # ---------------------------------------------------------------------------
@@ -120,12 +122,26 @@ def _prefer_updates_pairing(
     return matched_pairs, unmatched_before, unmatched_after
 
 
-def _root_extension_identities_from_stable_key(
+def _id_identities_from_stable_key(
         stable_key_value: StableKey | None,
-        allowed_sources: frozenset[RootExtensionSetSource],
+        allowed_sources: frozenset[IdIdentitySetSource],
 ) -> tuple[RootExtensionIdentity, ...]:
-    """Return root/extension identities from allowed stable_key variants."""
-    if not isinstance(stable_key_value, RootExtensionSetKey):
+    """Return <id> root/extension identities from allowed stable-key sources."""
+    if not isinstance(stable_key_value, IdIdentitySetKey):
+        return ()
+
+    if stable_key_value.source not in allowed_sources:
+        return ()
+
+    return stable_key_value.identities
+
+
+def _template_id_identities_from_stable_key(
+        stable_key_value: StableKey | None,
+        allowed_sources: frozenset[TemplateIdIdentitySetSource],
+) -> tuple[RootExtensionIdentity, ...]:
+    """Return <templateId> identities from allowed stable-key sources."""
+    if not isinstance(stable_key_value, TemplateIdIdentitySetKey):
         return ()
 
     if stable_key_value.source not in allowed_sources:
@@ -136,7 +152,10 @@ def _root_extension_identities_from_stable_key(
 
 def _index_elements_by_identity(
         elements: List[etree._Element],
-        allowed_sources: frozenset[RootExtensionSetSource],
+        stable_key_identity_extractor: Callable[
+            [StableKey | None],
+            tuple[RootExtensionIdentity, ...],
+        ],
 ) -> tuple[
     Dict[RootExtensionIdentity, List[etree._Element]],
     Dict[int, tuple[RootExtensionIdentity, ...]],
@@ -151,10 +170,7 @@ def _index_elements_by_identity(
     elements_by_id: Dict[int, etree._Element] = {}
 
     for elem in elements:
-        identities = _root_extension_identities_from_stable_key(
-            stable_key(elem),
-            allowed_sources,
-        )
+        identities = stable_key_identity_extractor(stable_key(elem))
         if not identities:
             continue
 
@@ -171,7 +187,10 @@ def _index_elements_by_identity(
 def _shared_identity_pairing(
         before_list: List[etree._Element],
         after_list: List[etree._Element],
-        allowed_sources: frozenset[RootExtensionSetSource],
+        stable_key_identity_extractor: Callable[
+            [StableKey | None],
+            tuple[RootExtensionIdentity, ...],
+        ],
         require_complete_subset: bool = False,
 ) -> Tuple[List[Tuple], List[etree._Element], List[etree._Element]]:
     """
@@ -183,10 +202,10 @@ def _shared_identity_pairing(
     from the smaller identity set must be shared by the larger set.
     """
     before_by_identity, before_identities_by_id, before_elements_by_id = (
-        _index_elements_by_identity(before_list, allowed_sources)
+        _index_elements_by_identity(before_list, stable_key_identity_extractor)
     )
     after_by_identity, after_identities_by_id, after_elements_by_id = (
-        _index_elements_by_identity(after_list, allowed_sources)
+        _index_elements_by_identity(after_list, stable_key_identity_extractor)
     )
 
     candidate_shared_ids: Dict[
@@ -280,7 +299,7 @@ def _shared_child_id_pairing(
     return _shared_identity_pairing(
         before_list,
         after_list,
-        ID_STABLE_KEY_SOURCES,
+        lambda key: _id_identities_from_stable_key(key, ID_STABLE_KEY_SOURCES),
     )
 
 
@@ -298,7 +317,10 @@ def _shared_nested_section_id_pairing(
     return _shared_identity_pairing(
         before_list,
         after_list,
-        SECTION_ID_STABLE_KEY_SOURCES,
+        lambda key: _id_identities_from_stable_key(
+            key,
+            SECTION_ID_STABLE_KEY_SOURCES,
+        ),
         require_complete_subset=True,
     )
 
@@ -313,7 +335,7 @@ def _shared_template_id_pairing(
     Template IDs identify CDA conformance/type rather than a specific instance,
     so this fallback is weaker than ID-based matching. Each stable-key kind is
     matched separately by source so direct templateId keys do not pair with
-    nested section or nested statement templateId keys.
+    nested section or nested clinical-statement templateId keys.
     """
     matched_pairs = []
 
@@ -321,7 +343,10 @@ def _shared_template_id_pairing(
         template_id_pairs, before_list, after_list = _shared_identity_pairing(
             before_list,
             after_list,
-            frozenset({source}),
+            lambda key, source=source: _template_id_identities_from_stable_key(
+                key,
+                frozenset({source}),
+            ),
             require_complete_subset=True,
         )
         matched_pairs.extend(template_id_pairs)
@@ -475,9 +500,9 @@ def match_children_ignore_order(
         elem_stable_key = stable_key(elem)
         if elem_stable_key is not None:
             if (
-                isinstance(elem_stable_key, RootExtensionSetKey)
+                isinstance(elem_stable_key, TemplateIdIdentitySetKey)
                 and elem_stable_key.source
-                == RootExtensionSetSource.DIRECT_TEMPLATE_IDS
+                == TemplateIdIdentitySetSource.DIRECT_CHILD
             ):
                 return ("templateId.identities", elem_stable_key.identities)
             return ("stable", elem_stable_key)

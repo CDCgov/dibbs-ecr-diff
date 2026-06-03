@@ -12,31 +12,20 @@ from typing import Dict, List, Optional
 from lxml import etree
 
 from core.cda_identity import (
-    AttributeKey,
-    AttributeKeySource,
     CodeKey,
-    RootAttributeKey,
-    RootExtensionSetKey,
-    RootExtensionSetSource,
+    IdAttributeKey,
+    IdAttributeKeySource,
+    IdIdentitySetKey,
+    RootExtensionKey,
     StableKey,
-    _direct_template_id_identities,
+    TemplateIdIdentitySetKey,
+    _direct_child_template_id_identities,
     narrative_row_key,
     narrative_table_key,
     stable_key,
 )
 from core.constants import HL7_NS, HL7_PREFIX
 from core.xml_utils import _xpath_first_attribute_value, localname
-
-TEMPLATE_ID_KEY_SOURCES = frozenset({
-    RootExtensionSetSource.DIRECT_TEMPLATE_IDS,
-    RootExtensionSetSource.NESTED_SECTION_TEMPLATE_IDS,
-    RootExtensionSetSource.NESTED_STATEMENT_TEMPLATE_IDS,
-})
-ID_KEY_SOURCES = frozenset({
-    RootExtensionSetSource.DIRECT_IDS,
-    RootExtensionSetSource.NESTED_STATEMENT_IDS,
-    RootExtensionSetSource.NESTED_SECTION_IDS,
-})
 
 
 def _pfx(tag: str) -> str:
@@ -109,14 +98,13 @@ def _stable_key_to_label(path_key: StableKey | tuple | None) -> Optional[str]:
 
         return None
 
-    if isinstance(path_key, RootExtensionSetKey):
-        if path_key.source in TEMPLATE_ID_KEY_SOURCES:
-            return _template_identities_to_label(path_key.identities)
-        if path_key.source in ID_KEY_SOURCES:
-            return _root_extension_identities_to_label("ids", path_key.identities)
-        return None
+    if isinstance(path_key, TemplateIdIdentitySetKey):
+        return _template_identities_to_label(path_key.identities)
 
-    if isinstance(path_key, RootAttributeKey):
+    if isinstance(path_key, IdIdentitySetKey):
+        return _root_extension_identities_to_label("ids", path_key.identities)
+
+    if isinstance(path_key, RootExtensionKey):
         root_extension_identity = path_key.identity
         label = f"root={root_extension_identity.root}"
         if root_extension_identity.extension:
@@ -124,10 +112,13 @@ def _stable_key_to_label(path_key: StableKey | tuple | None) -> Optional[str]:
         return f"id:{label}"
 
     if isinstance(path_key, CodeKey):
-        return f"code:code={path_key.code};codeSystem={path_key.code_system}"
+        return (
+            f"code:code={path_key.identity.code};"
+            f"codeSystem={path_key.identity.code_system}"
+        )
 
-    if isinstance(path_key, AttributeKey):
-        return "attrs:" + ";".join(f"{key}={val}" for key, val in path_key.attrs)
+    if isinstance(path_key, IdAttributeKey):
+        return f"attrs:{path_key.identity.name}={path_key.identity.value}"
 
     return None
 
@@ -211,7 +202,7 @@ def _xpath_literal(value: str) -> str:
 def _direct_template_id_predicates(node: etree._Element) -> list[str]:
     """Return XPath predicates for every direct templateId identity on node."""
     predicates = []
-    for template_id_identity in _direct_template_id_identities(node):
+    for template_id_identity in _direct_child_template_id_identities(node):
         conditions = [
             f"@root={_xpath_literal(template_id_identity.root)}",
         ]
@@ -237,7 +228,7 @@ def _direct_attribute_stable_key_predicates(
     stable_key_value: Optional[StableKey],
 ) -> list[str]:
     """Return XPath predicates for direct attribute stable-key variants."""
-    if isinstance(stable_key_value, RootAttributeKey):
+    if isinstance(stable_key_value, RootExtensionKey):
         root_extension_identity = stable_key_value.identity
         predicates = [f"@root={_xpath_literal(root_extension_identity.root)}"]
         if root_extension_identity.extension:
@@ -248,18 +239,17 @@ def _direct_attribute_stable_key_predicates(
 
     if isinstance(stable_key_value, CodeKey):
         return [
-            f"@code={_xpath_literal(stable_key_value.code)}",
-            f"@codeSystem={_xpath_literal(stable_key_value.code_system)}",
+            f"@code={_xpath_literal(stable_key_value.identity.code)}",
+            f"@codeSystem={_xpath_literal(stable_key_value.identity.code_system)}",
         ]
 
     if (
-        isinstance(stable_key_value, AttributeKey)
-        and stable_key_value.source == AttributeKeySource.DIRECT
+        isinstance(stable_key_value, IdAttributeKey)
+        and stable_key_value.source == IdAttributeKeySource.DIRECT
     ):
         return [
-            f"@{attr}={_xpath_literal(value)}"
-            for attr, value in stable_key_value.attrs
-            if value
+            f"@{stable_key_value.identity.name}="
+            f"{_xpath_literal(stable_key_value.identity.value)}",
         ]
 
     return []
