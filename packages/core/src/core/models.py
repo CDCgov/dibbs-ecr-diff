@@ -28,7 +28,6 @@ class Change(BaseModel):
     # maybe omit the xml in prod mode?
     # or omit entirely for PII reasons
     xml: str
-    ancestor_xml: str | None = None
 
 
 class DiffOutput(BaseModel):

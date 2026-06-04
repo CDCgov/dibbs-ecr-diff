@@ -13,7 +13,6 @@ guide, this is the primary file to modify.
 """
 
 from dataclasses import dataclass
-from enum import StrEnum
 from typing import Optional, Tuple, TypeAlias
 
 from lxml import etree
@@ -78,13 +77,13 @@ ELEMENTS_HAVING_ROOT_EXTENSION_IDENTITY = frozenset(
 
 
 @dataclass(frozen=True, order=True)
-class RootExtension:
+class RootExtensionIdentity:
     """
-    Comparable CDA match fields from root and optional extension.
+    Comparable CDA identity values from root and optional extension.
 
     CDA <id> and <templateId> elements both use root as the main identifier.
     The extension, when present, further qualifies that identifier. Missing
-    extensions are represented as an empty string so fields can be compared
+    extensions are represented as an empty string so identities can be compared
     and sorted consistently.
     """
 
@@ -92,69 +91,9 @@ class RootExtension:
     extension: str = ""
 
 
-class IdAttributeKeySource(StrEnum):
-    """Stable-key sources that use direct ID/id attributes."""
-
-    DIRECT = "direct"
-    NESTED_CLINICAL_STATEMENT = "nested_clinical_statement"
-
-
-class ElementSetKeySource(StrEnum):
-    """Stable-key sources that use root/extension fields from element sets."""
-
-    DIRECT_CHILD = "direct_child"
-    NESTED_CLINICAL_STATEMENT = "nested_clinical_statement"
-    NESTED_SECTION = "nested_section"
-
-
-@dataclass(frozen=True)
-class IdAttributeKey:
-    """Stable key from ID/id attribute fields plus their source."""
-
-    source: IdAttributeKeySource
-    name: str
-    value: str
-
-
-@dataclass(frozen=True)
-class RootExtensionKey:
-    """Stable key from root/extension fields on id-like elements."""
-
-    root: str
-    extension: str = ""
-
-
-@dataclass(frozen=True)
-class CodeKey:
-    """Stable key from code/codeSystem match fields."""
-
-    code: str
-    code_system: str
-
-
-@dataclass(frozen=True)
-class IdElementSetKey:
-    """Stable key from a source plus root/extension fields on <id> elements."""
-
-    source: ElementSetKeySource
-    root_extensions: tuple[RootExtension, ...]
-
-
-@dataclass(frozen=True)
-class TemplateIdElementSetKey:
-    """Stable key from a source plus root/extension fields on <templateId>."""
-
-    source: ElementSetKeySource
-    root_extensions: tuple[RootExtension, ...]
-
-
-StableKey: TypeAlias = (
-    IdAttributeKey
-    | RootExtensionKey
-    | CodeKey
-    | IdElementSetKey
-    | TemplateIdElementSetKey
-)
+TemplateIdIdentities = tuple[RootExtensionIdentity, ...]
+RootExtensionIdentities = tuple[RootExtensionIdentity, ...]
+StableKey: TypeAlias = tuple
 
 # ---------------------------------------------------------------------------
 # CDA clinical-statement navigation helpers
@@ -185,7 +124,7 @@ def _is_cda_clinical_statement(element: etree._Element) -> bool:
     )
 
 
-def _is_cda_single_clinical_statement_wrapper(element: etree._Element) -> bool:
+def _is_cda_single_statement_wrapper(element: etree._Element) -> bool:
     """Return True when element is a CDA wrapper for one clinical statement."""
     return _is_hl7_element_with_local_name(
         element,
@@ -229,135 +168,186 @@ def _clinical_statement_for_identity(
     if _is_cda_clinical_statement(element):
         return element
 
-    if _is_cda_single_clinical_statement_wrapper(element):
+    if _is_cda_single_statement_wrapper(element):
         return _single_direct_clinical_statement_child(element)
 
     return None
 
 
-def _root_extension_from_element(
+def _direct_template_id_identities(
     element: etree._Element,
-) -> Optional[RootExtension]:
-    """Return root/extension fields from one element, or None without root."""
-    root_value = element.get(ROOT_ATTRIBUTE)
-    if not root_value:
-        return None
-
-    return RootExtension(
-        root=root_value,
-        extension=element.get(EXTENSION_ATTRIBUTE) or "",
-    )
-
-
-def _direct_child_root_extensions_for_tag(
-    element: etree._Element,
-    child_tag: str,
-) -> tuple[RootExtension, ...]:
+) -> TemplateIdIdentities:
     """
-    Return sorted root/extensions from direct children matching child_tag.
+    Return exact identities from direct <templateId> children.
 
-    Missing extensions are normalized to an empty string. The returned tuple is
-    sorted and deduplicated so document order and duplicate declarations do not
-    affect the exact key. Children without @root are skipped because they are
-    not useful for identity matching.
+    Each identity is the <templateId>'s root plus optional extension. Missing
+    extensions are normalized to an empty string. The returned tuple is sorted
+    and deduplicated so document order and duplicate declarations do not affect
+    the exact key. Template IDs without @root are skipped because they are not
+    useful for identity matching.
     """
-    root_extensions: set[RootExtension] = set()
+    template_id_identities: set[RootExtensionIdentity] = set()
 
-    for child_element in element.iterchildren(tag=child_tag):
-        root_extension = _root_extension_from_element(child_element)
-        if root_extension is not None:
-            root_extensions.add(root_extension)
+    for template_id_element in element.iterchildren(
+        tag=DIRECT_TEMPLATE_ID_TAG,
+    ):
+        template_id_root = template_id_element.get(ROOT_ATTRIBUTE)
+        if not template_id_root:
+            continue
 
-    return tuple(sorted(root_extensions))
+        template_id_extension = template_id_element.get(EXTENSION_ATTRIBUTE) or ""
+
+        template_id_identities.add(
+            RootExtensionIdentity(
+                root=template_id_root,
+                extension=template_id_extension,
+            ),
+        )
+
+    return tuple(sorted(template_id_identities))
 
 
-def _nested_section_root_extensions_for_tag(
+def _direct_child_id_identities(
     element: etree._Element,
-    *,
-    child_tag: str,
+) -> RootExtensionIdentities:
+    """
+    Return sorted identities from direct <id> children.
+
+    The root and extension are read from the same <id> element. Duplicate IDs
+    are collapsed, and IDs without @root are skipped.
+    """
+    child_id_identities: set[RootExtensionIdentity] = set()
+
+    for child_id_element in element.iterchildren(tag=DIRECT_ID_TAG):
+        child_id_root = child_id_element.get(ROOT_ATTRIBUTE)
+        if not child_id_root:
+            continue
+
+        child_id_identities.add(
+            RootExtensionIdentity(
+                root=child_id_root,
+                extension=child_id_element.get(EXTENSION_ATTRIBUTE) or "",
+            ),
+        )
+
+    return tuple(sorted(child_id_identities))
+
+
+def _nested_section_template_id_identities(
+    element: etree._Element,
     limit: int = 12,
-) -> tuple[RootExtension, ...]:
+) -> TemplateIdIdentities:
     """
-    Return root/extensions collected from descendant sections, or no key if too broad.
+    Return templateId identities from descendant CDA section elements.
 
-    Each descendant section contributes root/extensions from direct children
-    matching child_tag. The complete descendant section root/extension set is
-    only used when it stays small enough to be a useful wrapper key. If the set
-    grows beyond limit, return no key rather than a document-order-dependent
-    partial key.
+    Nested section identity is only used when the complete descendant section
+    templateId set is small enough to be a useful wrapper key. If the set grows
+    beyond limit, return no key rather than a document-order-dependent partial
+    key.
     """
     if limit <= 0:
         return ()
 
-    nested_section_root_extensions: set[RootExtension] = set()
+    template_id_identities: set[RootExtensionIdentity] = set()
 
     for section_element in element.iterdescendants(tag=SECTION_TAG):
-        nested_section_root_extensions.update(
-            _direct_child_root_extensions_for_tag(section_element, child_tag)
+        template_id_identities.update(
+            _direct_template_id_identities(section_element),
         )
-        if len(nested_section_root_extensions) > limit:
+        if len(template_id_identities) > limit:
             return ()
 
-    return tuple(sorted(nested_section_root_extensions))
+    return tuple(sorted(template_id_identities))
 
 
-def _id_attribute_key(elem: etree._Element) -> Optional[IdAttributeKey]:
-    """Return a standalone ID/id attribute key, if present."""
+def _nested_section_id_identities(
+    element: etree._Element,
+    limit: int = 12,
+) -> RootExtensionIdentities:
+    """
+    Return direct <id> identities from descendant CDA section elements.
+
+    Nested section identity is only used when the complete descendant section
+    ID set is small enough to be a useful wrapper key. If the set grows beyond
+    limit, return no key rather than a document-order-dependent partial key.
+    """
+    if limit <= 0:
+        return ()
+
+    id_identities: set[RootExtensionIdentity] = set()
+
+    for section_element in element.iterdescendants(tag=SECTION_TAG):
+        id_identities.update(
+            _direct_child_id_identities(section_element),
+        )
+        if len(id_identities) > limit:
+            return ()
+
+    return tuple(sorted(id_identities))
+
+
+def _direct_id_attribute_identity(elem: etree._Element) -> Optional[StableKey]:
+    """Return standalone direct ID/id attribute identity, if present."""
     for attr in DIRECT_ID_KEY_ATTRS:
         attr_value = elem.get(attr)
         if attr_value:
-            return IdAttributeKey(
-                source=IdAttributeKeySource.DIRECT,
-                name=attr,
-                value=attr_value,
-            )
+            return ("@attrs", ((attr, attr_value),))
     return None
 
 
-def _root_extension_key(elem: etree._Element) -> Optional[RootExtensionKey]:
-    """Return a direct root/extension key for matching CDA element names."""
+def _root_extension_attribute_identity(elem: etree._Element) -> Optional[StableKey]:
+    """Return direct root/extension identity for matching CDA element names."""
     if localname(elem) not in ELEMENTS_HAVING_ROOT_EXTENSION_IDENTITY:
         return None
 
-    root_extension = _root_extension_from_element(elem)
-    if root_extension is None:
+    root_value = elem.get(ROOT_ATTRIBUTE)
+    if not root_value:
         return None
 
-    return RootExtensionKey(
-        root=root_extension.root,
-        extension=root_extension.extension,
-    )
+    parts = [(ROOT_ATTRIBUTE, root_value)]
+    extension_value = elem.get(EXTENSION_ATTRIBUTE)
+    if extension_value:
+        parts.append((EXTENSION_ATTRIBUTE, extension_value))
+
+    return ("@root", tuple(parts))
 
 
-def _code_key(elem: etree._Element) -> Optional[CodeKey]:
-    """Return a direct coded-concept key only when codeSystem is present."""
+def _code_attribute_identity(elem: etree._Element) -> Optional[StableKey]:
+    """Return direct coded-concept identity only when codeSystem is present."""
     code_value = elem.get(CODE_ATTRIBUTE)
     code_system = elem.get(CODE_SYSTEM_ATTRIBUTE)
     if not (code_value and code_system):
         return None
 
-    return CodeKey(code=code_value, code_system=code_system)
+    return (
+        "@code",
+        (
+            (CODE_ATTRIBUTE, code_value),
+            (CODE_SYSTEM_ATTRIBUTE, code_system),
+        ),
+    )
 
 
-def _attribute_key(elem: etree._Element) -> Optional[StableKey]:
+def _direct_attribute_identity(elem: etree._Element) -> Optional[StableKey]:
     """
-    Return an attribute-derived key for elem, if present.
+    Return true direct-attribute identity for elem, if present.
 
-    ID/id attributes are standalone keys. CDA root/extension attributes are
-    only treated as keys on id/templateId-like elements, and code is only
-    treated as a key when codeSystem is present on the same element.
+    Direct ID/id attributes are standalone identities. CDA root/extension
+    attributes are only treated as direct identities on id/templateId-like
+    elements, and code is only treated as direct identity when codeSystem is
+    present on the same element.
     """
-    id_attribute_key = _id_attribute_key(elem)
-    if id_attribute_key:
-        return id_attribute_key
+    direct_id_identity = _direct_id_attribute_identity(elem)
+    if direct_id_identity:
+        return direct_id_identity
 
-    root_extension_key = _root_extension_key(elem)
-    if root_extension_key:
-        return root_extension_key
+    root_extension_identity = _root_extension_attribute_identity(elem)
+    if root_extension_identity:
+        return root_extension_identity
 
-    code_key = _code_key(elem)
-    if code_key:
-        return code_key
+    code_identity = _code_attribute_identity(elem)
+    if code_identity:
+        return code_identity
 
     return None
 
@@ -433,91 +423,57 @@ def stable_key(elem: etree._Element) -> Optional[StableKey]:
     tried from most to least specific; the first match wins.
 
     Priority:
-      1. Element's own true direct attribute keys
+      1. Element's own true direct identity attributes
       2. Direct child <id> root + optional extension identities
-      3. Nested clinical statement direct ID/id attribute key
+      3. Nested clinical statement direct ID/id attribute identity
       4. Nested clinical statement child <id> identities
       5. Nested section <id> identities
       6. Direct child <templateId> root + extension identities
       7. Nested section templateId root + extension identities
       8. Nested clinical statement templateId root + extension identities
     """
-    attribute_key = _attribute_key(elem)
-    if attribute_key:
-        return attribute_key
+    direct_attribute_identity = _direct_attribute_identity(elem)
+    if direct_attribute_identity:
+        return direct_attribute_identity
 
-    child_id_root_extensions = _direct_child_root_extensions_for_tag(
-        elem,
-        DIRECT_ID_TAG,
-    )
-    if child_id_root_extensions:
-        return IdElementSetKey(
-            source=ElementSetKeySource.DIRECT_CHILD,
-            root_extensions=child_id_root_extensions,
-        )
+    child_id_identities = _direct_child_id_identities(elem)
+    if child_id_identities:
+        return ("ids", child_id_identities)
 
     clinical_statement_element = _clinical_statement_for_identity(elem)
     if clinical_statement_element is not None:
-        stmt_id_attribute_key = _id_attribute_key(
+        stmt_direct_id_identity = _direct_id_attribute_identity(
             clinical_statement_element,
         )
-        if stmt_id_attribute_key:
-            return IdAttributeKey(
-                source=IdAttributeKeySource.NESTED_CLINICAL_STATEMENT,
-                name=stmt_id_attribute_key.name,
-                value=stmt_id_attribute_key.value,
-            )
+        if stmt_direct_id_identity:
+            return ("nested.entry.statement.@attrs", stmt_direct_id_identity[1])
 
-        stmt_child_id_root_extensions = _direct_child_root_extensions_for_tag(
+        stmt_child_id_identities = _direct_child_id_identities(
             clinical_statement_element,
-            DIRECT_ID_TAG,
         )
-        if stmt_child_id_root_extensions:
-            return IdElementSetKey(
-                source=ElementSetKeySource.NESTED_CLINICAL_STATEMENT,
-                root_extensions=stmt_child_id_root_extensions,
-            )
+        if stmt_child_id_identities:
+            return ("nested.entry.statement.ids", stmt_child_id_identities)
 
-    nested_section_id_root_extensions = _nested_section_root_extensions_for_tag(
-        elem,
-        child_tag=DIRECT_ID_TAG,
-    )
-    if nested_section_id_root_extensions:
-        return IdElementSetKey(
-            source=ElementSetKeySource.NESTED_SECTION,
-            root_extensions=nested_section_id_root_extensions,
-        )
+    section_id_identities = _nested_section_id_identities(elem)
+    if section_id_identities:
+        return ("nested.section.ids", section_id_identities)
 
-    child_template_id_root_extensions = _direct_child_root_extensions_for_tag(
-        elem,
-        DIRECT_TEMPLATE_ID_TAG,
-    )
-    if child_template_id_root_extensions:
-        return TemplateIdElementSetKey(
-            source=ElementSetKeySource.DIRECT_CHILD,
-            root_extensions=child_template_id_root_extensions,
-        )
+    template_id_identities = _direct_template_id_identities(elem)
+    if template_id_identities:
+        return ("templateIds", template_id_identities)
 
-    nested_section_template_id_root_extensions = _nested_section_root_extensions_for_tag(
+    section_template_id_identities = _nested_section_template_id_identities(
         elem,
-        child_tag=DIRECT_TEMPLATE_ID_TAG,
     )
-    if nested_section_template_id_root_extensions:
-        return TemplateIdElementSetKey(
-            source=ElementSetKeySource.NESTED_SECTION,
-            root_extensions=nested_section_template_id_root_extensions,
-        )
+    if section_template_id_identities:
+        return ("nested.section.templateIds", section_template_id_identities)
 
     if clinical_statement_element is not None:
-        stmt_template_id_root_extensions = _direct_child_root_extensions_for_tag(
+        stmt_template_id_identities = _direct_template_id_identities(
             clinical_statement_element,
-            DIRECT_TEMPLATE_ID_TAG,
         )
-        if stmt_template_id_root_extensions:
-            return TemplateIdElementSetKey(
-                source=ElementSetKeySource.NESTED_CLINICAL_STATEMENT,
-                root_extensions=stmt_template_id_root_extensions,
-            )
+        if stmt_template_id_identities:
+            return ("nested.entry.statement.templateIds", stmt_template_id_identities)
 
     return None
 
@@ -676,16 +632,13 @@ def _organizer_context(elem: etree._Element) -> tuple:
             id_pair = _statement_id_pair(current)
             if id_pair:
                 return ("organizer.id", id_pair)
-            template_id_root_extensions = _direct_child_root_extensions_for_tag(
-                current,
-                DIRECT_TEMPLATE_ID_TAG,
-            )
+            template_id_identities = _direct_template_id_identities(current)
             code_pair = _statement_code_pair(current) or ("", "")
             effective_time = _statement_effective_time(current) or ("", "")
             return (
                 "organizer.ctx",
                 (
-                    template_id_root_extensions,
+                    template_id_identities,
                     code_pair,
                     effective_time,
                 ),
@@ -706,11 +659,8 @@ def soft_context_key(elem: etree._Element) -> Optional[tuple]:
     if id_pair:
         return ("id", id_pair)
 
-    template_id_root_extensions = _direct_child_root_extensions_for_tag(
-        elem,
-        DIRECT_TEMPLATE_ID_TAG,
-    )
-    if not template_id_root_extensions:
+    template_id_identities = _direct_template_id_identities(elem)
+    if not template_id_identities:
         return None
 
     effective_time = _statement_effective_time(elem) or ("", "")
@@ -719,7 +669,7 @@ def soft_context_key(elem: etree._Element) -> Optional[tuple]:
     return (
         "ctx",
         (
-            template_id_root_extensions,
+            template_id_identities,
             effective_time,
             organizer,
             code_pair,
