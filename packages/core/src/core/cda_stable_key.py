@@ -4,7 +4,7 @@ from typing import Optional
 
 from lxml import etree
 
-from core.cda_clinical_statement import clinical_statement_element_for_identity
+from core.cda_clinical_statement import clinical_statement_element_for_key_derivation
 from core.cda_key_models import (
     CodeKey,
     DirectChildIdElementSetKey,
@@ -31,7 +31,7 @@ from core.constants import (
 from core.xml_utils import localname
 
 CODE_ATTRIBUTE, CODE_SYSTEM_ATTRIBUTE = CODE_KEY_ATTRS
-ELEMENTS_HAVING_ROOT_EXTENSION_IDENTITY = frozenset(
+ELEMENT_LOCAL_NAMES_HAVING_ROOT_EXTENSION_KEYS = frozenset(
     {
         "id",
         "templateId",
@@ -54,7 +54,7 @@ def _id_attribute_key(elem: etree._Element) -> Optional[DirectIdAttributeKey]:
 
 def _root_extension_key(elem: etree._Element) -> Optional[RootExtensionKey]:
     """Return a direct root/extension key for matching CDA element names."""
-    if localname(elem) not in ELEMENTS_HAVING_ROOT_EXTENSION_IDENTITY:
+    if localname(elem) not in ELEMENT_LOCAL_NAMES_HAVING_ROOT_EXTENSION_KEYS:
         return None
 
     root_extension = root_extension_from_element(elem)
@@ -102,20 +102,20 @@ def _attribute_key(elem: etree._Element) -> Optional[StableKey]:
 
 def stable_key(elem: etree._Element) -> Optional[StableKey]:
     """
-    Derive the most specific stable identity key available for elem.
+    Derive the most specific stable match key available for elem.
 
     The key is used to match elements across before/after versions.  Keys are
     tried from most to least specific; the first match wins.
 
     Priority:
       1. Element's own true direct attribute keys
-      2. Direct child <id> root + optional extension identities
+      2. Direct child <id> root + optional extension keys
       3. Nested clinical statement direct ID/id attribute key
-      4. Nested clinical statement child <id> identities
-      5. Nested section <id> identities
-      6. Direct child <templateId> root + extension identities
-      7. Nested section templateId root + extension identities
-      8. Nested clinical statement templateId root + extension identities
+      4. Nested clinical statement child <id> keys
+      5. Nested section <id> keys
+      6. Direct child <templateId> root + extension keys
+      7. Nested section templateId root + extension keys
+      8. Nested clinical statement templateId root + extension keys
     """
     attribute_key = _attribute_key(elem)
     if attribute_key:
@@ -130,7 +130,7 @@ def stable_key(elem: etree._Element) -> Optional[StableKey]:
             root_extensions=child_id_root_extensions,
         )
 
-    clinical_statement_element = clinical_statement_element_for_identity(elem)
+    clinical_statement_element = clinical_statement_element_for_key_derivation(elem)
     if clinical_statement_element is not None:
         stmt_id_attribute_key = _id_attribute_key(
             clinical_statement_element,

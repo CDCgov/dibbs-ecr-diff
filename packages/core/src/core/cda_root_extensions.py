@@ -33,7 +33,7 @@ def direct_child_root_extensions_for_tag(
     Missing extensions are normalized to an empty string. The returned tuple is
     sorted and deduplicated so document order and duplicate declarations do not
     affect the exact key. Children without @root are skipped because they are
-    not useful for identity matching.
+    not useful for key matching.
     """
     root_extensions: set[RootExtension] = set()
 

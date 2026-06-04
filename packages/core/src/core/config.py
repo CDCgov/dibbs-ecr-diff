@@ -1,7 +1,7 @@
 """
 core/config.py
 
-Runtime configuration flags set by the CLI and read by matching/identity modules.
+Runtime configuration flags set by the CLI and read by matching/key modules.
 
 Keeping these as module-level variables (rather than threading them through every
 function signature) avoids cluttering the internal APIs.  The CLI sets them once
