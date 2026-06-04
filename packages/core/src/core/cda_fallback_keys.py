@@ -4,19 +4,16 @@ from typing import Optional, Tuple
 
 from lxml import etree
 
-from core.cda_clinical_statement import clinical_statement_identity_element
+from core.cda_clinical_statement import clinical_statement_element_for_identity
 from core.cda_key_models import RootExtension
 from core.cda_narrative_keys import narrative_row_key, narrative_table_key
-from core.cda_stable_key import (
-    CODE_ATTRIBUTE,
-    CODE_SYSTEM_ATTRIBUTE,
-    DIRECT_ID_TAG,
-    DIRECT_TEMPLATE_ID_TAG,
+from core.cda_root_extensions import (
     EXTENSION_ATTRIBUTE,
     ROOT_ATTRIBUTE,
-    _direct_child_root_extensions_for_tag,
+    direct_child_root_extensions_for_tag,
 )
-from core.constants import WEAK_KEY_ATTRS
+from core.cda_tags import ID_TAG, TEMPLATE_ID_TAG
+from core.constants import CODE_KEY_ATTRS, WEAK_KEY_ATTRS
 from core.xml_utils import (
     _complete_attribute_pair,
     _xpath_first_attribute_value,
@@ -24,6 +21,8 @@ from core.xml_utils import (
     fingerprint,
     localname,
 )
+
+CODE_ATTRIBUTE, CODE_SYSTEM_ATTRIBUTE = CODE_KEY_ATTRS
 
 
 def _complete_root_extension_from_element(
@@ -44,7 +43,7 @@ def _complete_root_extensions_from_direct_id_children(
     """Return sorted direct <id> root/extensions with both attributes present."""
     root_extensions: set[RootExtension] = set()
 
-    for id_element in element.iterchildren(tag=DIRECT_ID_TAG):
+    for id_element in element.iterchildren(tag=ID_TAG):
         root_extension = _complete_root_extension_from_element(id_element)
         if root_extension:
             root_extensions.add(root_extension)
@@ -58,11 +57,11 @@ def _statement_id_root_extensions(
     """
     Return complete direct <id> root/extensions for statement fallback matching.
 
-    Prefer IDs from the clinical statement itself when elem is a single-statement
+    Prefer IDs from the clinical statement itself when elem is a direct-statement
     wrapper; fall back to elem's own direct IDs when no complete statement IDs
     are available.
     """
-    clinical_statement_element = clinical_statement_identity_element(elem)
+    clinical_statement_element = clinical_statement_element_for_identity(elem)
     if clinical_statement_element is not None:
         root_extensions = _complete_root_extensions_from_direct_id_children(
             clinical_statement_element,
@@ -74,7 +73,7 @@ def _statement_id_root_extensions(
 
 def _statement_code_pair(elem: etree._Element) -> Optional[Tuple[str, str]]:
     """Return (code, codeSystem) from the clinical statement's <code>, or None."""
-    clinical_statement_element = clinical_statement_identity_element(elem)
+    clinical_statement_element = clinical_statement_element_for_identity(elem)
     if clinical_statement_element is not None:
         pair = _complete_attribute_pair(
             _xpath_first_element(clinical_statement_element, "./hl7:code"),
@@ -130,7 +129,7 @@ def _statement_effective_time(elem: etree._Element) -> Optional[tuple]:
     Return an effectiveTime discriminator from the nested clinical statement
     if present, otherwise from elem itself.
     """
-    clinical_statement_element = clinical_statement_identity_element(elem)
+    clinical_statement_element = clinical_statement_element_for_identity(elem)
     if clinical_statement_element is not None:
         effective_time = _effective_time_discriminator(clinical_statement_element)
         if effective_time:
@@ -206,9 +205,9 @@ def _organizer_context(elem: etree._Element) -> tuple:
             id_root_extensions = _statement_id_root_extensions(current)
             if id_root_extensions:
                 return ("organizer.id", id_root_extensions)
-            template_id_root_extensions = _direct_child_root_extensions_for_tag(
+            template_id_root_extensions = direct_child_root_extensions_for_tag(
                 current,
-                DIRECT_TEMPLATE_ID_TAG,
+                TEMPLATE_ID_TAG,
             )
             code_pair = _statement_code_pair(current) or ("", "")
             effective_time = _statement_effective_time(current) or ("", "")
@@ -237,9 +236,9 @@ def soft_context_key(elem: etree._Element) -> Optional[tuple]:
     if id_root_extensions:
         return ("id", id_root_extensions)
 
-    template_id_root_extensions = _direct_child_root_extensions_for_tag(
+    template_id_root_extensions = direct_child_root_extensions_for_tag(
         elem,
-        DIRECT_TEMPLATE_ID_TAG,
+        TEMPLATE_ID_TAG,
     )
     if not template_id_root_extensions:
         return None
