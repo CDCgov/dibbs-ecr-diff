@@ -5,6 +5,7 @@ from core.cda_key_models import (
 from core.cda_stable_key import (
     stable_key,
 )
+from core.constants import hl7_clark_tag
 from core.diff_engine import (
     _fingerprint_excluding_version_metadata,
     collect_additions_updates_deletes,
@@ -43,7 +44,7 @@ def test_added_child_id_remains_visible_after_parent_overlap_match():
     )
 
     assert [(node.tag, node.get("root")) for node in added] == [
-        (f"{{{HL7_NS}}}id", "new-id"),
+        (hl7_clark_tag("id"), "new-id"),
     ]
     assert updated == []
     assert deleted == []
@@ -80,7 +81,7 @@ def test_added_template_id_remains_visible_after_parent_subset_match():
     )
 
     assert [(node.tag, node.get("root")) for node in added] == [
-        (f"{{{HL7_NS}}}templateId", "template-b"),
+        (hl7_clark_tag("templateId"), "template-b"),
     ]
     assert updated == []
     assert deleted == []
@@ -116,9 +117,61 @@ def test_added_section_remains_visible_after_nested_section_overlap_match():
 
     assert [(node.tag, stable_key(node)) for node in added] == [
         (
-            f"{{{HL7_NS}}}section",
+            hl7_clark_tag("section"),
             DirectChildIdElementSetKey(
                 root_extensions=(RootExtension(root="section-c"),),
+            ),
+        ),
+    ]
+    assert updated == []
+    assert deleted == []
+
+
+def test_added_direct_statement_remains_visible_after_parent_statement_set_match():
+    before_root = elem(
+        f"""
+        <ClinicalDocument xmlns="{HL7_NS}">
+          <component>
+            <entry>
+              <observation><id root="statement-a"/></observation>
+              <observation><id root="statement-b"/></observation>
+            </entry>
+            <entry>
+              <observation><id root="statement-x"/></observation>
+              <observation><id root="statement-y"/></observation>
+            </entry>
+          </component>
+        </ClinicalDocument>
+        """
+    )
+    after_root = elem(
+        f"""
+        <ClinicalDocument xmlns="{HL7_NS}">
+          <component>
+            <entry>
+              <observation><id root="statement-x"/></observation>
+              <observation><id root="statement-y"/></observation>
+            </entry>
+            <entry>
+              <observation><id root="statement-a"/></observation>
+              <observation><id root="statement-b"/></observation>
+              <observation><id root="statement-z"/></observation>
+            </entry>
+          </component>
+        </ClinicalDocument>
+        """
+    )
+
+    added, updated, deleted = collect_additions_updates_deletes(
+        before_root,
+        after_root,
+    )
+
+    assert [(node.tag, stable_key(node)) for node in added] == [
+        (
+            hl7_clark_tag("observation"),
+            DirectChildIdElementSetKey(
+                root_extensions=(RootExtension(root="statement-z"),),
             ),
         ),
     ]
@@ -293,6 +346,6 @@ def test_clinical_statement_effective_time_is_not_ignored_by_diff():
 
     assert added == []
     assert len(updated) == 1
-    assert updated[0][0].tag == f"{{{HL7_NS}}}effectiveTime"
-    assert updated[0][1].tag == f"{{{HL7_NS}}}effectiveTime"
+    assert updated[0][0].tag == hl7_clark_tag("effectiveTime")
+    assert updated[0][1].tag == hl7_clark_tag("effectiveTime")
     assert deleted == []

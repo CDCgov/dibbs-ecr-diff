@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 
 from lxml import etree
 
-from core.cda_clinical_statement import _clinical_statement_for_identity
+from core.cda_clinical_statement import clinical_statement_identity_element
 from core.cda_key_models import RootExtension
 from core.cda_narrative_keys import narrative_row_key, narrative_table_key
 from core.cda_stable_key import (
@@ -62,7 +62,7 @@ def _statement_id_root_extensions(
     wrapper; fall back to elem's own direct IDs when no complete statement IDs
     are available.
     """
-    clinical_statement_element = _clinical_statement_for_identity(elem)
+    clinical_statement_element = clinical_statement_identity_element(elem)
     if clinical_statement_element is not None:
         root_extensions = _complete_root_extensions_from_direct_id_children(
             clinical_statement_element,
@@ -74,7 +74,7 @@ def _statement_id_root_extensions(
 
 def _statement_code_pair(elem: etree._Element) -> Optional[Tuple[str, str]]:
     """Return (code, codeSystem) from the clinical statement's <code>, or None."""
-    clinical_statement_element = _clinical_statement_for_identity(elem)
+    clinical_statement_element = clinical_statement_identity_element(elem)
     if clinical_statement_element is not None:
         pair = _complete_attribute_pair(
             _xpath_first_element(clinical_statement_element, "./hl7:code"),
@@ -130,7 +130,7 @@ def _statement_effective_time(elem: etree._Element) -> Optional[tuple]:
     Return an effectiveTime discriminator from the nested clinical statement
     if present, otherwise from elem itself.
     """
-    clinical_statement_element = _clinical_statement_for_identity(elem)
+    clinical_statement_element = clinical_statement_identity_element(elem)
     if clinical_statement_element is not None:
         effective_time = _effective_time_discriminator(clinical_statement_element)
         if effective_time:
