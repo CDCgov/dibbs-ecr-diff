@@ -46,6 +46,27 @@ SDTC_PREFIX = "sdtc"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
 XSI_PREFIX = "xsi"
 
+
+def clark_tag(namespace_uri: str, local_name: str) -> str:
+    """Return an expanded XML name in lxml Clark notation."""
+    return f"{{{namespace_uri}}}{local_name}"
+
+
+def hl7_clark_tag(local_name: str) -> str:
+    """Return an HL7/CDA expanded name in lxml Clark notation."""
+    return clark_tag(HL7_NS, local_name)
+
+
+def sdtc_clark_tag(local_name: str) -> str:
+    """Return an SDTC expanded name in lxml Clark notation."""
+    return clark_tag(SDTC_NS, local_name)
+
+
+def xsi_clark_tag(local_name: str) -> str:
+    """Return an XML Schema instance expanded name in lxml Clark notation."""
+    return clark_tag(XSI_NS, local_name)
+
+
 # Passed as namespaces= to every .xpath() call so we can write hl7:tag
 # instead of *[local-name()='tag']
 HL7_NAMESPACE = {HL7_PREFIX: HL7_NS}
@@ -57,8 +78,6 @@ NAMESPACES = {
     SDTC_PREFIX: SDTC_NS,
     XSI_PREFIX: XSI_NS,
 }
-
-XSI_TYPE_ATTR = f"{{{XSI_NS}}}type"
 
 # ---------------------------------------------------------------------------
 # Type aliases

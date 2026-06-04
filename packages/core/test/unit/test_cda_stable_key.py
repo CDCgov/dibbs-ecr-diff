@@ -320,3 +320,60 @@ def test_unrelated_descendant_id_is_not_stable_identity():
     )
 
     assert stable_key(wrapper) is None
+
+
+def test_stable_key_does_not_use_multi_entry_container_statement_identity():
+    section = elem(
+        f"""
+        <section xmlns="{HL7_NS}">
+          <entry>
+            <observation classCode="OBS" moodCode="EVN">
+              <id root="first"/>
+            </observation>
+          </entry>
+          <entry>
+            <observation classCode="OBS" moodCode="EVN">
+              <id root="second"/>
+            </observation>
+          </entry>
+        </section>
+        """
+    )
+
+    assert stable_key(section) is None
+
+
+def test_stable_key_does_not_use_wrapper_with_multiple_direct_statements():
+    entry = elem(
+        f"""
+        <entry xmlns="{HL7_NS}">
+          <observation classCode="OBS" moodCode="EVN">
+            <id root="first"/>
+          </observation>
+          <observation classCode="OBS" moodCode="EVN">
+            <id root="second"/>
+          </observation>
+        </entry>
+        """
+    )
+
+    assert stable_key(entry) is None
+
+
+def test_stable_key_uses_organizer_itself_for_clinical_statement_identity():
+    organizer = elem(
+        f"""
+        <organizer xmlns="{HL7_NS}" classCode="BATTERY" moodCode="EVN">
+          <id root="organizer-id" extension="1"/>
+          <component>
+            <observation classCode="OBS" moodCode="EVN">
+              <id root="observation-id" extension="1"/>
+            </observation>
+          </component>
+        </organizer>
+        """
+    )
+
+    assert stable_key(organizer) == DirectChildIdElementSetKey(
+        root_extensions=(RootExtension(root="organizer-id", extension="1"),),
+    )

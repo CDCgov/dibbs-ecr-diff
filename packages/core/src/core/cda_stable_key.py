@@ -4,7 +4,7 @@ from typing import Optional
 
 from lxml import etree
 
-from core.cda_clinical_statement import _clinical_statement_for_identity
+from core.cda_clinical_statement import clinical_statement_identity_element
 from core.cda_key_models import (
     CodeKey,
     DirectChildIdElementSetKey,
@@ -22,14 +22,14 @@ from core.cda_key_models import (
 from core.constants import (
     CODE_KEY_ATTRS,
     DIRECT_ID_KEY_ATTRS,
-    HL7_NS,
     ROOT_EXTENSION_KEY_ATTRS,
+    hl7_clark_tag,
 )
 from core.xml_utils import localname
 
-DIRECT_TEMPLATE_ID_TAG = f"{{{HL7_NS}}}templateId"
-DIRECT_ID_TAG = f"{{{HL7_NS}}}id"
-SECTION_TAG = f"{{{HL7_NS}}}section"
+DIRECT_TEMPLATE_ID_TAG = hl7_clark_tag("templateId")
+DIRECT_ID_TAG = hl7_clark_tag("id")
+SECTION_TAG = hl7_clark_tag("section")
 ROOT_ATTRIBUTE, EXTENSION_ATTRIBUTE = ROOT_EXTENSION_KEY_ATTRS
 CODE_ATTRIBUTE, CODE_SYSTEM_ATTRIBUTE = CODE_KEY_ATTRS
 ELEMENTS_HAVING_ROOT_EXTENSION_IDENTITY = frozenset(
@@ -197,7 +197,7 @@ def stable_key(elem: etree._Element) -> Optional[StableKey]:
             root_extensions=child_id_root_extensions,
         )
 
-    clinical_statement_element = _clinical_statement_for_identity(elem)
+    clinical_statement_element = clinical_statement_identity_element(elem)
     if clinical_statement_element is not None:
         stmt_id_attribute_key = _id_attribute_key(
             clinical_statement_element,

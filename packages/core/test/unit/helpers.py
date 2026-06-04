@@ -1,9 +1,7 @@
 from textwrap import dedent
 
+from core.constants import HL7_NAMESPACE, HL7_NS
 from lxml import etree
-
-HL7_NS = "urn:hl7-org:v3"
-HL7_NAMESPACE = {"hl7": HL7_NS}
 
 
 def elem(xml: str) -> etree._Element:

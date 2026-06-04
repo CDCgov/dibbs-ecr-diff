@@ -8,7 +8,7 @@ from copy import deepcopy
 
 from lxml import etree
 
-from core.constants import NAMESPACES, XSI_TYPE_ATTR
+from core.constants import NAMESPACES, xsi_clark_tag
 
 # ---------------------------------------------------------------------------
 # Text and tag helpers
@@ -219,7 +219,7 @@ def _collect_standalone_namespace_requirements(
             # lxml will preserve namespaces in element and attribute names, but
             # it does not understand that the string value "cda:CD" also depends
             # on the lexical prefix `cda` remaining bound.
-            if attr_name != XSI_TYPE_ATTR:
+            if attr_name != xsi_clark_tag("type"):
                 continue
 
             attr_value_text = attr_value.strip()
