@@ -37,7 +37,7 @@ def test_stable_key_uses_order_insensitive_direct_template_id_root_extensions():
     )
 
 
-def test_stable_key_does_not_use_weak_attributes_as_identity():
+def test_stable_key_does_not_use_weak_attributes_as_key():
     element = elem(
         f"""
         <observation xmlns="{HL7_NS}" classCode="OBS" moodCode="EVN"/>
@@ -104,7 +104,7 @@ def test_stable_key_uses_template_id_root_extensions_from_nested_sections():
     )
 
 
-def test_nested_section_template_identities_are_order_insensitive():
+def test_nested_section_template_keys_are_order_insensitive():
     first = elem(
         f"""
         <component xmlns="{HL7_NS}">
@@ -131,7 +131,7 @@ def test_nested_section_template_identities_are_order_insensitive():
     )
 
 
-def test_too_many_nested_section_template_identities_do_not_create_partial_key():
+def test_too_many_nested_section_template_keys_do_not_create_partial_key():
     sections = "\n".join(
         f"""<section><templateId root="template-{index}"/></section>"""
         for index in range(13)
@@ -185,7 +185,7 @@ def test_nested_statement_direct_id_attribute_does_not_use_code_attributes():
     entry = elem(
         f"""
         <entry xmlns="{HL7_NS}">
-          <observation code="not-a-direct-statement-identity"
+          <observation code="not-a-direct-statement-key"
                        codeSystem="test-system">
             <templateId root="statement-template"/>
           </observation>
@@ -285,7 +285,7 @@ def test_direct_root_extension_key_uses_root_extension_fields():
     )
 
 
-def test_unrelated_descendant_id_is_not_stable_identity():
+def test_unrelated_descendant_id_is_not_stable_key():
     wrapper = elem(
         f"""
         <wrapper xmlns="{HL7_NS}">
@@ -299,7 +299,7 @@ def test_unrelated_descendant_id_is_not_stable_identity():
     assert stable_key(wrapper) is None
 
 
-def test_stable_key_does_not_use_multi_entry_container_statement_identity():
+def test_stable_key_does_not_use_multi_entry_container_statement_key():
     section = elem(
         f"""
         <section xmlns="{HL7_NS}">
@@ -337,7 +337,7 @@ def test_stable_key_does_not_use_wrapper_with_multiple_direct_statements():
     assert stable_key(entry) is None
 
 
-def test_stable_key_uses_organizer_itself_for_clinical_statement_identity():
+def test_stable_key_uses_organizer_itself_for_clinical_statement_key_derivation():
     organizer = elem(
         f"""
         <organizer xmlns="{HL7_NS}" classCode="BATTERY" moodCode="EVN">

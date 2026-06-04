@@ -15,7 +15,7 @@ When exact stable keys differ, overlap pairing can still preserve continuity
 for unambiguous alternate child IDs, wrappers whose nested section ID set only
 changed by additions or deletions, wrappers whose direct clinical statement
 ID set only changed by additions or deletions, and templateId sets that changed
-only by adding or removing conformance identities.
+only by adding or removing conformance declarations.
 """
 
 from collections import defaultdict
@@ -317,7 +317,7 @@ def _unpaired_elements(
     return [elem for elem in elements if id(elem) not in paired_element_ids]
 
 
-def _shared_identity_pairing(
+def _shared_stable_key_root_extension_pairing(
         before_list: List[etree._Element],
         after_list: List[etree._Element],
         stable_key_root_extension_extractor: Callable[
@@ -360,12 +360,12 @@ def _shared_child_id_pairing(
         after_list: List[etree._Element],
 ) -> Tuple[List[Tuple], List[etree._Element], List[etree._Element]]:
     """
-    Pair elements that share unambiguous CDA child-id identities.
+    Pair elements that share unambiguous CDA child-id keys.
 
-    This treats repeated CDA <id> values as alternate identities without
+    This treats repeated CDA <id> values as alternate keys without
     requiring the full child-id sets to match exactly.
     """
-    return _shared_identity_pairing(
+    return _shared_stable_key_root_extension_pairing(
         before_list,
         after_list,
         lambda key: _id_root_extensions_from_stable_key(key, ID_STABLE_KEY_TYPES),
@@ -383,7 +383,7 @@ def _shared_nested_section_id_pairing(
     only if all section IDs from the smaller wrapper are present in the larger
     wrapper.
     """
-    return _shared_identity_pairing(
+    return _shared_stable_key_root_extension_pairing(
         before_list,
         after_list,
         lambda key: _id_root_extensions_from_stable_key(
@@ -402,7 +402,7 @@ def _direct_clinical_statement_child_id_root_extensions(
 
     This is a weak parent-continuity hint for wrappers with direct clinical
     statement children. It intentionally ignores direct XML ID/id attributes,
-    templateId, and code identities to keep this fallback narrow and focused
+    templateId, and code keys to keep this fallback narrow and focused
     on CDA statement instance IDs.
     """
     root_extensions: set[RootExtension] = set()
@@ -468,14 +468,16 @@ def _shared_template_id_pairing(
     matched_pairs = []
 
     for key_type in TEMPLATE_ID_STABLE_KEY_TYPES:
-        template_id_pairs, before_list, after_list = _shared_identity_pairing(
-            before_list,
-            after_list,
-            lambda key, key_type=key_type: _template_id_root_extensions_from_stable_key(
-                key,
-                (key_type,),
-            ),
-            require_complete_subset=True,
+        template_id_pairs, before_list, after_list = (
+            _shared_stable_key_root_extension_pairing(
+                before_list,
+                after_list,
+                lambda key, key_type=key_type: _template_id_root_extensions_from_stable_key(
+                    key,
+                    (key_type,),
+                ),
+                require_complete_subset=True,
+            )
         )
         matched_pairs.extend(template_id_pairs)
 
@@ -487,7 +489,7 @@ def _stable_key_overlap_pairing(
         after_list: List[etree._Element],
 ) -> Tuple[List[Tuple], List[etree._Element], List[etree._Element]]:
     """
-    Apply overlap fallbacks from strongest to weakest stable-key identity.
+    Apply overlap fallbacks from strongest to weakest stable-key signal.
 
     Child IDs are more specific than nested section IDs, and both are stronger
     than direct statement ID subsets. TemplateId overlap is tried last because

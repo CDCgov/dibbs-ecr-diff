@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 
 from lxml import etree
 
-from core.cda_clinical_statement import clinical_statement_element_for_identity
+from core.cda_clinical_statement import clinical_statement_element_for_key_derivation
 from core.cda_key_models import RootExtension
 from core.cda_narrative_keys import narrative_row_key, narrative_table_key
 from core.cda_root_extensions import (
@@ -61,7 +61,7 @@ def _statement_id_root_extensions(
     wrapper; fall back to elem's own direct IDs when no complete statement IDs
     are available.
     """
-    clinical_statement_element = clinical_statement_element_for_identity(elem)
+    clinical_statement_element = clinical_statement_element_for_key_derivation(elem)
     if clinical_statement_element is not None:
         root_extensions = _complete_root_extensions_from_direct_id_children(
             clinical_statement_element,
@@ -73,7 +73,7 @@ def _statement_id_root_extensions(
 
 def _statement_code_pair(elem: etree._Element) -> Optional[Tuple[str, str]]:
     """Return (code, codeSystem) from the clinical statement's <code>, or None."""
-    clinical_statement_element = clinical_statement_element_for_identity(elem)
+    clinical_statement_element = clinical_statement_element_for_key_derivation(elem)
     if clinical_statement_element is not None:
         pair = _complete_attribute_pair(
             _xpath_first_element(clinical_statement_element, "./hl7:code"),
@@ -129,7 +129,7 @@ def _statement_effective_time(elem: etree._Element) -> Optional[tuple]:
     Return an effectiveTime discriminator from the nested clinical statement
     if present, otherwise from elem itself.
     """
-    clinical_statement_element = clinical_statement_element_for_identity(elem)
+    clinical_statement_element = clinical_statement_element_for_key_derivation(elem)
     if clinical_statement_element is not None:
         effective_time = _effective_time_discriminator(clinical_statement_element)
         if effective_time:
@@ -141,7 +141,7 @@ def _weak_attribute_discriminator(elem: etree._Element) -> Optional[tuple]:
     """
     Return weak direct attributes for late in-bucket discrimination.
 
-    These attributes are intentionally not stable identities. They are only
+    These attributes are intentionally not stable keys. They are only
     used after stronger CDA discriminators fail, and include the element tag so
     their meaning stays scoped to the element kind being compared.
     """

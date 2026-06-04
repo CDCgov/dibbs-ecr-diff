@@ -2,7 +2,7 @@ import pytest
 from core.cda_clinical_statement import (
     CDA_CLINICAL_STATEMENT_LOCAL_NAMES,
     CDA_CLINICAL_STATEMENT_WRAPPER_LOCAL_NAMES,
-    clinical_statement_element_for_identity,
+    clinical_statement_element_for_key_derivation,
 )
 from helpers import HL7_NS, elem, find_one
 
@@ -43,7 +43,7 @@ def test_clinical_statement_local_name_constants_match_cda_statement_contract():
     "local_name",
     sorted(CDA_CLINICAL_STATEMENT_LOCAL_NAMES),
 )
-def test_clinical_statement_element_for_identity_returns_direct_statement_itself(
+def test_clinical_statement_element_for_key_derivation_returns_direct_statement_itself(
     local_name,
 ):
     statement = elem(
@@ -52,14 +52,14 @@ def test_clinical_statement_element_for_identity_returns_direct_statement_itself
         """
     )
 
-    assert clinical_statement_element_for_identity(statement) is statement
+    assert clinical_statement_element_for_key_derivation(statement) is statement
 
 
 @pytest.mark.parametrize(
     "wrapper_name",
     sorted(CDA_CLINICAL_STATEMENT_WRAPPER_LOCAL_NAMES),
 )
-def test_clinical_statement_element_for_identity_unwraps_clinical_statement_wrappers(
+def test_clinical_statement_element_for_key_derivation_unwraps_clinical_statement_wrappers(
     wrapper_name,
 ):
     wrapper = elem(
@@ -71,14 +71,14 @@ def test_clinical_statement_element_for_identity_unwraps_clinical_statement_wrap
     )
     observation_element = find_one(wrapper, "./hl7:observation")
 
-    assert clinical_statement_element_for_identity(wrapper) is observation_element
+    assert clinical_statement_element_for_key_derivation(wrapper) is observation_element
 
 
 @pytest.mark.parametrize(
     "wrapper_name",
     sorted(CDA_CLINICAL_STATEMENT_WRAPPER_LOCAL_NAMES),
 )
-def test_clinical_statement_element_for_identity_does_not_unwrap_empty_wrappers(
+def test_clinical_statement_element_for_key_derivation_does_not_unwrap_empty_wrappers(
     wrapper_name,
 ):
     wrapper = elem(
@@ -89,10 +89,10 @@ def test_clinical_statement_element_for_identity_does_not_unwrap_empty_wrappers(
         """
     )
 
-    assert clinical_statement_element_for_identity(wrapper) is None
+    assert clinical_statement_element_for_key_derivation(wrapper) is None
 
 
-def test_clinical_statement_element_for_identity_does_not_unwrap_multi_entry_container():
+def test_clinical_statement_element_for_key_derivation_does_not_unwrap_multi_entry_container():
     section = elem(
         f"""
         <section xmlns="{HL7_NS}">
@@ -110,10 +110,10 @@ def test_clinical_statement_element_for_identity_does_not_unwrap_multi_entry_con
         """
     )
 
-    assert clinical_statement_element_for_identity(section) is None
+    assert clinical_statement_element_for_key_derivation(section) is None
 
 
-def test_clinical_statement_wrapper_with_multiple_direct_statements_has_no_identity_element():
+def test_clinical_statement_wrapper_with_multiple_direct_statements_has_no_key_derivation_element():
     entry = elem(
         f"""
         <entry xmlns="{HL7_NS}">
@@ -127,10 +127,10 @@ def test_clinical_statement_wrapper_with_multiple_direct_statements_has_no_ident
         """
     )
 
-    assert clinical_statement_element_for_identity(entry) is None
+    assert clinical_statement_element_for_key_derivation(entry) is None
 
 
-def test_organizer_uses_itself_as_clinical_statement_element_for_identity():
+def test_organizer_uses_itself_as_clinical_statement_element_for_key_derivation():
     organizer = elem(
         f"""
         <organizer xmlns="{HL7_NS}" classCode="BATTERY" moodCode="EVN">
@@ -144,4 +144,4 @@ def test_organizer_uses_itself_as_clinical_statement_element_for_identity():
         """
     )
 
-    assert clinical_statement_element_for_identity(organizer) is organizer
+    assert clinical_statement_element_for_key_derivation(organizer) is organizer

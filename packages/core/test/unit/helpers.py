@@ -8,11 +8,11 @@ def elem(xml: str) -> etree._Element:
     return etree.fromstring(dedent(xml).encode("utf-8"))
 
 
-def observation(identity_children: str, body: str = "") -> etree._Element:
+def observation(key_children: str, body: str = "") -> etree._Element:
     return elem(
         f"""
         <observation xmlns="{HL7_NS}" classCode="OBS" moodCode="EVN">
-          {identity_children}
+          {key_children}
           {body}
         </observation>
         """

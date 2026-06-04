@@ -239,7 +239,7 @@ def _direct_template_id_predicates(node: etree._Element) -> list[str]:
 
 
 def _append_xpath_predicate(predicates: List[str], predicate: str) -> None:
-    """Append predicate unless an earlier identity helper already produced it."""
+    """Append predicate unless an earlier key helper already produced it."""
     if predicate not in predicates:
         predicates.append(predicate)
 

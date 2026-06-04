@@ -108,7 +108,7 @@ def _collect_subtree_attribute_values(
 
     Used when collecting several attribute values from a subtree, such as
     gathering all templateId/@root values from nested elements to build a
-    composite identity key.
+    composite key.
 
     Collect up to `limit` values of `attribute_name` from elements matched by
     the ElementPath `node_path`, relative to `elem`.
@@ -171,7 +171,7 @@ def _complete_attribute_pair(
     This is useful when the two attributes are meaningful as a single
     composite value, such as `root` + `extension` or `code` + `codeSystem`.
     Returning None for partial data lets callers treat the pair as one
-    atomic value for matching, identity checks, or key construction.
+    atomic value for matching, key checks, or key construction.
     """
     if node is None:
         return None

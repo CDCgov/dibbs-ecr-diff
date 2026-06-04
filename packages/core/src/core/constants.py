@@ -6,9 +6,9 @@ from lxml import etree
 # Stable key attributes
 # ---------------------------------------------------------------------------
 
-# Attributes that can participate in stable identity keys when present directly
+# Attributes that can participate in stable keys when present directly
 # on an element. Pair-valued attributes such as root/extension and
-# code/codeSystem are interpreted together by the identity layer.
+# code/codeSystem are interpreted together by the key layer.
 #
 #   ID, id             — direct ID attributes
 #   root, extension    — CDA II-style identifiers on id/templateId-like nodes
@@ -23,7 +23,7 @@ STRONG_KEY_ATTRS = (
 )
 
 # Attributes that are useful for secondary matching context but are too broad
-# to be used as standalone identity keys.
+# to be used as standalone stable keys.
 #
 #   classCode  — distinguishes act class: ACT vs OBS vs ENC etc. on the same tag
 #   typeCode   — distinguishes relationship semantics on entryRelationship, participant etc.

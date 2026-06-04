@@ -74,7 +74,7 @@ def _single_direct_clinical_statement_child(
     Return the direct clinical statement child when exactly one exists.
 
     Returning None for zero or multiple direct statement children avoids using
-    document order as identity when the structure is not a clinical statement
+    document order as a key when the structure is not a clinical statement
     wrapper.
     """
     clinical_statement_child = None
@@ -87,11 +87,11 @@ def _single_direct_clinical_statement_child(
     return clinical_statement_child
 
 
-def clinical_statement_element_for_identity(
+def clinical_statement_element_for_key_derivation(
     element: etree._Element,
 ) -> Optional[etree._Element]:
     """
-    Return the clinical statement element that should be used for identity.
+    Return the clinical statement element that should be used for key derivation.
 
     Handles:
       - a clinical statement element itself, such as <observation>

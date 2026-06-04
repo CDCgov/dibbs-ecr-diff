@@ -2,7 +2,7 @@ from core.paths import stable_xml_path, xpath_with_predicates
 from helpers import HL7_NS, elem
 
 
-def test_paths_include_all_direct_template_id_identities():
+def test_paths_include_all_direct_template_id_keys():
     root = elem(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}">
@@ -50,7 +50,7 @@ def test_paths_include_direct_id_attribute_key():
     assert "hl7:observation[@ID='target-observation']" in x_path
 
 
-def test_paths_include_direct_code_element_identity():
+def test_paths_include_direct_code_element_key():
     root = elem(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}">
@@ -70,7 +70,7 @@ def test_paths_include_direct_code_element_identity():
     assert "hl7:code[@code='55751-2' and @codeSystem='2.16.840.1.113883.6.1']" in x_path
 
 
-def test_paths_include_direct_root_extension_identity():
+def test_paths_include_direct_root_extension_key():
     root = elem(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}">
