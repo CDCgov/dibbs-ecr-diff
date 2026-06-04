@@ -80,10 +80,12 @@ def test_matching_does_not_pair_ambiguous_overlapping_child_ids():
         """,
     )
 
-    pairs = list(match_children_ignore_order(
-        [before_first, before_second],
-        [after],
-    ))
+    pairs = list(
+        match_children_ignore_order(
+            [before_first, before_second],
+            [after],
+        )
+    )
 
     assert (before_first, after) not in pairs
     assert (before_second, after) not in pairs
@@ -169,10 +171,12 @@ def test_matching_does_not_pair_ambiguous_direct_template_id_subset():
         """
     )
 
-    pairs = list(match_children_ignore_order(
-        [before_first, before_second],
-        [after],
-    ))
+    pairs = list(
+        match_children_ignore_order(
+            [before_first, before_second],
+            [after],
+        )
+    )
 
     assert (before_first, after) not in pairs
     assert (before_second, after) not in pairs
@@ -322,10 +326,12 @@ def test_matching_does_not_pair_ambiguous_nested_section_id_overlap():
         """
     )
 
-    pairs = list(match_children_ignore_order(
-        [before_first, before_second],
-        [after],
-    ))
+    pairs = list(
+        match_children_ignore_order(
+            [before_first, before_second],
+            [after],
+        )
+    )
 
     assert (before_first, after) not in pairs
     assert (before_second, after) not in pairs
@@ -367,10 +373,12 @@ def test_weak_attributes_are_only_late_in_bucket_discriminators():
         f"""<telecom xmlns="{HL7_NS}" use="HP" value="tel:+15551119999"/>"""
     )
 
-    pairs = list(match_children_ignore_order(
-        [before_home, before_work],
-        [after_work, after_home],
-    ))
+    pairs = list(
+        match_children_ignore_order(
+            [before_home, before_work],
+            [after_work, after_home],
+        )
+    )
 
     assert (before_home, after_home) in pairs
     assert (before_work, after_work) in pairs

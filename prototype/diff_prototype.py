@@ -69,11 +69,20 @@ except ImportError:
 #   classCode  — distinguishes act class: ACT vs OBS vs ENC etc. on the same tag
 #   typeCode   — distinguishes relationship semantics on entryRelationship, participant etc.
 #   use        — distinguishes address/telecom purpose: H (home) vs WP (work) vs MC (mobile)
-KEY_ATTRS = ("ID", "id", "root", "extension", "code",
-             "moodCode", "classCode", "typeCode", "use")
+KEY_ATTRS = (
+    "ID",
+    "id",
+    "root",
+    "extension",
+    "code",
+    "moodCode",
+    "classCode",
+    "typeCode",
+    "use",
+)
 
 # HL7 namespace used throughout CDA/eICR documents
-HL7_NS     = "urn:hl7-org:v3"
+HL7_NS = "urn:hl7-org:v3"
 HL7_PREFIX = "hl7"
 
 # Passed as namespaces= to every .xpath() call so we can write hl7:tag
@@ -83,8 +92,8 @@ NS = {HL7_PREFIX: HL7_NS}
 # Placeholder text embedded in XML comments to mark change boundaries before
 # they are renumbered into human-readable form
 PH_START = "__CHG_START__"
-PH_END   = "__CHG_END__"
-PH_DEL   = "__CHG_DEL__"
+PH_END = "__CHG_END__"
+PH_DEL = "__CHG_DEL__"
 
 # ---------------------------------------------------------------------------
 # Type aliases
@@ -103,13 +112,14 @@ Marker = tuple
 # Global flags (set by CLI arguments)
 # ---------------------------------------------------------------------------
 
-PREFER_UPDATES = True   # --no-prefer-updates disables this
-DEBUG_MATCH    = False  # --debug-match enables verbose pairing output
+PREFER_UPDATES = True  # --no-prefer-updates disables this
+DEBUG_MATCH = False  # --debug-match enables verbose pairing output
 
 
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
+
 
 def debug_log(*args, **kwargs):
     """Print only when --debug-match is active."""
@@ -120,6 +130,7 @@ def debug_log(*args, **kwargs):
 # ---------------------------------------------------------------------------
 # Basic XML helpers
 # ---------------------------------------------------------------------------
+
 
 def norm_text(t: Optional[str]) -> str:
     """Collapse internal whitespace and strip leading/trailing whitespace."""
@@ -147,9 +158,9 @@ def fingerprint(elem: etree._Element) -> tuple:
     does not produce a false positive change — intentional for CDA where
     element order within a type group is often not semantically significant.
     """
-    tag      = elem.tag
-    text     = norm_text(elem.text)
-    attrs    = tuple(sorted(elem.attrib.items()))
+    tag = elem.tag
+    text = norm_text(elem.text)
+    attrs = tuple(sorted(elem.attrib.items()))
     children = sorted(fingerprint(c) for c in elem if isinstance(c.tag, str))
     return (tag, text, attrs, tuple(children))
 
@@ -157,6 +168,7 @@ def fingerprint(elem: etree._Element) -> tuple:
 # ---------------------------------------------------------------------------
 # XPath query helpers (all use the hl7: namespace prefix)
 # ---------------------------------------------------------------------------
+
 
 def _xpath_attr(elem: etree._Element, expr: str) -> Optional[str]:
     """Return the first string result of an XPath attribute expression, or None."""
@@ -175,8 +187,9 @@ def _xpath_node(elem: etree._Element, expr: str) -> Optional[etree._Element]:
     return results[0] if results else None
 
 
-def _attr_pair(node: Optional[etree._Element],
-               attr1: str, attr2: str) -> Optional[Tuple[str, str]]:
+def _attr_pair(
+    node: Optional[etree._Element], attr1: str, attr2: str
+) -> Optional[Tuple[str, str]]:
     """
     Return (attr1_value, attr2_value) from node if both attributes are present,
     otherwise None.
@@ -190,6 +203,7 @@ def _attr_pair(node: Optional[etree._Element],
 # ---------------------------------------------------------------------------
 # CDA clinical-statement navigation helpers
 # ---------------------------------------------------------------------------
+
 
 def _clinical_statement_xpath() -> str:
     """
@@ -220,6 +234,7 @@ def _template_root(elem: etree._Element) -> Optional[str]:
 # ---------------------------------------------------------------------------
 # Narrative table / row identity
 # ---------------------------------------------------------------------------
+
 
 def narrative_table_key(elem: etree._Element) -> Optional[tuple]:
     """
@@ -276,6 +291,7 @@ def narrative_row_key(elem: etree._Element) -> Optional[tuple]:
 # Stable identity keys (used for element matching across versions)
 # ---------------------------------------------------------------------------
 
+
 def stable_key(elem: etree._Element) -> Optional[tuple]:
     """
     Derive the most specific stable identity key available for elem.
@@ -304,8 +320,11 @@ def stable_key(elem: etree._Element) -> Optional[tuple]:
     id_root = _xpath_attr(elem, "./hl7:id/@root")
     if id_root:
         id_ext = _xpath_attr(elem, "./hl7:id/@extension")
-        return ("id", ("root", id_root), ("extension", id_ext)) if id_ext \
+        return (
+            ("id", ("root", id_root), ("extension", id_ext))
+            if id_ext
             else ("id", ("root", id_root))
+        )
 
     section_tpl_roots = _xpath_attrs(
         elem, ".//hl7:section/hl7:templateId/@root", limit=8
@@ -316,18 +335,23 @@ def stable_key(elem: etree._Element) -> Optional[tuple]:
     stmt = _get_statement(elem)
     if stmt is not None:
         stmt_id_root = _xpath_attr(stmt, "./hl7:id/@root")
-        stmt_id_ext  = _xpath_attr(stmt, "./hl7:id/@extension")
+        stmt_id_ext = _xpath_attr(stmt, "./hl7:id/@extension")
         if stmt_id_root and stmt_id_ext:
-            return ("nested.entry.statement.id",
-                    ("root", stmt_id_root), ("extension", stmt_id_ext))
+            return (
+                "nested.entry.statement.id",
+                ("root", stmt_id_root),
+                ("extension", stmt_id_ext),
+            )
 
         stmt_tpl_roots = _xpath_attrs(stmt, "./hl7:templateId/@root", limit=8)
         if stmt_tpl_roots:
-            return ("nested.entry.statement.templateId.roots",
-                    tuple(sorted(stmt_tpl_roots)))
+            return (
+                "nested.entry.statement.templateId.roots",
+                tuple(sorted(stmt_tpl_roots)),
+            )
 
     any_id_root = _xpath_attr(elem, ".//hl7:id/@root")
-    any_id_ext  = _xpath_attr(elem, ".//hl7:id/@extension")
+    any_id_ext = _xpath_attr(elem, ".//hl7:id/@extension")
     if any_id_root and any_id_ext:
         return ("nested.any.id", ("root", any_id_root), ("extension", any_id_ext))
 
@@ -337,6 +361,7 @@ def stable_key(elem: etree._Element) -> Optional[tuple]:
 # ---------------------------------------------------------------------------
 # Clinical statement discriminators
 # ---------------------------------------------------------------------------
+
 
 def _statement_id_pair(elem: etree._Element) -> Optional[Tuple[str, str]]:
     """Return (root, extension) from the clinical statement's <id>, or None."""
@@ -364,7 +389,7 @@ def _observation_value_discriminator(elem: etree._Element) -> Optional[tuple]:
     Tries coded value, numeric value, then text content — returns None if none found.
     """
     stmt = _get_statement(elem)
-    obs  = stmt if (stmt is not None and localname(stmt) == "observation") else None
+    obs = stmt if (stmt is not None and localname(stmt) == "observation") else None
 
     def _from_node(node: etree._Element) -> Optional[tuple]:
         v = _xpath_node(node, "./hl7:value")
@@ -398,7 +423,7 @@ def _effective_time_discriminator(node: etree._Element) -> Optional[tuple]:
     if v:
         return ("effectiveTime.value", v)
 
-    low  = _xpath_attr(node, "./hl7:effectiveTime/hl7:low/@value")
+    low = _xpath_attr(node, "./hl7:effectiveTime/hl7:low/@value")
     high = _xpath_attr(node, "./hl7:effectiveTime/hl7:high/@value")
     if low or high:
         return ("effectiveTime.lowhigh", (low or "", high or ""))
@@ -408,7 +433,7 @@ def _effective_time_discriminator(node: etree._Element) -> Optional[tuple]:
         return ("effectiveTime.center", center)
 
     period_value = _xpath_attr(node, "./hl7:effectiveTime/hl7:period/@value")
-    period_unit  = _xpath_attr(node, "./hl7:effectiveTime/hl7:period/@unit")
+    period_unit = _xpath_attr(node, "./hl7:effectiveTime/hl7:period/@unit")
     if period_value or period_unit:
         return ("effectiveTime.period", (period_value or "", period_unit or ""))
 
@@ -469,6 +494,7 @@ def secondary_discriminator(elem: etree._Element) -> tuple:
 # Prefer-updates soft context key
 # ---------------------------------------------------------------------------
 
+
 def _organizer_context(elem: etree._Element) -> tuple:
     """
     Walk up the ancestor chain to find the nearest enclosing <organizer> and
@@ -482,8 +508,8 @@ def _organizer_context(elem: etree._Element) -> tuple:
             if id_pair:
                 return ("organizer.id", id_pair)
             tpl = _template_root(cur) or ""
-            cp  = _statement_code_pair(cur) or ("", "")
-            et  = _statement_effective_time(cur) or ("", "")
+            cp = _statement_code_pair(cur) or ("", "")
+            et = _statement_effective_time(cur) or ("", "")
             return ("organizer.ctx", (tpl, cp, et))
         cur = cur.getparent()
     return ("organizer.none", "")
@@ -505,15 +531,16 @@ def soft_context_key(elem: etree._Element) -> Optional[tuple]:
     if not tpl:
         return None
 
-    et  = _statement_effective_time(elem) or ("", "")
+    et = _statement_effective_time(elem) or ("", "")
     org = _organizer_context(elem)
-    cp  = _statement_code_pair(elem) or ("", "")
+    cp = _statement_code_pair(elem) or ("", "")
     return ("ctx", (tpl, et, org, cp))
 
 
 # ---------------------------------------------------------------------------
 # Child grouping and matching
 # ---------------------------------------------------------------------------
+
 
 def build_child_groups(parent: etree._Element) -> Dict[str, List[etree._Element]]:
     """
@@ -533,8 +560,8 @@ def _is_table_cell_list(lst: List[etree._Element]) -> bool:
 
 
 def _prefer_updates_pairing(
-        L1: List[etree._Element],
-        L2: List[etree._Element],
+    L1: List[etree._Element],
+    L2: List[etree._Element],
 ) -> Tuple[List[Tuple], List[etree._Element], List[etree._Element]]:
     """
     Attempt to pair elements from L1 and L2 by their soft context key.
@@ -550,9 +577,7 @@ def _prefer_updates_pairing(
         buckets2[soft_context_key(e)].append(e)
 
     pairs, rem1, rem2 = [], [], []
-    all_keys = sorted(
-        (set(buckets1) | set(buckets2)) - {None}, key=str
-    )
+    all_keys = sorted((set(buckets1) | set(buckets2)) - {None}, key=str)
 
     for k in all_keys:
         a, b = buckets1.get(k, []), buckets2.get(k, [])
@@ -569,8 +594,8 @@ def _prefer_updates_pairing(
 
 
 def match_children_ignore_order(
-        list1: List[etree._Element],
-        list2: List[etree._Element],
+    list1: List[etree._Element],
+    list2: List[etree._Element],
 ):
     """
     Yield (e1, e2) pairs matching elements from list1 against list2.
@@ -656,9 +681,7 @@ def match_children_ignore_order(
             continue
 
         # 3a. Prefer-updates soft pairing within templateId.root buckets
-        if (PREFER_UPDATES
-                and isinstance(pkey, tuple)
-                and pkey[0] == "templateId.root"):
+        if PREFER_UPDATES and isinstance(pkey, tuple) and pkey[0] == "templateId.root":
             soft_pairs, L1, L2 = _prefer_updates_pairing(L1, L2)
             for a, b in soft_pairs:
                 yield a, b
@@ -698,6 +721,7 @@ def match_children_ignore_order(
 # Output element construction helpers
 # ---------------------------------------------------------------------------
 
+
 def make_elem_like(src: etree._Element, nsmap=None) -> etree._Element:
     """Create an empty element with the same tag as src, optionally with nsmap."""
     return etree.Element(src.tag, nsmap=nsmap)
@@ -705,16 +729,16 @@ def make_elem_like(src: etree._Element, nsmap=None) -> etree._Element:
 
 def strip_values(elem: etree._Element):
     """Remove text, tail, and all attributes from elem in-place."""
-    elem.text  = None
-    elem.tail  = None
+    elem.text = None
+    elem.tail = None
     elem.attrib.clear()
 
 
 def copy_changed_values(
-        out_elem: etree._Element,
-        src_elem: etree._Element,
-        changed_text: bool,
-        changed_attrs: Set[str],
+    out_elem: etree._Element,
+    src_elem: etree._Element,
+    changed_text: bool,
+    changed_attrs: Set[str],
 ):
     """
     Copy only the changed text and attribute values from src_elem into out_elem.
@@ -732,11 +756,12 @@ def copy_changed_values(
 # Diff engine — produces orig_changed.xml and new_changed.xml
 # ---------------------------------------------------------------------------
 
+
 def diff_nodes(
-        e1: Optional[etree._Element],
-        e2: Optional[etree._Element],
-        is_root: bool = False,
-        root_nsmap=None,
+    e1: Optional[etree._Element],
+    e2: Optional[etree._Element],
+    is_root: bool = False,
+    root_nsmap=None,
 ) -> Tuple[Optional[etree._Element], Optional[etree._Element]]:
     """
     Recursively diff two elements and return a (before_out, after_out) pair
@@ -767,9 +792,10 @@ def diff_nodes(
     if fingerprint(e1) == fingerprint(e2):
         return None, None
 
-    changed_text  = (norm_text(e1.text) != norm_text(e2.text))
+    changed_text = norm_text(e1.text) != norm_text(e2.text)
     changed_attrs = {
-        k for k in set(e1.attrib) | set(e2.attrib)
+        k
+        for k in set(e1.attrib) | set(e2.attrib)
         if e1.attrib.get(k) != e2.attrib.get(k)
     }
 
@@ -785,7 +811,7 @@ def diff_nodes(
                 child_out2.append(o2)
 
     any_children_changed = bool(child_out1 or child_out2)
-    any_self_changed     = changed_text or bool(changed_attrs)
+    any_self_changed = changed_text or bool(changed_attrs)
 
     if not any_self_changed and not any_children_changed:
         return None, None
@@ -815,6 +841,7 @@ def diff_nodes(
 # Change collection — builds the data needed for JSON output and XML markers
 # ---------------------------------------------------------------------------
 
+
 def _self_changed(n1: etree._Element, n2: etree._Element) -> bool:
     """Return True if n1 and n2 differ in text content or any attribute value."""
     if norm_text(n1.text) != norm_text(n2.text):
@@ -824,8 +851,8 @@ def _self_changed(n1: etree._Element, n2: etree._Element) -> bool:
 
 
 def collect_changes_and_markers(
-        before_root: etree._Element,
-        after_root: etree._Element,
+    before_root: etree._Element,
+    after_root: etree._Element,
 ) -> Tuple[List[ChangeWrap], List[DeleteAnchor]]:
     """
     Walk the before/after tree pair and collect:
@@ -840,9 +867,9 @@ def collect_changes_and_markers(
     Returns (wraps, deduped_deletes) where wraps is a flat list of
     (type, after_node, before_node_or_None) tuples.
     """
-    added_after:   Set[etree._Element]                   = set()
-    updated_pairs: Dict[etree._Element, etree._Element]  = {}
-    deletes:       List[DeleteAnchor]                    = []
+    added_after: Set[etree._Element] = set()
+    updated_pairs: Dict[etree._Element, etree._Element] = {}
+    deletes: List[DeleteAnchor] = []
 
     def rec(n1: Optional[etree._Element], n2: Optional[etree._Element]):
         if n1 is None and n2 is None:
@@ -906,14 +933,13 @@ def collect_changes_and_markers(
                 ancestor = ancestor.getparent()
         return result
 
-    added_after   = prune_to_outermost(added_after)
+    added_after = prune_to_outermost(added_after)
     updated_after = prune_to_outermost(set(updated_pairs))
     updated_pairs = {a: b for a, b in updated_pairs.items() if a in updated_after}
 
-    wraps: List[ChangeWrap] = (
-            [("added",   a, None)                for a in added_after]
-            + [("updated", a, updated_pairs.get(a)) for a in updated_after]
-    )
+    wraps: List[ChangeWrap] = [("added", a, None) for a in added_after] + [
+        ("updated", a, updated_pairs.get(a)) for a in updated_after
+    ]
 
     seen: Set[tuple] = set()
     deduped_deletes: List[DeleteAnchor] = []
@@ -935,13 +961,14 @@ def collect_changes_and_markers(
 # Index-path utilities
 # ---------------------------------------------------------------------------
 
+
 def index_path(node: etree._Element) -> Tuple[int, ...]:
     """
     Return the sequence of child indices from the document root down to node.
     Used to relocate a node in a separately parsed tree with identical structure.
     """
     path = []
-    cur  = node
+    cur = node
     while cur is not None and cur.getparent() is not None:
         parent = cur.getparent()
         path.append(parent.index(cur))
@@ -961,9 +988,10 @@ def node_by_index_path(root: etree._Element, path: Tuple[int, ...]) -> etree._El
 # Marker pipeline
 # ---------------------------------------------------------------------------
 
+
 def build_markers(
-        wraps: List[ChangeWrap],
-        deletes: List[DeleteAnchor],
+    wraps: List[ChangeWrap],
+    deletes: List[DeleteAnchor],
 ) -> List[Marker]:
     """Convert collected change records into raw marker tuples."""
     markers: List[Marker] = []
@@ -975,8 +1003,8 @@ def build_markers(
 
 
 def remap_markers_to_fresh_tree(
-        markers: List[Marker],
-        fresh_root: etree._Element,
+    markers: List[Marker],
+    fresh_root: etree._Element,
 ) -> List[Marker]:
     """
     Translate marker node references from the original after-parse into the
@@ -991,8 +1019,9 @@ def remap_markers_to_fresh_tree(
         if m[0] == "wrap":
             _, typ, el = m
             try:
-                remapped.append(("wrap", typ,
-                                 node_by_index_path(fresh_root, index_path(el))))
+                remapped.append(
+                    ("wrap", typ, node_by_index_path(fresh_root, index_path(el)))
+                )
             except Exception:
                 continue
         else:
@@ -1016,13 +1045,12 @@ def remap_markers_to_fresh_tree(
 
 def _is_ph_comment(node: Any, kind: str) -> bool:
     """Return True if node is an lxml comment whose text starts with kind|."""
-    return (isinstance(node, etree._Comment)
-            and (node.text or "").startswith(kind + "|"))
+    return isinstance(node, etree._Comment) and (node.text or "").startswith(kind + "|")
 
 
 def _insert_placeholder_comments(
-        after_root: etree._Element,
-        markers: List[Marker],
+    after_root: etree._Element,
+    markers: List[Marker],
 ) -> None:
     """
     Insert placeholder XML comments into after_root for each marker.
@@ -1031,14 +1059,19 @@ def _insert_placeholder_comments(
     after it.  Delete markers produce a single comment at the position where the
     deleted node used to be.
     """
+
     def sort_key(m: Marker) -> tuple:
         if m[0] == "wrap":
             _, typ, el = m
             return (index_path(el), 0, 1, {"added": 0, "updated": 1}.get(typ, 9))
         _, _, parent, ref, where = m
         if ref is not None:
-            return (index_path(ref),
-                    {"before": 0, "after": 2, "end": 3}.get(where, 3), 0, 0)
+            return (
+                index_path(ref),
+                {"before": 0, "after": 2, "end": 3}.get(where, 3),
+                0,
+                0,
+            )
         return (index_path(parent) + (10**9,), 3, 0, 0)
 
     ordered = sorted(markers, key=sort_key)
@@ -1048,7 +1081,7 @@ def _insert_placeholder_comments(
             _, typ, el = m
             parent = el.getparent()
             c_start = etree.Comment(f"{PH_START}|{uid}|{typ}")
-            c_end   = etree.Comment(f"{PH_END}|{uid}|{typ}")
+            c_end = etree.Comment(f"{PH_END}|{uid}|{typ}")
             if parent is None:
                 el.insert(0, c_start)
                 el.append(c_end)
@@ -1072,8 +1105,9 @@ def _insert_placeholder_comments(
                 parent.insert(insert_at, comment)
             elif where == "after":
                 insert_at = idx_ref + 1
-                while (insert_at < len(parent)
-                       and _is_ph_comment(parent[insert_at], PH_END)):
+                while insert_at < len(parent) and _is_ph_comment(
+                    parent[insert_at], PH_END
+                ):
                     insert_at += 1
                 parent.insert(insert_at, comment)
             else:
@@ -1087,7 +1121,7 @@ def _renumber_comments_in_document_order(after_root: etree._Element) -> None:
     """
     uid_order: List[int] = []
     for _, node in etree.iterwalk(after_root, events=("comment",)):
-        txt   = node.text or ""
+        txt = node.text or ""
         parts = txt.split("|")
         if len(parts) != 3:
             continue
@@ -1101,11 +1135,11 @@ def _renumber_comments_in_document_order(after_root: etree._Element) -> None:
         if uid not in uid_order:
             uid_order.append(uid)
 
-    total      = len(uid_order)
+    total = len(uid_order)
     uid_to_pos = {uid: pos for pos, uid in enumerate(uid_order, start=1)}
 
     for _, node in etree.iterwalk(after_root, events=("comment",)):
-        txt   = node.text or ""
+        txt = node.text or ""
         parts = txt.split("|")
         if len(parts) != 3:
             continue
@@ -1137,6 +1171,7 @@ def apply_markers(after_root: etree._Element, markers: List[Marker]) -> None:
 # ---------------------------------------------------------------------------
 # Human-readable xmlPath generation
 # ---------------------------------------------------------------------------
+
 
 def _stable_key_to_label(sk: Optional[tuple]) -> Optional[str]:
     """Convert a stable_key tuple into a concise human-readable bracket label."""
@@ -1173,8 +1208,8 @@ def _stable_key_to_label(sk: Optional[tuple]) -> Optional[str]:
 
 
 def stable_xml_path(
-        elem: etree._Element,
-        anchor: str = "ClinicalDocument",
+    elem: etree._Element,
+    anchor: str = "ClinicalDocument",
 ) -> str:
     """
     Return a stable, human-readable path string for elem.
@@ -1184,7 +1219,7 @@ def stable_xml_path(
     Stops ascending at the element whose local name matches `anchor`.
     """
     parts = []
-    cur   = elem
+    cur = elem
 
     while cur is not None:
         if not isinstance(cur.tag, str):
@@ -1194,22 +1229,23 @@ def stable_xml_path(
         ln = localname(cur)
 
         if ln == "table":
-            tk  = narrative_table_key(cur)
+            tk = narrative_table_key(cur)
             key = ("narr_table", tk) if tk else None
         elif ln == "tr":
-            rk  = narrative_row_key(cur)
+            rk = narrative_row_key(cur)
             key = ("narr_row", rk) if rk else None
         else:
             key = stable_key(cur)
 
-        label  = _stable_key_to_label(key)
+        label = _stable_key_to_label(key)
         parent = cur.getparent()
 
         if parent is None:
             pos = 1
         else:
-            siblings = [c for c in parent
-                        if isinstance(c.tag, str) and localname(c) == ln]
+            siblings = [
+                c for c in parent if isinstance(c.tag, str) and localname(c) == ln
+            ]
             pos = (siblings.index(cur) + 1) if cur in siblings else 1
 
         parts.append(f"{ln}[{label}]" if label else f"{ln}[:{pos}]")
@@ -1224,6 +1260,7 @@ def stable_xml_path(
 # ---------------------------------------------------------------------------
 # Machine-readable xPath generation (hl7: prefix, stable predicates)
 # ---------------------------------------------------------------------------
+
 
 def _xpath_literal(s: str) -> str:
     """
@@ -1249,7 +1286,7 @@ def _position_among_siblings(node: etree._Element) -> int:
     parent = node.getparent()
     if parent is None:
         return 1
-    ln       = localname(node)
+    ln = localname(node)
     siblings = [c for c in parent if isinstance(c.tag, str) and localname(c) == ln]
     try:
         return siblings.index(node) + 1
@@ -1269,10 +1306,10 @@ def _effective_time_predicates(node: etree._Element) -> Dict[str, str]:
         parts["value"] = v
         return parts
 
-    low  = _xpath_attr(node, "./hl7:effectiveTime/hl7:low/@value")
+    low = _xpath_attr(node, "./hl7:effectiveTime/hl7:low/@value")
     high = _xpath_attr(node, "./hl7:effectiveTime/hl7:high/@value")
     if low or high:
-        parts["low"]  = low  or ""
+        parts["low"] = low or ""
         parts["high"] = high or ""
         return parts
 
@@ -1281,18 +1318,18 @@ def _effective_time_predicates(node: etree._Element) -> Dict[str, str]:
         parts["center"] = center
         return parts
 
-    pval  = _xpath_attr(node, "./hl7:effectiveTime/hl7:period/@value")
+    pval = _xpath_attr(node, "./hl7:effectiveTime/hl7:period/@value")
     punit = _xpath_attr(node, "./hl7:effectiveTime/hl7:period/@unit")
     if pval or punit:
-        parts["period_value"] = pval  or ""
-        parts["period_unit"]  = punit or ""
+        parts["period_value"] = pval or ""
+        parts["period_unit"] = punit or ""
 
     return parts
 
 
 def xpath_with_predicates(
-        elem: etree._Element,
-        anchor: str = "ClinicalDocument",
+    elem: etree._Element,
+    anchor: str = "ClinicalDocument",
 ) -> str:
     """
     Return a machine-readable absolute XPath for elem using hl7: namespace prefix.
@@ -1302,15 +1339,15 @@ def xpath_with_predicates(
     Stops ascending at the element whose local name matches `anchor`.
     """
     steps: List[str] = []
-    cur   = elem
+    cur = elem
 
     while cur is not None:
         if not isinstance(cur.tag, str):
             cur = cur.getparent()
             continue
 
-        ln     = localname(cur)
-        qn     = etree.QName(cur.tag)
+        ln = localname(cur)
+        qn = etree.QName(cur.tag)
         tag_step = _pfx(ln) if qn.namespace == HL7_NS else ln
         preds: List[str] = []
 
@@ -1344,7 +1381,7 @@ def xpath_with_predicates(
 
         else:
             id_root = _xpath_attr(cur, "./hl7:id/@root")
-            id_ext  = _xpath_attr(cur, "./hl7:id/@extension")
+            id_ext = _xpath_attr(cur, "./hl7:id/@extension")
             if id_root and id_ext:
                 preds.append(
                     f"{_pfx('id')}[@root={_xpath_literal(id_root)}"
@@ -1355,12 +1392,10 @@ def xpath_with_predicates(
 
             tpl_root = _xpath_attr(cur, "./hl7:templateId/@root")
             if tpl_root:
-                preds.append(
-                    f"{_pfx('templateId')}[@root={_xpath_literal(tpl_root)}]"
-                )
+                preds.append(f"{_pfx('templateId')}[@root={_xpath_literal(tpl_root)}]")
 
             code = _xpath_attr(cur, "./hl7:code/@code")
-            cs   = _xpath_attr(cur, "./hl7:code/@codeSystem")
+            cs = _xpath_attr(cur, "./hl7:code/@codeSystem")
             if code and cs:
                 preds.append(
                     f"{_pfx('code')}[@code={_xpath_literal(code)}"
@@ -1413,8 +1448,11 @@ def xpath_with_predicates(
                 preds.append(f"@extension={_xpath_literal(cur.get('extension'))}")
 
         step = tag_step
-        step += ("[" + " and ".join(preds) + "]") if preds \
+        step += (
+            ("[" + " and ".join(preds) + "]")
+            if preds
             else f"[{_position_among_siblings(cur)}]"
+        )
         steps.append(step)
 
         if ln == anchor:
@@ -1427,6 +1465,7 @@ def xpath_with_predicates(
 # ---------------------------------------------------------------------------
 # Self-contained XML snippet serialization
 # ---------------------------------------------------------------------------
+
 
 def _used_namespaces(elem: etree._Element) -> Set[str]:
     """
@@ -1461,7 +1500,7 @@ def _snippet_nsmap(elem: etree._Element) -> dict:
     skipping any named alias that would duplicate the default namespace URI.
     """
     elem_ns = etree.QName(elem.tag).namespace
-    used    = _used_namespaces(elem)
+    used = _used_namespaces(elem)
 
     nsmap: dict = {}
     if elem_ns:
@@ -1490,38 +1529,41 @@ def xml_string(elem: etree._Element) -> str:
     namespace map so the output is valid standalone XML.
     """
     if elem.getparent() is None:
-        return etree.tostring(elem, encoding="unicode", pretty_print=True,
-                              with_tail=False)
+        return etree.tostring(
+            elem, encoding="unicode", pretty_print=True, with_tail=False
+        )
 
-    nsmap    = _snippet_nsmap(elem)
+    nsmap = _snippet_nsmap(elem)
     new_root = etree.Element(elem.tag, attrib=elem.attrib, nsmap=nsmap)
     new_root.text = elem.text
     new_root.tail = None
     for child in elem:
         new_root.append(deepcopy(child))
 
-    return etree.tostring(new_root, encoding="unicode", pretty_print=True,
-                          with_tail=False)
+    return etree.tostring(
+        new_root, encoding="unicode", pretty_print=True, with_tail=False
+    )
 
 
 # ---------------------------------------------------------------------------
 # JSON output
 # ---------------------------------------------------------------------------
 
+
 def get_doc_metadata(root: etree._Element) -> Tuple[str, str, str]:
     """Extract setId, clinicalDocumentId, and versionNumber from the document root."""
-    set_id  = root.xpath("string(hl7:setId/@root)",          namespaces=NS) or ""
-    doc_id  = root.xpath("string(hl7:id/@root)",             namespaces=NS) or ""
+    set_id = root.xpath("string(hl7:setId/@root)", namespaces=NS) or ""
+    doc_id = root.xpath("string(hl7:id/@root)", namespaces=NS) or ""
     version = root.xpath("string(hl7:versionNumber/@value)", namespaces=NS) or ""
     return set_id, doc_id, version
 
 
 def write_changes_json(
-        out_path: str,
-        after_root: etree._Element,
-        wraps: List[ChangeWrap],
-        deletes: List[DeleteAnchor],
-        did_change: bool,
+    out_path: str,
+    after_root: etree._Element,
+    wraps: List[ChangeWrap],
+    deletes: List[DeleteAnchor],
+    did_change: bool,
 ) -> None:
     """Write the changes summary to a JSON file at out_path."""
     set_id, doc_id, version = get_doc_metadata(after_root)
@@ -1530,34 +1572,42 @@ def write_changes_json(
 
     for typ, after_node, before_node in wraps:
         if typ == "added":
-            added.append({
-                "xmlPath": stable_xml_path(after_node),
-                "xPath":   xpath_with_predicates(after_node),
-                "xml":     xml_string(after_node),
-            })
+            added.append(
+                {
+                    "xmlPath": stable_xml_path(after_node),
+                    "xPath": xpath_with_predicates(after_node),
+                    "xml": xml_string(after_node),
+                }
+            )
         elif typ == "updated":
-            updated.append({
-                "xmlPath":   stable_xml_path(after_node),
-                "xPath":     xpath_with_predicates(after_node),
-                "xmlBefore": xml_string(before_node) if before_node is not None else "",
-                "xmlAfter":  xml_string(after_node),
-            })
+            updated.append(
+                {
+                    "xmlPath": stable_xml_path(after_node),
+                    "xPath": xpath_with_predicates(after_node),
+                    "xmlBefore": xml_string(before_node)
+                    if before_node is not None
+                    else "",
+                    "xmlAfter": xml_string(after_node),
+                }
+            )
 
     for _, _, _, deleted_before in deletes:
-        deleted.append({
-            "xmlPath": stable_xml_path(deleted_before),
-            "xPath":   xpath_with_predicates(deleted_before),
-            "xml":     xml_string(deleted_before),
-        })
+        deleted.append(
+            {
+                "xmlPath": stable_xml_path(deleted_before),
+                "xPath": xpath_with_predicates(deleted_before),
+                "xml": xml_string(deleted_before),
+            }
+        )
 
     payload = {
-        "setId":              set_id,
+        "setId": set_id,
         "clinicalDocumentId": doc_id,
-        "versionNumber":      version,
-        "didChange":          bool(did_change),
+        "versionNumber": version,
+        "didChange": bool(did_change),
         "xPathNamespaceBinding": {HL7_PREFIX: HL7_NS},
         "changes": [
-            {"added":   added},
+            {"added": added},
             {"updated": updated},
             {"deleted": deleted},
         ],
@@ -1570,6 +1620,7 @@ def write_changes_json(
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
+
 
 def main():
     global PREFER_UPDATES, DEBUG_MATCH
@@ -1585,33 +1636,54 @@ def main():
     )
     ap.add_argument("file1", help="Original CDA/eICR XML (before)")
     ap.add_argument("file2", help="New CDA/eICR XML (after)")
-    ap.add_argument("--out1", default="orig_changed.xml",
-                    help="Output path for pruned before-diff (default: orig_changed.xml)")
-    ap.add_argument("--out2", default="new_changed.xml",
-                    help="Output path for pruned after-diff  (default: new_changed.xml)")
-    ap.add_argument("--out3", default="after_with_change_markers.xml",
-                    help="Output path for annotated after document")
-    ap.add_argument("--out5", default="changes.json",
-                    help="Output path for JSON change summary  (default: changes.json)")
-    ap.add_argument("--no-prefer-updates", action="store_true",
-                    help="Disable prefer-updates matching; may produce more add/delete pairs")
-    ap.add_argument("--debug-match", action="store_true",
-                    help="Print verbose output about element matching/pairing decisions")
-    ap.add_argument("--no-huge", action="store_true",
-                    help="Disable lxml huge_tree mode (use for untrusted input)")
+    ap.add_argument(
+        "--out1",
+        default="orig_changed.xml",
+        help="Output path for pruned before-diff (default: orig_changed.xml)",
+    )
+    ap.add_argument(
+        "--out2",
+        default="new_changed.xml",
+        help="Output path for pruned after-diff  (default: new_changed.xml)",
+    )
+    ap.add_argument(
+        "--out3",
+        default="after_with_change_markers.xml",
+        help="Output path for annotated after document",
+    )
+    ap.add_argument(
+        "--out5",
+        default="changes.json",
+        help="Output path for JSON change summary  (default: changes.json)",
+    )
+    ap.add_argument(
+        "--no-prefer-updates",
+        action="store_true",
+        help="Disable prefer-updates matching; may produce more add/delete pairs",
+    )
+    ap.add_argument(
+        "--debug-match",
+        action="store_true",
+        help="Print verbose output about element matching/pairing decisions",
+    )
+    ap.add_argument(
+        "--no-huge",
+        action="store_true",
+        help="Disable lxml huge_tree mode (use for untrusted input)",
+    )
     args = ap.parse_args()
 
     PREFER_UPDATES = not args.no_prefer_updates
-    DEBUG_MATCH    = bool(args.debug_match)
+    DEBUG_MATCH = bool(args.debug_match)
 
     parser = etree.XMLParser(remove_blank_text=True, huge_tree=not args.no_huge)
 
     tree_before = etree.parse(args.file1, parser)
-    tree_after  = etree.parse(args.file2, parser)
-    r_before    = tree_before.getroot()
-    r_after     = tree_after.getroot()
+    tree_after = etree.parse(args.file2, parser)
+    r_before = tree_before.getroot()
+    r_after = tree_after.getroot()
 
-    did_change = (fingerprint(r_before) != fingerprint(r_after))
+    did_change = fingerprint(r_before) != fingerprint(r_after)
     root_nsmap = r_before.nsmap
 
     if not did_change:
@@ -1621,15 +1693,20 @@ def main():
         strip_values(empty_after)
 
         etree.ElementTree(empty_before).write(
-            args.out1, pretty_print=True, xml_declaration=True, encoding="UTF-8")
+            args.out1, pretty_print=True, xml_declaration=True, encoding="UTF-8"
+        )
         etree.ElementTree(empty_after).write(
-            args.out2, pretty_print=True, xml_declaration=True, encoding="UTF-8")
+            args.out2, pretty_print=True, xml_declaration=True, encoding="UTF-8"
+        )
         tree_after.write(
-            args.out3, pretty_print=True, xml_declaration=True, encoding="UTF-8")
+            args.out3, pretty_print=True, xml_declaration=True, encoding="UTF-8"
+        )
         write_changes_json(args.out5, r_after, wraps=[], deletes=[], did_change=False)
 
-        print(f"No changes detected. Wrote:\n"
-              f"  {args.out1}\n  {args.out2}\n  {args.out3}\n  {args.out5}")
+        print(
+            f"No changes detected. Wrote:\n"
+            f"  {args.out1}\n  {args.out2}\n  {args.out3}\n  {args.out5}"
+        )
         return
 
     # --- Produce pruned before/after diffs (out1, out2) ---
@@ -1642,9 +1719,11 @@ def main():
         strip_values(out_r2)
 
     etree.ElementTree(out_r1).write(
-        args.out1, pretty_print=True, xml_declaration=True, encoding="UTF-8")
+        args.out1, pretty_print=True, xml_declaration=True, encoding="UTF-8"
+    )
     etree.ElementTree(out_r2).write(
-        args.out2, pretty_print=True, xml_declaration=True, encoding="UTF-8")
+        args.out2, pretty_print=True, xml_declaration=True, encoding="UTF-8"
+    )
 
     # --- Collect changes for JSON and markers ---
     wraps, deletes = collect_changes_and_markers(r_before, r_after)
@@ -1653,13 +1732,14 @@ def main():
     write_changes_json(args.out5, r_after, wraps, deletes, did_change=did_change)
 
     # --- Produce annotated after document (out3) ---
-    fresh_after      = etree.parse(args.file2, parser).getroot()
-    raw_markers      = build_markers(wraps, deletes)
+    fresh_after = etree.parse(args.file2, parser).getroot()
+    raw_markers = build_markers(wraps, deletes)
     remapped_markers = remap_markers_to_fresh_tree(raw_markers, fresh_after)
     apply_markers(fresh_after, remapped_markers)
 
     etree.ElementTree(fresh_after).write(
-        args.out3, pretty_print=True, xml_declaration=True, encoding="UTF-8")
+        args.out3, pretty_print=True, xml_declaration=True, encoding="UTF-8"
+    )
 
     print(f"Wrote:\n  {args.out1}\n  {args.out2}\n  {args.out3}\n  {args.out5}")
     if PREFER_UPDATES:

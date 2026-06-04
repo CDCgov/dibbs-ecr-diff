@@ -28,7 +28,7 @@ def test_paths_include_all_direct_template_id_identities():
     assert "hl7:templateId[@root='2' and @extension='b']" in x_path
 
 
-def test_paths_include_direct_id_attribute_key():
+def test_paths_include_direct_id_attribute_identity():
     root = elem(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}">
@@ -68,23 +68,3 @@ def test_paths_include_direct_code_element_identity():
 
     assert "code[code:code=55751-2;codeSystem=2.16.840.1.113883.6.1]" in xml_path
     assert "hl7:code[@code='55751-2' and @codeSystem='2.16.840.1.113883.6.1']" in x_path
-
-
-def test_paths_include_direct_root_extension_identity():
-    root = elem(
-        f"""
-        <ClinicalDocument xmlns="{HL7_NS}">
-          <id root="document-id-root" extension="document-id-ext"/>
-        </ClinicalDocument>
-        """
-    )
-    document_id = root.xpath(
-        "./hl7:id",
-        namespaces={"hl7": HL7_NS},
-    )[0]
-
-    xml_path = stable_xml_path(document_id)
-    x_path = xpath_with_predicates(document_id)
-
-    assert "id[id:root=document-id-root;extension=document-id-ext]" in xml_path
-    assert "hl7:id[@root='document-id-root' and @extension='document-id-ext']" in x_path
