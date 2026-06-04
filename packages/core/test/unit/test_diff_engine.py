@@ -5,7 +5,13 @@ from core.cda_key_models import (
 from core.cda_stable_key import (
     stable_key,
 )
-from core.constants import hl7_clark_tag
+from core.cda_tags import (
+    EFFECTIVE_TIME_TAG,
+    ID_TAG,
+    OBSERVATION_TAG,
+    SECTION_TAG,
+    TEMPLATE_ID_TAG,
+)
 from core.diff_engine import (
     _fingerprint_excluding_version_metadata,
     collect_additions_updates_deletes,
@@ -44,7 +50,7 @@ def test_added_child_id_remains_visible_after_parent_overlap_match():
     )
 
     assert [(node.tag, node.get("root")) for node in added] == [
-        (hl7_clark_tag("id"), "new-id"),
+        (ID_TAG, "new-id"),
     ]
     assert updated == []
     assert deleted == []
@@ -81,7 +87,7 @@ def test_added_template_id_remains_visible_after_parent_subset_match():
     )
 
     assert [(node.tag, node.get("root")) for node in added] == [
-        (hl7_clark_tag("templateId"), "template-b"),
+        (TEMPLATE_ID_TAG, "template-b"),
     ]
     assert updated == []
     assert deleted == []
@@ -117,7 +123,7 @@ def test_added_section_remains_visible_after_nested_section_overlap_match():
 
     assert [(node.tag, stable_key(node)) for node in added] == [
         (
-            hl7_clark_tag("section"),
+            SECTION_TAG,
             DirectChildIdElementSetKey(
                 root_extensions=(RootExtension(root="section-c"),),
             ),
@@ -169,7 +175,7 @@ def test_added_direct_statement_remains_visible_after_parent_statement_set_match
 
     assert [(node.tag, stable_key(node)) for node in added] == [
         (
-            hl7_clark_tag("observation"),
+            OBSERVATION_TAG,
             DirectChildIdElementSetKey(
                 root_extensions=(RootExtension(root="statement-z"),),
             ),
@@ -346,6 +352,6 @@ def test_clinical_statement_effective_time_is_not_ignored_by_diff():
 
     assert added == []
     assert len(updated) == 1
-    assert updated[0][0].tag == hl7_clark_tag("effectiveTime")
-    assert updated[0][1].tag == hl7_clark_tag("effectiveTime")
+    assert updated[0][0].tag == EFFECTIVE_TIME_TAG
+    assert updated[0][1].tag == EFFECTIVE_TIME_TAG
     assert deleted == []

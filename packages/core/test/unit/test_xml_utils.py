@@ -9,6 +9,7 @@ from textwrap import dedent
 
 import pytest
 from core import constants, xml_utils
+from core.cda_tags import CLINICAL_DOCUMENT_TAG
 from lxml import etree
 
 HL7_NS = constants.HL7_NS
@@ -647,6 +648,6 @@ def test_parentless_element_is_serialized_without_rebuilding_namespace_map() -> 
     round_tripped_root = parse_xml(xml_text)
     expected_xml = dedent(initial_xml).strip()
 
-    assert round_tripped_root.tag == constants.hl7_clark_tag("ClinicalDocument")
+    assert round_tripped_root.tag == CLINICAL_DOCUMENT_TAG
     assert round_tripped_root.nsmap[None] == HL7_NS
     assert_xml_equal(xml_text, expected_xml)

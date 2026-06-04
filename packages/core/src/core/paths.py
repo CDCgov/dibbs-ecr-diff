@@ -25,11 +25,9 @@ from core.cda_key_models import (
     StableKey,
 )
 from core.cda_narrative_keys import narrative_row_key, narrative_table_key
-from core.cda_stable_key import (
-    DIRECT_TEMPLATE_ID_TAG,
-    _direct_child_root_extensions_for_tag,
-    stable_key,
-)
+from core.cda_root_extensions import direct_child_root_extensions_for_tag
+from core.cda_stable_key import stable_key
+from core.cda_tags import TEMPLATE_ID_TAG
 from core.constants import HL7_NS, HL7_PREFIX
 from core.xml_utils import _xpath_first_attribute_value, localname
 
@@ -221,9 +219,9 @@ def _xpath_literal(value: str) -> str:
 def _direct_template_id_predicates(node: etree._Element) -> list[str]:
     """Return XPath predicates for every direct templateId root/extension."""
     predicates = []
-    for root_extension in _direct_child_root_extensions_for_tag(
+    for root_extension in direct_child_root_extensions_for_tag(
         node,
-        DIRECT_TEMPLATE_ID_TAG,
+        TEMPLATE_ID_TAG,
     ):
         conditions = [
             f"@root={_xpath_literal(root_extension.root)}",

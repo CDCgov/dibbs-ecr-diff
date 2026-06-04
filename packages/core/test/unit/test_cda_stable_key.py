@@ -10,31 +10,8 @@ from core.cda_key_models import (
     RootExtension,
     RootExtensionKey,
 )
-from core.cda_stable_key import (
-    DIRECT_TEMPLATE_ID_TAG,
-    _direct_child_root_extensions_for_tag,
-    stable_key,
-)
+from core.cda_stable_key import stable_key
 from helpers import HL7_NS, elem, observation
-
-
-def test_direct_child_root_extensions_for_tag_sorts_deduplicates_and_skips_missing_root():
-    element = observation(
-        """
-        <templateId root="2" extension="b"/>
-        <templateId root="1"/>
-        <templateId root="2" extension="b"/>
-        <templateId extension="missing-root"/>
-        """
-    )
-
-    assert _direct_child_root_extensions_for_tag(
-        element,
-        DIRECT_TEMPLATE_ID_TAG,
-    ) == (
-        RootExtension(root="1"),
-        RootExtension(root="2", extension="b"),
-    )
 
 
 def test_stable_key_uses_order_insensitive_direct_template_id_root_extensions():
