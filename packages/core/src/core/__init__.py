@@ -21,7 +21,7 @@ from .models import (
 from .performance import measure_time
 
 
-@dataclass(frozen=True)
+@dataclass()
 class WatchedNode:
     """Metadata for watched/ignored node cache."""
 
@@ -29,6 +29,12 @@ class WatchedNode:
     tag: str
     xpath: str
     rule_name: str
+    origin_node: etree._Element | None = None
+
+    @property
+    def effective_node(self) -> etree._Element:
+        """Return effective node. Used when an ancestor/descendant is cached."""
+        return self.origin_node if self.origin_node is not None else self.node
 
 
 """Used to cache nodes from evaluated rule XPaths."""
@@ -43,7 +49,7 @@ def eval_xpath(
 
 
 def build_cache(elem: etree._ElementTree, rules: list[RuleConfig]) -> NodeCache:
-    """Execute XPaths against element to build mappings."""
+    """Execute XPaths against element to build node cache."""
     nodes: NodeCache = {}
 
     for rule in rules:
@@ -59,24 +65,29 @@ def build_cache(elem: etree._ElementTree, rules: list[RuleConfig]) -> NodeCache:
 
 
 def matching_nodes(
-    nodes: Iterable[etree._Element], cache: NodeCache
+    origin_node: etree._Element, nodes: Iterable[etree._Element], cache: NodeCache
 ) -> list[WatchedNode]:
+    """Generic method for collecting all matched nodes from a cache."""
     matches: list[WatchedNode] = []
 
-    for node in nodes:
+    for node in [origin_node, *nodes]:
         cached = cache.get(node)
         if cached is not None:
+            if cached.node is not origin_node:
+                cached.origin_node = origin_node
             matches.append(cached)
 
     return matches
 
 
 def matching_ancestry(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
-    return matching_nodes([node, *node.iterancestors()], cache)
+    """Collect node and all ancestor matches."""
+    return matching_nodes(node, node.iterancestors(), cache)
 
 
 def matching_subtree(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
-    return matching_nodes([node, *node.iterdescendants()], cache)
+    """Collect node and all descendant matches."""
+    return matching_nodes(node, node.iterdescendants(), cache)
 
 
 def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
@@ -109,7 +120,7 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
                             xpath=match.xpath,
                             rule_name=match.rule_name,
                             changeType=ChangeType.ADDED,
-                            xml=build_standalone_xml_string(match.node),
+                            xml=build_standalone_xml_string(match.effective_node),
                         )
                     )
             elif config.mode == DiffMode.IGNORE_LIST:
@@ -133,7 +144,7 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
                             xpath=match.xpath,
                             rule_name=match.rule_name,
                             changeType=ChangeType.UPDATED,
-                            xml=build_standalone_xml_string(match.node),
+                            xml=build_standalone_xml_string(match.effective_node),
                         )
                     )
             elif config.mode == DiffMode.IGNORE_LIST:
@@ -159,7 +170,7 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
                             xpath=match.xpath,
                             rule_name=match.rule_name,
                             changeType=ChangeType.DELETED,
-                            xml=build_standalone_xml_string(match.node),
+                            xml=build_standalone_xml_string(match.effective_node),
                         )
                     )
             elif config.mode == DiffMode.IGNORE_LIST:
