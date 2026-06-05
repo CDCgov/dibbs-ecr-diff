@@ -23,19 +23,18 @@ from core.cda_root_extensions import (
     nested_section_root_extensions_for_tag,
     root_extension_from_element,
 )
-from core.cda_tags import ID_TAG, TEMPLATE_ID_TAG
+from core.cda_tags import CODE_TAG, ID_TAG, SET_ID_TAG, TEMPLATE_ID_TAG
 from core.constants import (
     CODE_KEY_ATTRS,
     DIRECT_ID_KEY_ATTRS,
 )
-from core.xml_utils import localname
 
 CODE_ATTRIBUTE, CODE_SYSTEM_ATTRIBUTE = CODE_KEY_ATTRS
-ELEMENT_LOCAL_NAMES_HAVING_ROOT_EXTENSION_KEYS = frozenset(
+TAGS_HAVING_ROOT_EXTENSION_KEYS = frozenset(
     {
-        "id",
-        "templateId",
-        "setId",
+        ID_TAG,
+        TEMPLATE_ID_TAG,
+        SET_ID_TAG,
     }
 )
 
@@ -53,8 +52,8 @@ def _id_attribute_key(elem: etree._Element) -> Optional[DirectIdAttributeKey]:
 
 
 def _root_extension_key(elem: etree._Element) -> Optional[RootExtensionKey]:
-    """Return a direct root/extension key for matching CDA element names."""
-    if localname(elem) not in ELEMENT_LOCAL_NAMES_HAVING_ROOT_EXTENSION_KEYS:
+    """Return a direct root/extension key for matching CDA id-like elements."""
+    if elem.tag not in TAGS_HAVING_ROOT_EXTENSION_KEYS:
         return None
 
     root_extension = root_extension_from_element(elem)
@@ -68,7 +67,10 @@ def _root_extension_key(elem: etree._Element) -> Optional[RootExtensionKey]:
 
 
 def _code_key(elem: etree._Element) -> Optional[CodeKey]:
-    """Return a direct coded-concept key only when codeSystem is present."""
+    """Return a direct CDA <code> key only when codeSystem is present."""
+    if elem.tag != CODE_TAG:
+        return None
+
     code_value = elem.get(CODE_ATTRIBUTE)
     code_system = elem.get(CODE_SYSTEM_ATTRIBUTE)
     if not (code_value and code_system):
@@ -82,8 +84,9 @@ def _attribute_key(elem: etree._Element) -> Optional[StableKey]:
     Return an attribute-derived key for elem, if present.
 
     ID/id attributes are standalone keys. CDA root/extension attributes are
-    only treated as keys on id/templateId-like elements, and code is only
-    treated as a key when codeSystem is present on the same element.
+    only treated as keys on id/templateId-like elements. A coded concept is
+    only treated as a key for CDA <code> elements with codeSystem present on
+    the same element.
     """
     id_attribute_key = _id_attribute_key(elem)
     if id_attribute_key:

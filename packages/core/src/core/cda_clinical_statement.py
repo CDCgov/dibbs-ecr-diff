@@ -4,7 +4,8 @@ from typing import Optional
 
 from lxml import etree
 
-from core.constants import HL7_NS, hl7_clark_tag
+from core.constants import HL7_NS
+from core.xml_utils import hl7_clark_tag
 
 CDA_CLINICAL_STATEMENT_LOCAL_NAMES = frozenset(
     {
