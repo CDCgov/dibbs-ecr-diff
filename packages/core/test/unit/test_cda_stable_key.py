@@ -270,6 +270,36 @@ def test_direct_code_key_requires_code_system():
     assert stable_key(code_without_system) is None
 
 
+def test_direct_code_key_only_applies_to_code_elements():
+    coded_value_element = elem(
+        f"""
+        <administrativeGenderCode xmlns="{HL7_NS}"
+                                  code="M"
+                                  codeSystem="2.16.840.1.113883.5.1"/>
+        """
+    )
+
+    assert stable_key(coded_value_element) is None
+
+
+def test_coded_statement_attributes_do_not_outrank_direct_child_id():
+    statement = elem(
+        f"""
+        <observation xmlns="{HL7_NS}"
+                     classCode="OBS"
+                     moodCode="EVN"
+                     code="not-a-statement-key"
+                     codeSystem="test-system">
+          <id root="statement-id" extension="1"/>
+        </observation>
+        """
+    )
+
+    assert stable_key(statement) == DirectChildIdElementSetKey(
+        root_extensions=(RootExtension(root="statement-id", extension="1"),),
+    )
+
+
 def test_direct_root_extension_key_uses_root_extension_fields():
     id_element = elem(
         f"""<id xmlns="{HL7_NS}" root="document-id-root" extension="document-id-ext"/>"""
@@ -283,6 +313,16 @@ def test_direct_root_extension_key_uses_root_extension_fields():
     assert stable_key(set_id_element) == RootExtensionKey(
         root="set-id-root",
     )
+
+
+def test_direct_root_extension_key_only_applies_to_cda_tags():
+    non_cda_id_element = elem(
+        """<custom:id xmlns:custom="urn:example"
+                      root="custom-id-root"
+                      extension="custom-id-ext"/>"""
+    )
+
+    assert stable_key(non_cda_id_element) is None
 
 
 def test_unrelated_descendant_id_is_not_stable_key():

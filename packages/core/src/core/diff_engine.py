@@ -11,9 +11,9 @@ bookkeeping does not appear as clinical/content changes.
 
 from lxml import etree
 
-from core.constants import AddedEntry, DeletedEntry, UpdatedEntry, xsi_clark_tag
+from core.diff_types import AddedEntry, DeletedEntry, UpdatedEntry
 from core.matching import build_child_groups, match_children_ignore_order
-from core.xml_utils import localname, normalize_text
+from core.xml_utils import localname, normalize_text, xsi_clark_tag
 
 # ---------------------------------------------------------------------------
 # Change collection

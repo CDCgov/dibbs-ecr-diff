@@ -42,6 +42,16 @@ def assert_xml_equal(actual_xml: str, expected_xml: str) -> None:
     assert canonical_xml(actual_xml) == canonical_xml(expected_xml)
 
 
+def test_clark_tag_helpers_use_expected_namespaces():
+    assert xml_utils.clark_tag(HL7_NS, "id") == xml_utils.hl7_clark_tag("id")
+    assert xml_utils.hl7_clark_tag("id") == "{urn:hl7-org:v3}id"
+    assert xml_utils.sdtc_clark_tag("valueSet") == "{urn:hl7-org:sdtc}valueSet"
+    assert (
+        xml_utils.xsi_clark_tag("type")
+        == "{http://www.w3.org/2001/XMLSchema-instance}type"
+    )
+
+
 @pytest.fixture
 def cda_document() -> etree._Element:
     """A small CDA-like document with inherited namespaces and nested entries."""
@@ -400,8 +410,8 @@ def test_build_standalone_xml_string_outputs_parseable_namespace_complete_snippe
     assert standalone_observation.nsmap["xsi"] == XSI_NS
     assert standalone_observation.nsmap["sdtc"] == SDTC_NS
     assert "unused" not in standalone_observation.nsmap
-    assert value.get(constants.xsi_clark_tag("type")) == "cda:CD"
-    assert value.get(constants.sdtc_clark_tag("valueSet")) == (
+    assert value.get(xml_utils.xsi_clark_tag("type")) == "cda:CD"
+    assert value.get(xml_utils.sdtc_clark_tag("valueSet")) == (
         "2.16.840.1.113883.example"
     )
 
@@ -486,7 +496,7 @@ def test_descendant_local_prefix_is_hoisted_when_snippet_root_does_not_bind_that
     assert required_prefix_bindings == {"cda": HL7_NS}
     assert standalone_section.nsmap["cda"] == HL7_NS
     assert value.nsmap["cda"] == HL7_NS
-    assert value.get(constants.xsi_clark_tag("type")) == "cda:CD"
+    assert value.get(xml_utils.xsi_clark_tag("type")) == "cda:CD"
 
     expected_xml = dedent(
         f"""
@@ -544,8 +554,8 @@ def test_descendant_local_prefix_rebinding_stays_local_when_root_binds_same_pref
 
     assert first_value.nsmap["a"] == "urn:example:type-one"
     assert second_value.nsmap["a"] == "urn:example:type-two"
-    assert first_value.get(constants.xsi_clark_tag("type")) == "a:TypeOne"
-    assert second_value.get(constants.xsi_clark_tag("type")) == "a:TypeTwo"
+    assert first_value.get(xml_utils.xsi_clark_tag("type")) == "a:TypeOne"
+    assert second_value.get(xml_utils.xsi_clark_tag("type")) == "a:TypeTwo"
 
     expected_xml = dedent(
         f"""
@@ -610,10 +620,10 @@ def test_build_standalone_xml_string_keeps_conflicting_descendant_prefix_binding
 
     assert standalone_section.nsmap["lab"] == "urn:example:type-one"
 
-    assert first_value.get(constants.xsi_clark_tag("type")) == "lab:TypeOne"
+    assert first_value.get(xml_utils.xsi_clark_tag("type")) == "lab:TypeOne"
     assert first_value.nsmap["lab"] == "urn:example:type-one"
 
-    assert second_value.get(constants.xsi_clark_tag("type")) == "lab:TypeTwo"
+    assert second_value.get(xml_utils.xsi_clark_tag("type")) == "lab:TypeTwo"
     assert second_value.nsmap["lab"] == "urn:example:type-two"
 
     expected_xml = dedent(

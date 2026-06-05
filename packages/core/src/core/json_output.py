@@ -12,22 +12,20 @@ from typing import List, Tuple
 from lxml import etree
 
 from core.constants import (
-    HL7_NAMESPACE,
     HL7_NS,
     HL7_PREFIX,
-    AddedEntry,
-    DeletedEntry,
-    UpdatedEntry,
+    NAMESPACES,
 )
+from core.diff_types import AddedEntry, DeletedEntry, UpdatedEntry
 from core.paths import stable_xml_path, xpath_with_predicates
 from core.xml_utils import build_standalone_xml_string
 
 
 def get_doc_metadata(root: etree._Element) -> Tuple[str, str, str]:
     """Extract setId, clinicalDocumentId, and versionNumber from the document root."""
-    set_id         = root.xpath("string(hl7:setId/@root)",          namespaces=HL7_NAMESPACE) or ""
-    doc_id         = root.xpath("string(hl7:id/@root)",             namespaces=HL7_NAMESPACE) or ""
-    version_number = root.xpath("string(hl7:versionNumber/@value)", namespaces=HL7_NAMESPACE) or ""
+    set_id         = root.xpath("string(hl7:setId/@root)",          namespaces=NAMESPACES) or ""
+    doc_id         = root.xpath("string(hl7:id/@root)",             namespaces=NAMESPACES) or ""
+    version_number = root.xpath("string(hl7:versionNumber/@value)", namespaces=NAMESPACES) or ""
     return set_id, doc_id, version_number
 
 

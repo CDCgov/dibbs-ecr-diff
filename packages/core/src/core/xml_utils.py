@@ -8,11 +8,31 @@ from copy import deepcopy
 
 from lxml import etree
 
-from core.constants import NAMESPACES, xsi_clark_tag
+from core.constants import HL7_NS, NAMESPACES, SDTC_NS, XSI_NS
 
 # ---------------------------------------------------------------------------
 # Text and tag helpers
 # ---------------------------------------------------------------------------
+
+
+def clark_tag(namespace_uri: str, local_name: str) -> str:
+    """Return an expanded XML name in lxml Clark notation."""
+    return f"{{{namespace_uri}}}{local_name}"
+
+
+def hl7_clark_tag(local_name: str) -> str:
+    """Return an HL7/CDA expanded name in lxml Clark notation."""
+    return clark_tag(HL7_NS, local_name)
+
+
+def sdtc_clark_tag(local_name: str) -> str:
+    """Return an SDTC expanded name in lxml Clark notation."""
+    return clark_tag(SDTC_NS, local_name)
+
+
+def xsi_clark_tag(local_name: str) -> str:
+    """Return an XML Schema instance expanded name in lxml Clark notation."""
+    return clark_tag(XSI_NS, local_name)
 
 
 def normalize_text(text: str | None) -> str:

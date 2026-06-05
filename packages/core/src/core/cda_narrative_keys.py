@@ -4,7 +4,7 @@ from typing import Optional
 
 from lxml import etree
 
-from core.constants import HL7_NAMESPACE
+from core.constants import NAMESPACES
 from core.xml_utils import localname, normalize_text
 
 
@@ -18,7 +18,7 @@ def narrative_table_key(elem: etree._Element) -> Optional[tuple]:
     if localname(elem) != "table":
         return None
 
-    headers = elem.xpath("./hl7:thead/hl7:tr[1]/hl7:th", namespaces=HL7_NAMESPACE)
+    headers = elem.xpath("./hl7:thead/hl7:tr[1]/hl7:th", namespaces=NAMESPACES)
     if headers:
         labels = [normalize_text(th.text) for th in headers if normalize_text(th.text)]
         if labels:
@@ -26,7 +26,7 @@ def narrative_table_key(elem: etree._Element) -> Optional[tuple]:
 
     first_cell = elem.xpath(
         ".//hl7:tr[1]/*[self::hl7:th or self::hl7:td][1]",
-        namespaces=HL7_NAMESPACE,
+        namespaces=NAMESPACES,
     )
     if first_cell:
         text = normalize_text(first_cell[0].text)
@@ -46,13 +46,13 @@ def narrative_row_key(elem: etree._Element) -> Optional[tuple]:
     if localname(elem) != "tr":
         return None
 
-    first_cell = elem.xpath("./hl7:td[1] | ./hl7:th[1]", namespaces=HL7_NAMESPACE)
+    first_cell = elem.xpath("./hl7:td[1] | ./hl7:th[1]", namespaces=NAMESPACES)
     if first_cell:
         text = normalize_text(first_cell[0].text)
         if text:
             return ("row.first_cell", text)
 
-    cells = elem.xpath("./hl7:td | ./hl7:th", namespaces=HL7_NAMESPACE)
+    cells = elem.xpath("./hl7:td | ./hl7:th", namespaces=NAMESPACES)
     joined = "|".join(
         normalize_text(cell.text) for cell in cells if normalize_text(cell.text)
     )

@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-from core.constants import HL7_NAMESPACE, HL7_NS
+from core.constants import HL7_NS, NAMESPACES
 from lxml import etree
 
 
@@ -20,7 +20,7 @@ def observation(key_children: str, body: str = "") -> etree._Element:
 
 
 def find_one(element: etree._Element, xpath_expression: str) -> etree._Element:
-    result = element.xpath(xpath_expression, namespaces=HL7_NAMESPACE)
+    result = element.xpath(xpath_expression, namespaces=NAMESPACES)
     assert len(result) == 1
     assert isinstance(result[0], etree._Element)
     return result[0]
