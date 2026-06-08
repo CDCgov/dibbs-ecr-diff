@@ -11,9 +11,9 @@ bookkeeping does not appear as clinical/content changes.
 
 from lxml import etree
 
-from core.constants import XSI_NS, AddedEntry, DeletedEntry, UpdatedEntry
+from core.diff_types import AddedEntry, DeletedEntry, UpdatedEntry
 from core.matching import build_child_groups, match_children_ignore_order
-from core.xml_utils import localname, normalize_text
+from core.xml_utils import localname, normalize_text, xsi_clark_tag
 
 # ---------------------------------------------------------------------------
 # Change collection
@@ -28,7 +28,7 @@ IGNORED_CLINICAL_DOCUMENT_CHILD_LOCAL_NAMES = frozenset(
 )
 IGNORED_CLINICAL_DOCUMENT_ATTRS = frozenset(
     {
-        f"{{{XSI_NS}}}schemaLocation",
+        xsi_clark_tag("schemaLocation"),
     }
 )
 

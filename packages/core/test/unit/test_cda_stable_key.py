@@ -1,38 +1,17 @@
-from core.cda_identity import (
-    DIRECT_TEMPLATE_ID_TAG,
+from core.cda_key_models import (
     CodeKey,
-    ElementSetKeySource,
-    IdAttributeKey,
-    IdAttributeKeySource,
-    IdElementSetKey,
+    DirectChildIdElementSetKey,
+    DirectChildTemplateIdElementSetKey,
+    NestedClinicalStatementIdAttributeKey,
+    NestedClinicalStatementIdElementSetKey,
+    NestedClinicalStatementTemplateIdElementSetKey,
+    NestedSectionIdElementSetKey,
+    NestedSectionTemplateIdElementSetKey,
     RootExtension,
     RootExtensionKey,
-    TemplateIdElementSetKey,
-    _clinical_statement_for_identity,
-    _direct_child_root_extensions_for_tag,
-    soft_context_key,
-    stable_key,
 )
+from core.cda_stable_key import stable_key
 from helpers import HL7_NS, elem, observation
-
-
-def test_direct_child_root_extensions_for_tag_sorts_deduplicates_and_skips_missing_root():
-    element = observation(
-        """
-        <templateId root="2" extension="b"/>
-        <templateId root="1"/>
-        <templateId root="2" extension="b"/>
-        <templateId extension="missing-root"/>
-        """
-    )
-
-    assert _direct_child_root_extensions_for_tag(
-        element,
-        DIRECT_TEMPLATE_ID_TAG,
-    ) == (
-        RootExtension(root="1"),
-        RootExtension(root="2", extension="b"),
-    )
 
 
 def test_stable_key_uses_order_insensitive_direct_template_id_root_extensions():
@@ -50,8 +29,7 @@ def test_stable_key_uses_order_insensitive_direct_template_id_root_extensions():
     )
 
     assert stable_key(first) == stable_key(second)
-    assert stable_key(first) == TemplateIdElementSetKey(
-        source=ElementSetKeySource.DIRECT_CHILD,
+    assert stable_key(first) == DirectChildTemplateIdElementSetKey(
         root_extensions=(
             RootExtension(root="1"),
             RootExtension(root="2", extension="b"),
@@ -59,7 +37,7 @@ def test_stable_key_uses_order_insensitive_direct_template_id_root_extensions():
     )
 
 
-def test_stable_key_does_not_use_weak_attributes_as_identity():
+def test_stable_key_does_not_use_weak_attributes_as_key():
     element = elem(
         f"""
         <observation xmlns="{HL7_NS}" classCode="OBS" moodCode="EVN"/>
@@ -77,8 +55,7 @@ def test_stable_key_prefers_direct_child_id_over_template_ids():
         """
     )
 
-    assert stable_key(element) == IdElementSetKey(
-        source=ElementSetKeySource.DIRECT_CHILD,
+    assert stable_key(element) == DirectChildIdElementSetKey(
         root_extensions=(RootExtension(root="id-a", extension="1"),),
     )
 
@@ -99,8 +76,7 @@ def test_stable_key_uses_order_insensitive_direct_id_children_without_mixing_att
     )
 
     assert stable_key(first) == stable_key(second)
-    assert stable_key(first) == IdElementSetKey(
-        source=ElementSetKeySource.DIRECT_CHILD,
+    assert stable_key(first) == DirectChildIdElementSetKey(
         root_extensions=(
             RootExtension(root="id-a"),
             RootExtension(root="id-b", extension="2"),
@@ -120,8 +96,7 @@ def test_stable_key_uses_template_id_root_extensions_from_nested_sections():
         """
     )
 
-    assert stable_key(component) == TemplateIdElementSetKey(
-        source=ElementSetKeySource.NESTED_SECTION,
+    assert stable_key(component) == NestedSectionTemplateIdElementSetKey(
         root_extensions=(
             RootExtension(root="1"),
             RootExtension(root="2", extension="b"),
@@ -129,7 +104,7 @@ def test_stable_key_uses_template_id_root_extensions_from_nested_sections():
     )
 
 
-def test_nested_section_template_identities_are_order_insensitive():
+def test_nested_section_template_keys_are_order_insensitive():
     first = elem(
         f"""
         <component xmlns="{HL7_NS}">
@@ -148,8 +123,7 @@ def test_nested_section_template_identities_are_order_insensitive():
     )
 
     assert stable_key(first) == stable_key(second)
-    assert stable_key(first) == TemplateIdElementSetKey(
-        source=ElementSetKeySource.NESTED_SECTION,
+    assert stable_key(first) == NestedSectionTemplateIdElementSetKey(
         root_extensions=(
             RootExtension(root="a"),
             RootExtension(root="b"),
@@ -157,7 +131,7 @@ def test_nested_section_template_identities_are_order_insensitive():
     )
 
 
-def test_too_many_nested_section_template_identities_do_not_create_partial_key():
+def test_too_many_nested_section_template_keys_do_not_create_partial_key():
     sections = "\n".join(
         f"""<section><templateId root="template-{index}"/></section>"""
         for index in range(13)
@@ -185,8 +159,7 @@ def test_nested_statement_id_beats_nested_statement_template_ids():
         """
     )
 
-    assert stable_key(entry) == IdElementSetKey(
-        source=ElementSetKeySource.NESTED_CLINICAL_STATEMENT,
+    assert stable_key(entry) == NestedClinicalStatementIdElementSetKey(
         root_extensions=(RootExtension(root="statement-id", extension="1"),),
     )
 
@@ -202,8 +175,7 @@ def test_nested_statement_direct_id_attribute_beats_nested_statement_child_id():
         """
     )
 
-    assert stable_key(entry) == IdAttributeKey(
-        source=IdAttributeKeySource.NESTED_CLINICAL_STATEMENT,
+    assert stable_key(entry) == NestedClinicalStatementIdAttributeKey(
         name="ID",
         value="statement-attribute-id",
     )
@@ -213,7 +185,7 @@ def test_nested_statement_direct_id_attribute_does_not_use_code_attributes():
     entry = elem(
         f"""
         <entry xmlns="{HL7_NS}">
-          <observation code="not-a-direct-statement-identity"
+          <observation code="not-a-direct-statement-key"
                        codeSystem="test-system">
             <templateId root="statement-template"/>
           </observation>
@@ -221,8 +193,7 @@ def test_nested_statement_direct_id_attribute_does_not_use_code_attributes():
         """
     )
 
-    assert stable_key(entry) == TemplateIdElementSetKey(
-        source=ElementSetKeySource.NESTED_CLINICAL_STATEMENT,
+    assert stable_key(entry) == NestedClinicalStatementTemplateIdElementSetKey(
         root_extensions=(RootExtension(root="statement-template"),),
     )
 
@@ -239,8 +210,7 @@ def test_nested_section_id_beats_nested_section_template_ids():
         """
     )
 
-    assert stable_key(component) == IdElementSetKey(
-        source=ElementSetKeySource.NESTED_SECTION,
+    assert stable_key(component) == NestedSectionIdElementSetKey(
         root_extensions=(RootExtension(root="section-id", extension="1"),),
     )
 
@@ -264,8 +234,7 @@ def test_nested_section_root_extensions_are_order_insensitive():
     )
 
     assert stable_key(first) == stable_key(second)
-    assert stable_key(first) == IdElementSetKey(
-        source=ElementSetKeySource.NESTED_SECTION,
+    assert stable_key(first) == NestedSectionIdElementSetKey(
         root_extensions=(
             RootExtension(root="a"),
             RootExtension(root="b"),
@@ -301,6 +270,36 @@ def test_direct_code_key_requires_code_system():
     assert stable_key(code_without_system) is None
 
 
+def test_direct_code_key_only_applies_to_code_elements():
+    coded_value_element = elem(
+        f"""
+        <administrativeGenderCode xmlns="{HL7_NS}"
+                                  code="M"
+                                  codeSystem="2.16.840.1.113883.5.1"/>
+        """
+    )
+
+    assert stable_key(coded_value_element) is None
+
+
+def test_coded_statement_attributes_do_not_outrank_direct_child_id():
+    statement = elem(
+        f"""
+        <observation xmlns="{HL7_NS}"
+                     classCode="OBS"
+                     moodCode="EVN"
+                     code="not-a-statement-key"
+                     codeSystem="test-system">
+          <id root="statement-id" extension="1"/>
+        </observation>
+        """
+    )
+
+    assert stable_key(statement) == DirectChildIdElementSetKey(
+        root_extensions=(RootExtension(root="statement-id", extension="1"),),
+    )
+
+
 def test_direct_root_extension_key_uses_root_extension_fields():
     id_element = elem(
         f"""<id xmlns="{HL7_NS}" root="document-id-root" extension="document-id-ext"/>"""
@@ -316,7 +315,17 @@ def test_direct_root_extension_key_uses_root_extension_fields():
     )
 
 
-def test_unrelated_descendant_id_is_not_stable_identity():
+def test_direct_root_extension_key_only_applies_to_cda_tags():
+    non_cda_id_element = elem(
+        """<custom:id xmlns:custom="urn:example"
+                      root="custom-id-root"
+                      extension="custom-id-ext"/>"""
+    )
+
+    assert stable_key(non_cda_id_element) is None
+
+
+def test_unrelated_descendant_id_is_not_stable_key():
     wrapper = elem(
         f"""
         <wrapper xmlns="{HL7_NS}">
@@ -330,24 +339,7 @@ def test_unrelated_descendant_id_is_not_stable_identity():
     assert stable_key(wrapper) is None
 
 
-def test_clinical_statement_identity_unwraps_single_statement_wrappers():
-    for wrapper_name in ("entry", "entryRelationship", "component"):
-        wrapper = elem(
-            f"""
-            <{wrapper_name} xmlns="{HL7_NS}">
-              <observation classCode="OBS" moodCode="EVN"/>
-            </{wrapper_name}>
-            """
-        )
-        observation_element = wrapper.xpath(
-            "./hl7:observation",
-            namespaces={"hl7": HL7_NS},
-        )[0]
-
-        assert _clinical_statement_for_identity(wrapper) is observation_element
-
-
-def test_clinical_statement_identity_does_not_unwrap_multi_entry_container():
+def test_stable_key_does_not_use_multi_entry_container_statement_key():
     section = elem(
         f"""
         <section xmlns="{HL7_NS}">
@@ -365,11 +357,10 @@ def test_clinical_statement_identity_does_not_unwrap_multi_entry_container():
         """
     )
 
-    assert _clinical_statement_for_identity(section) is None
     assert stable_key(section) is None
 
 
-def test_single_statement_wrapper_with_multiple_direct_statements_has_no_statement_identity():
+def test_stable_key_does_not_use_wrapper_with_multiple_direct_statements():
     entry = elem(
         f"""
         <entry xmlns="{HL7_NS}">
@@ -383,11 +374,10 @@ def test_single_statement_wrapper_with_multiple_direct_statements_has_no_stateme
         """
     )
 
-    assert _clinical_statement_for_identity(entry) is None
     assert stable_key(entry) is None
 
 
-def test_organizer_uses_itself_for_clinical_statement_identity():
+def test_stable_key_uses_organizer_itself_for_clinical_statement_key_derivation():
     organizer = elem(
         f"""
         <organizer xmlns="{HL7_NS}" classCode="BATTERY" moodCode="EVN">
@@ -401,32 +391,6 @@ def test_organizer_uses_itself_for_clinical_statement_identity():
         """
     )
 
-    assert _clinical_statement_for_identity(organizer) is organizer
-    assert stable_key(organizer) == IdElementSetKey(
-        source=ElementSetKeySource.DIRECT_CHILD,
+    assert stable_key(organizer) == DirectChildIdElementSetKey(
         root_extensions=(RootExtension(root="organizer-id", extension="1"),),
     )
-
-
-def test_soft_context_key_uses_full_direct_template_id_root_extensions():
-    first = observation(
-        """
-        <templateId root="2" extension="b"/>
-        <templateId root="1"/>
-        """
-    )
-    second = observation(
-        """
-        <templateId root="1"/>
-        <templateId root="2" extension="b"/>
-        """
-    )
-    different_extension = observation(
-        """
-        <templateId root="1"/>
-        <templateId root="2" extension="c"/>
-        """
-    )
-
-    assert soft_context_key(first) == soft_context_key(second)
-    assert soft_context_key(first) != soft_context_key(different_extension)
