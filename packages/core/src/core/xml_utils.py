@@ -8,11 +8,31 @@ from copy import deepcopy
 
 from lxml import etree
 
-from core.constants import NAMESPACES, XSI_TYPE_ATTR
+from core.constants import HL7_NS, NAMESPACES, SDTC_NS, XSI_NS
 
 # ---------------------------------------------------------------------------
 # Text and tag helpers
 # ---------------------------------------------------------------------------
+
+
+def clark_tag(namespace_uri: str, local_name: str) -> str:
+    """Return an expanded XML name in lxml Clark notation."""
+    return f"{{{namespace_uri}}}{local_name}"
+
+
+def hl7_clark_tag(local_name: str) -> str:
+    """Return an HL7/CDA expanded name in lxml Clark notation."""
+    return clark_tag(HL7_NS, local_name)
+
+
+def sdtc_clark_tag(local_name: str) -> str:
+    """Return an SDTC expanded name in lxml Clark notation."""
+    return clark_tag(SDTC_NS, local_name)
+
+
+def xsi_clark_tag(local_name: str) -> str:
+    """Return an XML Schema instance expanded name in lxml Clark notation."""
+    return clark_tag(XSI_NS, local_name)
 
 
 def normalize_text(text: str | None) -> str:
@@ -108,7 +128,7 @@ def _collect_subtree_attribute_values(
 
     Used when collecting several attribute values from a subtree, such as
     gathering all templateId/@root values from nested elements to build a
-    composite identity key.
+    composite key.
 
     Collect up to `limit` values of `attribute_name` from elements matched by
     the ElementPath `node_path`, relative to `elem`.
@@ -171,7 +191,7 @@ def _complete_attribute_pair(
     This is useful when the two attributes are meaningful as a single
     composite value, such as `root` + `extension` or `code` + `codeSystem`.
     Returning None for partial data lets callers treat the pair as one
-    atomic value for matching, identity checks, or key construction.
+    atomic value for matching, key checks, or key construction.
     """
     if node is None:
         return None
@@ -219,7 +239,7 @@ def _collect_standalone_namespace_requirements(
             # lxml will preserve namespaces in element and attribute names, but
             # it does not understand that the string value "cda:CD" also depends
             # on the lexical prefix `cda` remaining bound.
-            if attr_name != XSI_TYPE_ATTR:
+            if attr_name != xsi_clark_tag("type"):
                 continue
 
             attr_value_text = attr_value.strip()

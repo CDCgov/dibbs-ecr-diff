@@ -1,20 +1,18 @@
 from textwrap import dedent
 
+from core.constants import HL7_NS, NAMESPACES
 from lxml import etree
-
-HL7_NS = "urn:hl7-org:v3"
-HL7_NAMESPACE = {"hl7": HL7_NS}
 
 
 def elem(xml: str) -> etree._Element:
     return etree.fromstring(dedent(xml).encode("utf-8"))
 
 
-def observation(identity_children: str, body: str = "") -> etree._Element:
+def observation(key_children: str, body: str = "") -> etree._Element:
     return elem(
         f"""
         <observation xmlns="{HL7_NS}" classCode="OBS" moodCode="EVN">
-          {identity_children}
+          {key_children}
           {body}
         </observation>
         """
@@ -22,7 +20,7 @@ def observation(identity_children: str, body: str = "") -> etree._Element:
 
 
 def find_one(element: etree._Element, xpath_expression: str) -> etree._Element:
-    result = element.xpath(xpath_expression, namespaces=HL7_NAMESPACE)
+    result = element.xpath(xpath_expression, namespaces=NAMESPACES)
     assert len(result) == 1
     assert isinstance(result[0], etree._Element)
     return result[0]

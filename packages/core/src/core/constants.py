@@ -1,29 +1,23 @@
-"""Module-level constants and type aliases shared across all core modules."""
-
-from lxml import etree
+"""Shared key-attribute and namespace constants."""
 
 # ---------------------------------------------------------------------------
 # Stable key attributes
 # ---------------------------------------------------------------------------
 
-# Attributes that can participate in stable identity keys when present directly
-# on an element. Pair-valued attributes such as root/extension and
-# code/codeSystem are interpreted together by the identity layer.
+# Attribute names used by stable-key and fallback-key derivation.
+#
+# Pair-valued attributes such as root/extension and code/codeSystem are
+# interpreted together by the key layer; they are not standalone keys.
 #
 #   ID, id             — direct ID attributes
-#   root, extension    — CDA II-style identifiers on id/templateId-like nodes
-#   code, codeSystem   — coded concept keys when both are available
+#   root, extension    — CDA II-style identifiers on id/templateId/setId nodes
+#   code, codeSystem   — coded concept keys on CDA <code> elements
 DIRECT_ID_KEY_ATTRS = ("ID", "id")
 ROOT_EXTENSION_KEY_ATTRS = ("root", "extension")
 CODE_KEY_ATTRS = ("code", "codeSystem")
-STRONG_KEY_ATTRS = (
-    *DIRECT_ID_KEY_ATTRS,
-    *ROOT_EXTENSION_KEY_ATTRS,
-    *CODE_KEY_ATTRS,
-)
 
 # Attributes that are useful for secondary matching context but are too broad
-# to be used as standalone identity keys.
+# to be used as standalone stable keys.
 #
 #   classCode  — distinguishes act class: ACT vs OBS vs ENC etc. on the same tag
 #   typeCode   — distinguishes relationship semantics on entryRelationship, participant etc.
@@ -31,7 +25,7 @@ STRONG_KEY_ATTRS = (
 WEAK_KEY_ATTRS = ("classCode", "typeCode", "use")
 
 # ---------------------------------------------------------------------------
-# HL7 namespace
+# XML namespaces
 # ---------------------------------------------------------------------------
 
 # HL7 namespace used throughout CDA/eICR documents
@@ -46,9 +40,6 @@ SDTC_PREFIX = "sdtc"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
 XSI_PREFIX = "xsi"
 
-# Passed as namespaces= to every .xpath() call so we can write hl7:tag
-# instead of *[local-name()='tag']
-HL7_NAMESPACE = {HL7_PREFIX: HL7_NS}
 
 # Passed as namespaces= to XPath/ElementPath calls so code can use
 # hl7:tag, sdtc:tag, etc. instead of local-name() expressions.
@@ -57,18 +48,3 @@ NAMESPACES = {
     SDTC_PREFIX: SDTC_NS,
     XSI_PREFIX: XSI_NS,
 }
-
-XSI_TYPE_ATTR = f"{{{XSI_NS}}}type"
-
-# ---------------------------------------------------------------------------
-# Type aliases
-# ---------------------------------------------------------------------------
-
-# element present only in the after tree
-AddedEntry = etree._Element
-
-# (before_node, after_node) — element present in both trees with changed content
-UpdatedEntry = tuple[etree._Element, etree._Element]
-
-# the deleted element from the before tree
-DeletedEntry = etree._Element

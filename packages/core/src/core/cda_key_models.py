@@ -25,8 +25,8 @@ class IdAttributeKeyBase:
     Base for stable-key variants backed by XML ID/id attributes.
 
     Subclasses are intentionally separate because the source location is part
-    of the key identity. Dataclass equality requires the same concrete class,
-    so identical field values from different locations remain distinct.
+    of the key. Dataclass equality requires the same concrete class, so
+    identical field values from different locations remain distinct.
     """
 
     name: str

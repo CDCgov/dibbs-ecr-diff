@@ -9,13 +9,13 @@ from textwrap import dedent
 
 import pytest
 from core import constants, xml_utils
+from core.cda_tags import CLINICAL_DOCUMENT_TAG
 from lxml import etree
 
 HL7_NS = constants.HL7_NS
 SDTC_NS = constants.SDTC_NS
 XSI_NS = constants.XSI_NS
 NAMESPACES = constants.NAMESPACES
-XSI_TYPE_ATTR = constants.XSI_TYPE_ATTR
 
 
 def parse_xml(xml_text: str) -> etree._Element:
@@ -40,6 +40,16 @@ def canonical_xml(xml_text: str) -> bytes:
 
 def assert_xml_equal(actual_xml: str, expected_xml: str) -> None:
     assert canonical_xml(actual_xml) == canonical_xml(expected_xml)
+
+
+def test_clark_tag_helpers_use_expected_namespaces():
+    assert xml_utils.clark_tag(HL7_NS, "id") == xml_utils.hl7_clark_tag("id")
+    assert xml_utils.hl7_clark_tag("id") == "{urn:hl7-org:v3}id"
+    assert xml_utils.sdtc_clark_tag("valueSet") == "{urn:hl7-org:sdtc}valueSet"
+    assert (
+        xml_utils.xsi_clark_tag("type")
+        == "{http://www.w3.org/2001/XMLSchema-instance}type"
+    )
 
 
 @pytest.fixture
@@ -103,7 +113,6 @@ def test_namespace_constants_are_internally_consistent() -> None:
     assert constants.NAMESPACES[constants.HL7_PREFIX] == constants.HL7_NS
     assert constants.NAMESPACES[constants.SDTC_PREFIX] == constants.SDTC_NS
     assert constants.NAMESPACES[constants.XSI_PREFIX] == constants.XSI_NS
-    assert constants.XSI_TYPE_ATTR == f"{{{constants.XSI_NS}}}type"
 
 
 # ---------------------------------------------------------------------------
@@ -401,8 +410,10 @@ def test_build_standalone_xml_string_outputs_parseable_namespace_complete_snippe
     assert standalone_observation.nsmap["xsi"] == XSI_NS
     assert standalone_observation.nsmap["sdtc"] == SDTC_NS
     assert "unused" not in standalone_observation.nsmap
-    assert value.get(XSI_TYPE_ATTR) == "cda:CD"
-    assert value.get(f"{{{SDTC_NS}}}valueSet") == "2.16.840.1.113883.example"
+    assert value.get(xml_utils.xsi_clark_tag("type")) == "cda:CD"
+    assert value.get(xml_utils.sdtc_clark_tag("valueSet")) == (
+        "2.16.840.1.113883.example"
+    )
 
     expected_xml = dedent(
         f"""
@@ -485,7 +496,7 @@ def test_descendant_local_prefix_is_hoisted_when_snippet_root_does_not_bind_that
     assert required_prefix_bindings == {"cda": HL7_NS}
     assert standalone_section.nsmap["cda"] == HL7_NS
     assert value.nsmap["cda"] == HL7_NS
-    assert value.get(XSI_TYPE_ATTR) == "cda:CD"
+    assert value.get(xml_utils.xsi_clark_tag("type")) == "cda:CD"
 
     expected_xml = dedent(
         f"""
@@ -543,8 +554,8 @@ def test_descendant_local_prefix_rebinding_stays_local_when_root_binds_same_pref
 
     assert first_value.nsmap["a"] == "urn:example:type-one"
     assert second_value.nsmap["a"] == "urn:example:type-two"
-    assert first_value.get(XSI_TYPE_ATTR) == "a:TypeOne"
-    assert second_value.get(XSI_TYPE_ATTR) == "a:TypeTwo"
+    assert first_value.get(xml_utils.xsi_clark_tag("type")) == "a:TypeOne"
+    assert second_value.get(xml_utils.xsi_clark_tag("type")) == "a:TypeTwo"
 
     expected_xml = dedent(
         f"""
@@ -609,10 +620,10 @@ def test_build_standalone_xml_string_keeps_conflicting_descendant_prefix_binding
 
     assert standalone_section.nsmap["lab"] == "urn:example:type-one"
 
-    assert first_value.get(XSI_TYPE_ATTR) == "lab:TypeOne"
+    assert first_value.get(xml_utils.xsi_clark_tag("type")) == "lab:TypeOne"
     assert first_value.nsmap["lab"] == "urn:example:type-one"
 
-    assert second_value.get(XSI_TYPE_ATTR) == "lab:TypeTwo"
+    assert second_value.get(xml_utils.xsi_clark_tag("type")) == "lab:TypeTwo"
     assert second_value.nsmap["lab"] == "urn:example:type-two"
 
     expected_xml = dedent(
@@ -647,6 +658,6 @@ def test_parentless_element_is_serialized_without_rebuilding_namespace_map() -> 
     round_tripped_root = parse_xml(xml_text)
     expected_xml = dedent(initial_xml).strip()
 
-    assert round_tripped_root.tag == f"{{{HL7_NS}}}ClinicalDocument"
+    assert round_tripped_root.tag == CLINICAL_DOCUMENT_TAG
     assert round_tripped_root.nsmap[None] == HL7_NS
     assert_xml_equal(xml_text, expected_xml)
