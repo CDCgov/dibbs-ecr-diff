@@ -7,7 +7,7 @@ from lxml import etree
 
 from core.xml_utils import build_standalone_xml_string
 
-from .cda_identity import StableKey, stable_key
+from .cda_stable_key import StableKey, stable_key
 from .constants import NAMESPACES
 from .diff_engine import collect_additions_updates_deletes
 from .models import (
