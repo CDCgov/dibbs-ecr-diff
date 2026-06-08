@@ -43,6 +43,7 @@ coverage.xml
 .vscode/settings.json
 .vscode/*.code-workspace
 .exrc
+.idea
 
 # macOS
 **/.DS_Store
