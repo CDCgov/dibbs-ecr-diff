@@ -121,37 +121,6 @@ def _xpath_first_attribute_value(
     return str(first_attribute_value)
 
 
-def _collect_subtree_attribute_values(
-    elem: etree._Element, node_path: str, attribute_name: str, limit: int = 6
-) -> list[str]:
-    """Collect attribute values from a subtree.
-
-    Used when collecting several attribute values from a subtree, such as
-    gathering all templateId/@root values from nested elements to build a
-    composite key.
-
-    Collect up to `limit` values of `attribute_name` from elements matched by
-    the ElementPath `node_path`, relative to `elem`.
-
-    Matching nodes that do not have `attribute_name` are skipped.
-
-    Uses iterfind() so iteration can stop as soon as enough values are found,
-    unlike xpath(), which evaluates the full result set first. This guards
-    against large subtree evaluation.
-    """
-    if limit <= 0:
-        return []
-
-    attribute_values: list[str] = []
-    for node in elem.iterfind(node_path, namespaces=NAMESPACES):
-        attribute_value = node.get(attribute_name)
-        if attribute_value is not None:
-            attribute_values.append(attribute_value)
-            if len(attribute_values) >= limit:
-                break
-    return attribute_values
-
-
 def _xpath_first_element(
     element: etree._Element,
     xpath_expression: str,

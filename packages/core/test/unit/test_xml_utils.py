@@ -268,57 +268,6 @@ def test_xpath_first_element_rejects_non_element_results(
 # ---------------------------------------------------------------------------
 
 
-def test_collect_subtree_attribute_values_reads_attrs_from_matched_nodes_and_respects_limit(
-    cda_document: etree._Element,
-) -> None:
-    section = find_one(cda_document, ".//hl7:section")
-
-    template_roots = xml_utils._collect_subtree_attribute_values(
-        section,
-        ".//hl7:templateId",
-        "root",
-        limit=2,
-    )
-
-    assert template_roots == [
-        "2.16.840.1.113883.10.20.15.2.1",
-        "2.16.840.1.113883.10.20.15.2.3",
-    ]
-
-
-def test_collect_subtree_attribute_values_skips_nodes_missing_requested_attribute(
-    cda_document: etree._Element,
-) -> None:
-    section = find_one(cda_document, ".//hl7:section")
-
-    template_extensions = xml_utils._collect_subtree_attribute_values(
-        section,
-        ".//hl7:templateId",
-        "extension",
-        limit=8,
-    )
-
-    assert template_extensions == ["2024-05-01"]
-
-
-@pytest.mark.parametrize("limit", [0, -1])
-def test_collect_subtree_attribute_values_returns_empty_list_when_limit_is_not_positive(
-    cda_document: etree._Element,
-    limit: int,
-) -> None:
-    section = find_one(cda_document, ".//hl7:section")
-
-    assert (
-        xml_utils._collect_subtree_attribute_values(
-            section,
-            ".//hl7:templateId",
-            "root",
-            limit=limit,
-        )
-        == []
-    )
-
-
 @pytest.mark.parametrize(
     ("node_xml", "expected"),
     [
