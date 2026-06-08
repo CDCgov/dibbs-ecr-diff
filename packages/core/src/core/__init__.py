@@ -1,5 +1,4 @@
-"""
-Core Difference in Docs functionality.
+"""Core Difference in Docs functionality.
 
 Run as a module:
     python -m core file1.xml file2.xml

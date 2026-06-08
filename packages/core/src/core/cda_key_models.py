@@ -1,7 +1,6 @@
 """CDA stable-key dataclasses."""
 
 from dataclasses import dataclass
-from typing import TypeAlias
 
 
 @dataclass(frozen=True, order=True)
@@ -14,13 +13,12 @@ class RootExtension:
 
 @dataclass(frozen=True)
 class IdAttributeKeyBase:
-    """
-    Base for stable-key variants backed by XML ID/id attributes.
+    """Base for stable-key variants backed by XML ID/id attributes.
 
-    Subclasses of IdAttributeKeyBase are intentionally separate because the source location, 
+    Subclasses of IdAttributeKeyBase are intentionally separate because the source location,
     as captured in the subclass' name, is part
     of the key. Dataclass equality requires the same concrete key class, so that
-    identical field values from different locations do not provide a false positive. 
+    identical field values from different locations do not provide a false positive.
     WARNING:Do not collapse these subclasses into a
     single dataclass unless the matching logic is updated accordingly.
     """
@@ -41,13 +39,12 @@ class NestedClinicalStatementIdAttributeKey(IdAttributeKeyBase):
 
 @dataclass(frozen=True)
 class RootExtensionSetKeyBase:
-    """
-    Base for stable-key variants backed by sets of root/extension fields.
+    """Base for stable-key variants backed by sets of root/extension fields.
 
-    Subclasses of RootExtensionSetKeyBase are intentionally separate because the source location, 
+    Subclasses of RootExtensionSetKeyBase are intentionally separate because the source location,
     as captured in the subclass' name, is part
     of the key. Dataclass equality requires the same concrete key class, so that
-    identical field values from different locations do not provide a false positive. 
+    identical field values from different locations do not provide a false positive.
     WARNING:Do not collapse these subclasses into a
     single dataclass unless the matching logic is updated accordingly.
     """
@@ -82,9 +79,7 @@ class NestedSectionTemplateIdElementSetKey(RootExtensionSetKeyBase):
 
 @dataclass(frozen=True)
 class NestedClinicalStatementTemplateIdElementSetKey(RootExtensionSetKeyBase):
-    """
-    Stable key from child <templateId> fields on a nested clinical statement.
-    """
+    """Stable key of child <templateId> fields on nested clinical statement."""
 
 
 @dataclass(frozen=True)
@@ -103,7 +98,7 @@ class CodeKey:
     code_system: str
 
 
-StableKey: TypeAlias = (
+type StableKey = (
     DirectIdAttributeKey
     | NestedClinicalStatementIdAttributeKey
     | RootExtensionKey

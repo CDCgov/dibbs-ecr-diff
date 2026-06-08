@@ -1,7 +1,5 @@
 """CDA clinical-statement detection and wrapper navigation."""
 
-from typing import Optional
-
 from lxml import etree
 
 from core.constants import HL7_NS
@@ -40,9 +38,7 @@ def _is_hl7_element_with_local_name(
     element: etree._Element,
     local_names: frozenset[str],
 ) -> bool:
-    """
-    Return True when element is in the HL7 namespace and is in local_names.
-    """
+    """Return True when element is in the HL7 namespace and local_names."""
     if not isinstance(element.tag, str):
         return False
 
@@ -70,9 +66,8 @@ def _is_cda_statement_wrapper_name(element: etree._Element) -> bool:
 
 def _single_direct_clinical_statement_child(
     element: etree._Element,
-) -> Optional[etree._Element]:
-    """
-    Return the direct clinical statement child when exactly one exists.
+) -> etree._Element | None:
+    """Return the direct clinical statement child when exactly one exists.
 
     Returning None for zero or multiple direct statement children avoids using
     document order as a key when the structure is not a clinical statement
@@ -90,9 +85,8 @@ def _single_direct_clinical_statement_child(
 
 def clinical_statement_element_for_key_derivation(
     element: etree._Element,
-) -> Optional[etree._Element]:
-    """
-    Return the clinical statement element that should be used for key derivation.
+) -> etree._Element | None:
+    """Return the clinical statement element that should be used for key derivation.
 
     Handles:
       - a clinical statement element itself, such as <observation>

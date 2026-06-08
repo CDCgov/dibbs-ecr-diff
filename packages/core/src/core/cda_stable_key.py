@@ -1,7 +1,5 @@
 """CDA stable-key derivation for matching elements across document versions."""
 
-from typing import Optional
-
 from lxml import etree
 
 from core.cda_clinical_statement import clinical_statement_element_for_key_derivation
@@ -39,7 +37,7 @@ TAGS_HAVING_ROOT_EXTENSION_KEYS = frozenset(
 )
 
 
-def _id_attribute_key(elem: etree._Element) -> Optional[DirectIdAttributeKey]:
+def _id_attribute_key(elem: etree._Element) -> DirectIdAttributeKey | None:
     """Return a standalone ID/id attribute key, if present."""
     for attr in DIRECT_ID_KEY_ATTRS:
         attr_value = elem.get(attr)
@@ -51,7 +49,7 @@ def _id_attribute_key(elem: etree._Element) -> Optional[DirectIdAttributeKey]:
     return None
 
 
-def _root_extension_key(elem: etree._Element) -> Optional[RootExtensionKey]:
+def _root_extension_key(elem: etree._Element) -> RootExtensionKey | None:
     """Return a direct root/extension key for matching CDA id-like elements."""
     if elem.tag not in TAGS_HAVING_ROOT_EXTENSION_KEYS:
         return None
@@ -66,7 +64,7 @@ def _root_extension_key(elem: etree._Element) -> Optional[RootExtensionKey]:
     )
 
 
-def _code_key(elem: etree._Element) -> Optional[CodeKey]:
+def _code_key(elem: etree._Element) -> CodeKey | None:
     """Return a direct CDA <code> key only when codeSystem is present."""
     if elem.tag != CODE_TAG:
         return None
@@ -79,13 +77,12 @@ def _code_key(elem: etree._Element) -> Optional[CodeKey]:
     return CodeKey(code=code_value, code_system=code_system)
 
 
-def _attribute_key(elem: etree._Element) -> Optional[StableKey]:
-    """
-    Return an attribute-derived key for elem, if present.
+def _attribute_key(elem: etree._Element) -> StableKey | None:
+    """Return an attribute-derived key for elem, if present.
 
     ID/id attributes are standalone keys. CDA root/extension attributes are
-    only treated as keys on elements specified in TAGS_HAVING_ROOT_EXTENSION_KEYS. 
-    A coded concept is only treated as a key for CDA <code> elements with codeSystem 
+    only treated as keys on elements specified in TAGS_HAVING_ROOT_EXTENSION_KEYS.
+    A coded concept is only treated as a key for CDA <code> elements with codeSystem
     present on the same element.
     """
     id_attribute_key = _id_attribute_key(elem)
@@ -103,9 +100,8 @@ def _attribute_key(elem: etree._Element) -> Optional[StableKey]:
     return None
 
 
-def stable_key(elem: etree._Element) -> Optional[StableKey]:
-    """
-    Derive the most specific stable match key available for elem.
+def stable_key(elem: etree._Element) -> StableKey | None:
+    """Derive the most specific stable match key available for elem.
 
     The key is used to match elements across before/after versions.  Keys are
     tried from most to least specific; the first match wins.
