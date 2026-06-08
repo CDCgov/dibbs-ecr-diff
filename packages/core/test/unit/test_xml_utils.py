@@ -10,6 +10,7 @@ from textwrap import dedent
 import pytest
 from core import constants, xml_utils
 from core.cda_tags import CLINICAL_DOCUMENT_TAG
+from helpers import assert_xml_equal
 from lxml import etree
 
 HL7_NS = constants.HL7_NS
@@ -30,16 +31,6 @@ def find_one(element: etree._Element, xpath_expression: str) -> etree._Element:
     result = results[0]
     assert isinstance(result, etree._Element)
     return result
-
-
-def canonical_xml(xml_text: str) -> bytes:
-    parser = etree.XMLParser(remove_blank_text=True)
-    root = etree.fromstring(xml_text.encode("utf-8"), parser=parser)
-    return etree.tostring(root, method="c14n")
-
-
-def assert_xml_equal(actual_xml: str, expected_xml: str) -> None:
-    assert canonical_xml(actual_xml) == canonical_xml(expected_xml)
 
 
 def test_clark_tag_helpers_use_expected_namespaces():

@@ -6,14 +6,7 @@ from typing import TypeAlias
 
 @dataclass(frozen=True, order=True)
 class RootExtension:
-    """
-    Comparable CDA match fields from root and optional extension.
-
-    CDA <id> and <templateId> elements both use root as the main identifier.
-    The extension, when present, further qualifies that identifier. Missing
-    extensions are represented as an empty string so fields can be compared
-    and sorted consistently.
-    """
+    """Comparable CDA match fields from root and optional extension."""
 
     root: str
     extension: str = ""
@@ -24,9 +17,12 @@ class IdAttributeKeyBase:
     """
     Base for stable-key variants backed by XML ID/id attributes.
 
-    Subclasses are intentionally separate because the source location is part
-    of the key. Dataclass equality requires the same concrete class, so
-    identical field values from different locations remain distinct.
+    Subclasses of IdAttributeKeyBase are intentionally separate because the source location, 
+    as captured in the subclass' name, is part
+    of the key. Dataclass equality requires the same concrete key class, so that
+    identical field values from different locations do not provide a false positive. 
+    WARNING:Do not collapse these subclasses into a
+    single dataclass unless the matching logic is updated accordingly.
     """
 
     name: str
@@ -48,8 +44,11 @@ class RootExtensionSetKeyBase:
     """
     Base for stable-key variants backed by sets of root/extension fields.
 
-    Subclasses are intentionally separate even when their fields are identical:
-    the concrete class is part of the stable key. Do not collapse these into a
+    Subclasses of RootExtensionSetKeyBase are intentionally separate because the source location, 
+    as captured in the subclass' name, is part
+    of the key. Dataclass equality requires the same concrete key class, so that
+    identical field values from different locations do not provide a false positive. 
+    WARNING:Do not collapse these subclasses into a
     single dataclass unless the matching logic is updated accordingly.
     """
 
@@ -90,7 +89,7 @@ class NestedClinicalStatementTemplateIdElementSetKey(RootExtensionSetKeyBase):
 
 @dataclass(frozen=True)
 class RootExtensionKey:
-    """Stable key from root/extension fields on id-like elements."""
+    """Stable key from root/extension fields for elements that can use root/extension as an identifier."""
 
     root: str
     extension: str = ""

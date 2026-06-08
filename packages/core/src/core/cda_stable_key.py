@@ -84,9 +84,9 @@ def _attribute_key(elem: etree._Element) -> Optional[StableKey]:
     Return an attribute-derived key for elem, if present.
 
     ID/id attributes are standalone keys. CDA root/extension attributes are
-    only treated as keys on id/templateId-like elements. A coded concept is
-    only treated as a key for CDA <code> elements with codeSystem present on
-    the same element.
+    only treated as keys on elements specified in TAGS_HAVING_ROOT_EXTENSION_KEYS. 
+    A coded concept is only treated as a key for CDA <code> elements with codeSystem 
+    present on the same element.
     """
     id_attribute_key = _id_attribute_key(elem)
     if id_attribute_key:
@@ -113,9 +113,8 @@ def stable_key(elem: etree._Element) -> Optional[StableKey]:
     Ordering rationale:
       Direct element key priorities:
         1. Element's own direct attribute keys: direct ID/id attributes,
-           root/extension fields that can function as keys for <id>,
-           <templateId>, and <setId> elements. code/codeSystem pairs, but
-           only on <code> elements. These are the most specific keys because
+           root/extension fields that can function as keys, and code/codeSystem pairs, but
+           only code/codeSystem pairs on <code> elements. These are the most specific keys because
            they identify the current element itself.
         2. Root-extension values within direct child <id> elements. They are
            less specific than direct attribute keys because they come from
