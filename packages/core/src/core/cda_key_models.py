@@ -15,12 +15,12 @@ class RootExtension:
 class IdAttributeKeyBase:
     """Base for stable-key variants backed by XML ID/id attributes.
 
-    Subclasses of IdAttributeKeyBase are intentionally separate because the source location,
-    as captured in the subclass' name, is part
-    of the key. Dataclass equality requires the same concrete key class, so that
-    identical field values from different locations do not provide a false positive.
-    WARNING:Do not collapse these subclasses into a
-    single dataclass unless the matching logic is updated accordingly.
+    Subclasses of IdAttributeKeyBase are intentionally separate because the
+    source location, as captured in the subclass' name, is part of the key.
+    Dataclass equality requires the same concrete key class, so that identical
+    field values from different locations do not provide a false positive.
+    WARNING:Do not collapse these subclasses into a single dataclass unless
+    the matching logic is updated accordingly.
     """
 
     name: str
@@ -41,12 +41,12 @@ class NestedClinicalStatementIdAttributeKey(IdAttributeKeyBase):
 class RootExtensionSetKeyBase:
     """Base for stable-key variants backed by sets of root/extension fields.
 
-    Subclasses of RootExtensionSetKeyBase are intentionally separate because the source location,
-    as captured in the subclass' name, is part
-    of the key. Dataclass equality requires the same concrete key class, so that
-    identical field values from different locations do not provide a false positive.
-    WARNING:Do not collapse these subclasses into a
-    single dataclass unless the matching logic is updated accordingly.
+    Subclasses of RootExtensionSetKeyBase are intentionally separate because the
+    source location, as captured in the subclass' name, is part of the key.
+    Dataclass equality requires the same concrete key class, so that identical
+    field values from different locations do not provide a false positive.
+    WARNING:Do not collapse these subclasses into a single dataclass unless
+    the matching logic is updated accordingly.
     """
 
     root_extensions: tuple[RootExtension, ...]
@@ -84,7 +84,7 @@ class NestedClinicalStatementTemplateIdElementSetKey(RootExtensionSetKeyBase):
 
 @dataclass(frozen=True)
 class RootExtensionKey:
-    """Stable key from root/extension fields for elements that can use root/extension as an identifier."""
+    """Stable key for elements that can use root/extension as an identifier."""
 
     root: str
     extension: str = ""

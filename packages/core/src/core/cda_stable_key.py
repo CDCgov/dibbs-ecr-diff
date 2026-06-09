@@ -109,9 +109,10 @@ def stable_key(elem: etree._Element) -> StableKey | None:
     Ordering rationale:
       Direct element key priorities:
         1. Element's own direct attribute keys: direct ID/id attributes,
-           root/extension fields that can function as keys, and code/codeSystem pairs, but
-           only code/codeSystem pairs on <code> elements. These are the most specific keys because
-           they identify the current element itself.
+           root/extension fields that can function as keys, and code/codeSystem
+           pairs, but only code/codeSystem pairs on <code> elements. These are
+           the most specific keys because they identify the current element
+           itself.
         2. Root-extension values within direct child <id> elements. They are
            less specific than direct attribute keys because they come from
            child <id> elements.
