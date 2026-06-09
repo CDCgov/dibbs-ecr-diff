@@ -126,21 +126,21 @@ def stable_key(elem: etree._Element) -> StableKey | None:
            from child <id> elements, similar to the difference between 1 and 2.
 
       Section ID priority:
-        5. Nested section <id> keys. They are less specific than nested
+        5. Nested <section> <id> keys. They are less specific than nested
            clinical statement ID keys because they identify descendant
            document-organization containers.
 
       TemplateId priorities:
         6. Direct child <templateId> keys. They are less specific than nested
-           section <id> keys because templateIds identify conformance, not
+           <section> <id> keys because templateIds identify conformance, not
            instances.
-        7. Nested section templateId keys. They are less specific than direct child
+        7. Nested <section> <templateId> keys. They are less specific than direct child
            templateIds because they belong to descendant sections. This method checks
            them before nested clinical statement templateIds as a deterministic
            tie-breaker, not because CDA makes section templateIds intrinsically more
            specific than clinical statement templateIds.
-        8. Nested clinical statement templateId keys. They are not
-           intrinsically less specific than nested section templateIds, but
+        8. Nested clinical statement <templateId> keys. They are not
+           intrinsically less specific than nested <section> templateIds, but
            this method orders them last. Both are type/conformance
            signals.
 
