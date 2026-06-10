@@ -1,4 +1,4 @@
-"""Core change collection logic.
+"""Core diff collection logic.
 
 Provides one public function:
   - collect_additions_updates_deletes: walks the paired trees to collect

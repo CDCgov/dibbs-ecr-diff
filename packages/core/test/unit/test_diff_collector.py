@@ -12,7 +12,7 @@ from core.cda_tags import (
     SECTION_TAG,
     TEMPLATE_ID_TAG,
 )
-from core.diff_engine import (
+from core.diff_collector import (
     _fingerprint_excluding_version_metadata,
     collect_additions_updates_deletes,
 )
