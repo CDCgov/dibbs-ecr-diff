@@ -23,7 +23,7 @@ For the MVP, XPaths defined in configuration rules will be used to match **inact
 | `specVersion`              | string                        | Yes      | Version of this configuration spec.                                                              |
 | `id`                       | string                        | Yes      | Stable identifier for the configuration. Remains unchanged across configuration revisions.       |
 | `displayName`              | string                        | Optional | Human-readable name for the configuration.                                                       |
-| `mode`                     | string enum                   | Yes      | How to treat rule XPath matches. For MVP, only `IGNORE_LIST` will be supported.                  |
+| `mode`                     | string enum                   | Yes      | How to treat rule XPath matches. Either `WATCH_LIST` or `IGNORE_LIST`.                           |
 | `rules`                    | array of [Rule](#rule-object) | Yes      | Ordered list of actionability rules.                                                             |
 
 ### Rule object
@@ -89,7 +89,8 @@ The matching rule's `id` and `displayName` are included in the Diff Output docum
 
 1. **Rule precedence.** Is first-match-wins sufficient, or should multiple matching rules be allowed?
 2. **Configuration lifecycle.** How are configuration versions published, activated, and retired? Can multiple versions be active simultaneously?
-2. **Supported modes.** Are we only implementing the "IGNORE_LIST" mode for the MVP? The schema for this configuration does *not* lock us into this however; we can adapt the config to work with a "WATCH_LIST" mode as well.
+3. **Supported modes.** Are we only implementing the "IGNORE_LIST" mode for the MVP? The schema for this configuration does *not* lock us into this however; we can adapt the config to work with a "WATCH_LIST" mode as well.
+4. **Rule-specific changeType property.** With this idea, each `rule` object could have a `changeType` array of 1-3 `changeType`s `['ADDED', 'UPDATED', 'DELETED']`. By default, all changes would be reported by DiD as a change, but this allows rules that may target only 1-2 types of changes. Do we want to implement this for the MVP?
 
 ## Post-MVP considerations
 
