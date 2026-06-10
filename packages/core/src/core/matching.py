@@ -69,7 +69,7 @@ TEMPLATE_ID_STABLE_KEY_TYPES: RootExtensionSetKeyTypes = (
 # Child grouping
 # ---------------------------------------------------------------------------
 
-def build_child_groups(parent: etree._Element) -> Dict[str, List[etree._Element]]:
+def build_immediate_child_groups(parent: etree._Element) -> Dict[str, List[etree._Element]]:
     """
     Group the immediate element children of `parent` by tag name.
 

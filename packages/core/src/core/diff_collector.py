@@ -12,7 +12,7 @@ bookkeeping does not appear as clinical/content changes.
 from lxml import etree
 
 from core.diff_types import AddedEntry, DeletedEntry, UpdatedEntry
-from core.matching import build_child_groups, match_children_ignore_order
+from core.matching import build_immediate_child_groups, match_children_ignore_order
 from core.xml_utils import localname, normalize_text, xsi_clark_tag
 
 # ---------------------------------------------------------------------------
@@ -181,13 +181,13 @@ def collect_additions_updates_deletes(
         ) == _fingerprint_excluding_version_metadata(after_node):
             return
 
-        before_groups = build_child_groups(before_node)
-        after_groups = build_child_groups(after_node)
+        before_immediate_child_groups = build_immediate_child_groups(before_node)
+        after_immediate_child_groups = build_immediate_child_groups(after_node)
 
-        for tag in sorted(set(before_groups) | set(after_groups)):
+        for tag in sorted(set(before_immediate_child_groups) | set(after_immediate_child_groups)):
             for before_child, after_child in match_children_ignore_order(
-                before_groups.get(tag, []),
-                after_groups.get(tag, []),
+                before_immediate_child_groups.get(tag, []),
+                after_immediate_child_groups.get(tag, []),
             ):
                 recurse(before_child, after_child)
 
