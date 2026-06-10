@@ -24,7 +24,7 @@ For the MVP, XPaths defined in configuration rules will be used to match **inact
 | `id`                       | string                        | Yes      | Stable identifier for the configuration. Remains unchanged across configuration revisions.       |
 | `displayName`              | string                        | Optional | Human-readable name for the configuration.                                                       |
 | `mode`                     | string enum                   | Yes      | How to treat rule XPath matches. For MVP, only `IGNORE_LIST` will be supported.                  |
-| `rules`                    | array of [Rule](#rule-object) | Yes      | Ordered list of actionability rules. May be empty if relying entirely on `defaultActionability`. |
+| `rules`                    | array of [Rule](#rule-object) | Yes      | Ordered list of actionability rules.                                                             |
 
 ### Rule object
 
