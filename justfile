@@ -19,6 +19,7 @@ alias i := sync
 [group('python')]
 sync:
     uv sync --all-packages
+    uv run lefthook install
 
 # Run pytest unit tests
 [group('python')]
