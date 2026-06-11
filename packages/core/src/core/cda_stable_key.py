@@ -110,15 +110,44 @@ def stable_key(elem: etree._Element) -> Optional[StableKey]:
     The key is used to match elements across before/after versions.  Keys are
     tried from most to least specific; the first match wins.
 
-    Priority:
-      1. Element's own true direct attribute keys
-      2. Direct child <id> root + optional extension keys
-      3. Nested clinical statement direct ID/id attribute key
-      4. Nested clinical statement child <id> keys
-      5. Nested section <id> keys
-      6. Direct child <templateId> root + extension keys
-      7. Nested section templateId root + extension keys
-      8. Nested clinical statement templateId root + extension keys
+    Ordering rationale:
+      Direct element key priorities:
+        1. Element's own direct attribute keys: direct ID/id attributes,
+           root/extension fields that can function as keys for <id>,
+           <templateId>, and <setId> elements. code/codeSystem pairs, but
+           only on <code> elements. These are the most specific keys because
+           they identify the current element itself.
+        2. Root-extension values within direct child <id> elements. They are
+           less specific than direct attribute keys because they come from
+           child <id> elements.
+
+      Clinical statement priorities:
+        3. Nested clinical statement direct ID/id attribute key. It is less
+           specific than direct child <id> keys because it belongs to a
+           contained clinical statement.
+        4. Nested clinical statement child <id> keys. They are less specific
+           than the clinical statement's own ID/id attribute because they come
+           from child <id> elements, similar to the difference between 1 and 2.
+
+      Section ID priority:
+        5. Nested <section> <id> keys. They are less specific than nested
+           clinical statement ID keys because they identify descendant
+           document-organization containers.
+
+      TemplateId priorities:
+        6. Direct child <templateId> keys. They are less specific than nested
+           <section> <id> keys because templateIds identify conformance, not
+           instances.
+        7. Nested <section> <templateId> keys. They are less specific than direct child
+           templateIds because they belong to descendant sections. This method checks
+           them before nested clinical statement templateIds as a deterministic
+           tie-breaker, not because CDA makes section templateIds intrinsically more
+           specific than clinical statement templateIds.
+        8. Nested clinical statement <templateId> keys. They are not
+           intrinsically less specific than nested <section> templateIds, but
+           this method orders them last. Both are type/conformance
+           signals.
+
     """
     attribute_key = _attribute_key(elem)
     if attribute_key:

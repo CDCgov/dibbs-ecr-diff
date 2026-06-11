@@ -12,7 +12,7 @@ import argparse
 from lxml import etree
 
 import core.config as _cfg
-from core.diff_engine import (
+from core.diff_collector import (
     _fingerprint_excluding_version_metadata,
     collect_additions_updates_deletes,
 )

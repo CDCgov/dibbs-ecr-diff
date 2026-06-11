@@ -12,7 +12,7 @@ from core.cda_tags import (
     SECTION_TAG,
     TEMPLATE_ID_TAG,
 )
-from core.diff_engine import (
+from core.diff_collector import (
     _fingerprint_excluding_version_metadata,
     collect_additions_updates_deletes,
 )
@@ -181,6 +181,102 @@ def test_added_direct_statement_remains_visible_after_parent_statement_set_match
             ),
         ),
     ]
+    assert updated == []
+    assert deleted == []
+
+
+def test_reordered_duplicate_template_id_entry_relationships_do_not_report_updates():
+    before_root = elem(
+        f"""
+        <ClinicalDocument
+            xmlns="{HL7_NS}"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          <component>
+            <section>
+              <entry>
+                <encounter classCode="ENC" moodCode="EVN">
+                  <entryRelationship typeCode="COMP">
+                    <act classCode="ACT" moodCode="EVN">
+                      <templateId root="2.16.840.1.113883.10.20.22.4.80"/>
+                      <code code="29308-4" codeSystem="2.16.840.1.113883.6.1"/>
+                      <entryRelationship typeCode="SUBJ">
+                        <observation classCode="OBS" moodCode="EVN">
+                          <id root="covid-diagnosis-id"/>
+                          <code code="75323-6" codeSystem="2.16.840.1.113883.6.1"/>
+                          <value xsi:type="CD" code="840539006"/>
+                        </observation>
+                      </entryRelationship>
+                    </act>
+                  </entryRelationship>
+                  <entryRelationship typeCode="COMP">
+                    <act classCode="ACT" moodCode="EVN">
+                      <templateId root="2.16.840.1.113883.10.20.22.4.80"/>
+                      <code code="29308-4" codeSystem="2.16.840.1.113883.6.1"/>
+                      <entryRelationship typeCode="SUBJ">
+                        <observation classCode="OBS" moodCode="EVN">
+                          <id root="flu-diagnosis-id"/>
+                          <code code="75323-6" codeSystem="2.16.840.1.113883.6.1"/>
+                          <value xsi:type="CD" code="772828001"/>
+                        </observation>
+                      </entryRelationship>
+                    </act>
+                  </entryRelationship>
+                </encounter>
+              </entry>
+            </section>
+          </component>
+        </ClinicalDocument>
+        """
+    )
+    after_root = elem(
+        f"""
+        <ClinicalDocument
+            xmlns="{HL7_NS}"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          <component>
+            <section>
+              <entry>
+                <encounter classCode="ENC" moodCode="EVN">
+                  <entryRelationship typeCode="COMP">
+                    <act classCode="ACT" moodCode="EVN">
+                      <templateId root="2.16.840.1.113883.10.20.22.4.80"/>
+                      <code code="29308-4" codeSystem="2.16.840.1.113883.6.1"/>
+                      <entryRelationship typeCode="SUBJ">
+                        <observation classCode="OBS" moodCode="EVN">
+                          <id root="flu-diagnosis-id"/>
+                          <code code="75323-6" codeSystem="2.16.840.1.113883.6.1"/>
+                          <value xsi:type="CD" code="772828001"/>
+                        </observation>
+                      </entryRelationship>
+                    </act>
+                  </entryRelationship>
+                  <entryRelationship typeCode="COMP">
+                    <act classCode="ACT" moodCode="EVN">
+                      <templateId root="2.16.840.1.113883.10.20.22.4.80"/>
+                      <code code="29308-4" codeSystem="2.16.840.1.113883.6.1"/>
+                      <entryRelationship typeCode="SUBJ">
+                        <observation classCode="OBS" moodCode="EVN">
+                          <id root="covid-diagnosis-id"/>
+                          <code code="75323-6" codeSystem="2.16.840.1.113883.6.1"/>
+                          <value xsi:type="CD" code="840539006"/>
+                        </observation>
+                      </entryRelationship>
+                    </act>
+                  </entryRelationship>
+                </encounter>
+              </entry>
+            </section>
+          </component>
+        </ClinicalDocument>
+        """
+    )
+
+    added, updated, deleted = collect_additions_updates_deletes(
+        before_root,
+        after_root,
+    )
+
+    assert added == []
     assert updated == []
     assert deleted == []
 
