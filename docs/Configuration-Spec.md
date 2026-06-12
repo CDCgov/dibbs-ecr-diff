@@ -24,6 +24,7 @@ For the MVP, XPaths defined in configuration rules will be used to match **inact
 | `id`                       | string                        | Yes      | Stable identifier for the configuration. Remains unchanged across configuration revisions.       |
 | `displayName`              | string                        | Optional | Human-readable name for the configuration.                                                       |
 | `mode`                     | string enum                   | Yes      | How to treat rule XPath matches. Either `WATCH_LIST` or `IGNORE_LIST`.                           |
+| `createdAt`                | string ISO-8601 timestamp     | Optional | A UTC ISO 8601 timestamp of when the configuration was created.                                               |
 | `rules`                    | array of [Rule](#rule-object) | Yes      | Ordered list of actionability rules.                                                             |
 
 ### Rule object
@@ -54,6 +55,7 @@ The matching rule's `id` and `displayName` are included in the Diff Output docum
   "id": "44d9a0b0-3c0c-4f49-bd11-6f219c7cfa9b",
   "displayName": "Differene in Docs Default Config",
   "mode": "IGNORE_LIST",
+  "createdAt": "2026-06-12T19:56:17Z",
   "rules": [
     {
       "id": "e654b542-c0bd-4166-8320-4e0a7651d612",
