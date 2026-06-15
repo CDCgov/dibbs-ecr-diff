@@ -13,6 +13,7 @@ class DiffingOptions(BaseModel):
     file1: str
     file2: str
     config: str
+    output_diff_file: str | None = None
 
 
 class ChangeType(StrEnum):
