@@ -90,7 +90,8 @@ def matching_subtree(node: etree._Element, cache: NodeCache) -> list[WatchedNode
     return matching_nodes(node, node.iterdescendants(), cache)
 
 
-def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
+# only diff for ignore list
+def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
     """Returns a XML diff string."""
     diff_output = DiffOutput()
     parser = etree.XMLParser(remove_blank_text=True, huge_tree=True)
@@ -182,4 +183,4 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
                     )
                 )
 
-    return diff_output.model_dump_json(indent=2)
+    return diff_output
