@@ -909,25 +909,25 @@ def _insert_diff_summary(doc_root: _Element, diff_output: DiffOutput) -> None:
     )
 
     entry = etree.SubElement(section, f"{{{HL7_NS}}}entry")
-    act = etree.SubElement(
+    observation = etree.SubElement(
         entry,
-        f"{{{HL7_NS}}}act",
-        classCode="ACT",
+        f"{{{HL7_NS}}}observation",
+        classCode="OBS",
         moodCode="EVN",
     )
 
-    etree.SubElement(act, f"{{{HL7_NS}}}id", nullFlavor="NA")
+    etree.SubElement(observation, f"{{{HL7_NS}}}id", nullFlavor="NA")
 
     etree.SubElement(
-        act,
+        observation,
         f"{{{HL7_NS}}}code",
         code=DIFF_SECTION_CODE,
         codeSystem=DIFF_CODE_SYSTEM_OID,
     )
 
-    etree.SubElement(act, f"{{{HL7_NS}}}statusCode", code="completed")
+    etree.SubElement(observation, f"{{{HL7_NS}}}statusCode", code="completed")
 
-    value_el = etree.SubElement(act, f"{{{HL7_NS}}}value")
+    value_el = etree.SubElement(observation, f"{{{HL7_NS}}}value")
     value_el.set(f"{{{XSI_NS}}}type", "ED")
     value_el.set("mediaType", "application/json")
     value_el.text = CDATA(diff_output.model_dump_json(indent=2))
