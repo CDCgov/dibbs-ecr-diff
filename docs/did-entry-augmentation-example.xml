@@ -22,7 +22,6 @@
                           codeSystemName="eCRDataAugmentation" />
             <!-- DATA AUGMENTATION: <time of data augmentation operation> -->
             <time value="20260507103000-0500" />
-            <!-- DATA AUGMENTATION: Comment added by difference-in-docs to mark an addition between versions -->
             <assignedAuthor>
                 <!-- DATA AUGMENTATION: set to nullFlavor 'NA' -->
                 <id nullFlavor="NA" />
