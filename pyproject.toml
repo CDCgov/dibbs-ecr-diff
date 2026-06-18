@@ -8,6 +8,7 @@ dependencies = []
 
 [dependency-groups]
 dev = [
+    "lefthook>=2.1.9",
     "pytest>=9.0.3",
     "ruff>=0.15.5",
     "ty>=0.0.21",
@@ -107,4 +108,4 @@ convention = "google"
 
 [tool.pytest.ini_options]
 testpaths = ["packages"]
-python_files = ["**/test/test_*.py", "**/test/__init__.py"]
+python_files = ["**/test/test_*.py", "**/test/**/test_*.py", "**/test/__init__.py"]
