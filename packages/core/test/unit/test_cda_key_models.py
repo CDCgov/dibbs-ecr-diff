@@ -1,4 +1,4 @@
-from core.cda_key_models import (
+from core.cda.key_models import (
     DirectChildIdElementSetKey,
     DirectChildTemplateIdElementSetKey,
     DirectIdAttributeKey,

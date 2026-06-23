@@ -2,8 +2,8 @@
 
 from lxml import etree
 
-from core.cda_clinical_statement import clinical_statement_element_for_key_derivation
-from core.cda_key_models import (
+from core.cda.clinical_statement import clinical_statement_element_for_key_derivation
+from core.cda.key_models import (
     CodeKey,
     DirectChildIdElementSetKey,
     DirectChildTemplateIdElementSetKey,
@@ -16,12 +16,12 @@ from core.cda_key_models import (
     RootExtensionKey,
     StableKey,
 )
-from core.cda_root_extensions import (
+from core.cda.root_extensions import (
     direct_child_root_extensions_for_tag,
     nested_section_root_extensions_for_tag,
     root_extension_from_element,
 )
-from core.cda_tags import CODE_TAG, ID_TAG, SET_ID_TAG, TEMPLATE_ID_TAG
+from core.cda.tags import CODE_TAG, ID_TAG, SET_ID_TAG, TEMPLATE_ID_TAG
 from core.constants import (
     CODE_KEY_ATTRS,
     DIRECT_ID_KEY_ATTRS,

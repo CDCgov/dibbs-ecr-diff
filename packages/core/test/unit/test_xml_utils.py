@@ -9,7 +9,7 @@ from textwrap import dedent
 
 import pytest
 from core import constants, xml_utils
-from core.cda_tags import CLINICAL_DOCUMENT_TAG
+from core.cda.tags import CLINICAL_DOCUMENT_TAG
 from helpers import assert_xml_equal
 from lxml import etree
 

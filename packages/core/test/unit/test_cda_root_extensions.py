@@ -1,11 +1,11 @@
-from core.cda_key_models import RootExtension
-from core.cda_root_extensions import (
+from core.cda.key_models import RootExtension
+from core.cda.root_extensions import (
     MAX_NESTED_SECTION_ROOT_EXTENSIONS,
     direct_child_root_extensions_for_tag,
     nested_section_root_extensions_for_tag,
     root_extension_from_element,
 )
-from core.cda_tags import ID_TAG, TEMPLATE_ID_TAG
+from core.cda.tags import ID_TAG, TEMPLATE_ID_TAG
 from helpers import HL7_NS, elem, observation
 
 

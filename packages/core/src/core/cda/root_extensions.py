@@ -2,8 +2,8 @@
 
 from lxml import etree
 
-from core.cda_key_models import RootExtension
-from core.cda_tags import SECTION_TAG
+from core.cda.key_models import RootExtension
+from core.cda.tags import SECTION_TAG
 from core.constants import ROOT_EXTENSION_KEY_ATTRS
 
 ROOT_ATTRIBUTE, EXTENSION_ATTRIBUTE = ROOT_EXTENSION_KEY_ATTRS

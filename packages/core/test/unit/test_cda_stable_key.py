@@ -1,4 +1,4 @@
-from core.cda_key_models import (
+from core.cda.key_models import (
     CodeKey,
     DirectChildIdElementSetKey,
     DirectChildTemplateIdElementSetKey,
@@ -10,7 +10,7 @@ from core.cda_key_models import (
     RootExtension,
     RootExtensionKey,
 )
-from core.cda_stable_key import stable_key
+from core.cda.stable_key import stable_key
 from helpers import HL7_NS, elem, observation
 
 
