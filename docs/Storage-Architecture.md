@@ -180,26 +180,19 @@ If version 3 is processed before version 2, its query for `versionNumber < 3` wi
 Pros: Simpler solution, simple to implement
 Cons: Any changes in version 2 are lost
 
-#### Process the late eICR version as `isActionable = true` for further diffing
+#### Process the late eICR version and diff it anyway
 
-1. We save this eICR to the DB, set `isActionable = true`, but do not perform a diff.
-2. Version 3's diff remains as compared to Version 1.
-
-* Example 1: v3 comes in right after v1. There are actionable changes. We mark v3 as `isActionable = true`. v2 comes in (no diff happens). v4 comes in, and is diffed against v3.
-
-* Example 2: v3 comes in right after v1. There are NO actionables changes. We mark v3 as `isActionable = false`. v2 comes in (no diff happens). v4 comes in, and is diffed against v2.
-
-
-#### Process the late eICR version and diff it against the earlier version
-
-1. We save this eICR to the DB, set `isActionable = true`, and **DO** perform the diff against Version 1.
+1. We process the late eICR as normal, performing the diff of Version 2 against Version 1 anyway.
 2. Version 3's diff remains as compared to Version 1.
 
 * Example 1: v3 comes in right after v1. There are actionable changes. We mark v3 as `isActionable = true`. v2 comes in and is diffed against v1. v4 comes in, and is diffed against v3. (v2 is essentially skipped).
 
 * Example 2: v3 comes in right after v1. There are NO actionables changes. We mark v3 as `isActionable = false`. v2 comes in and is diffed against v1. There are actionable changes. We mark v2 as `isActionable = true`. v4 comes in, and is diffed against v2.
 
-* Example 3: v3 comes in right after v1. There are NO actionables changes. We mark v3 as `isActionable = false`. v2 comes in and is diffed against v1. There are no actionable changes. We mark v2 as `isActionable = false`. v4 comes in, and is diffed against v1.
+* Example 3: v3 comes in right after v1. There are NO actionables changes. We mark v3 as `isActionable = false`. v2 comes in and is diffed against v1. There are NO actionable changes. We mark v2 as `isActionable = false`. v4 comes in, and is diffed against v1.
+
+Pros: Ensures every version is processed, database reflects incoming version actionability accurately.
+Cons: Moderately more complex, compute potentially wasted on unused versions, S3 bucket storage space wasted on potentially unused diff outputs
 
 ### 2. Concurrent Executions for the Same Set ID
 If messages for version 2 and version 3 of the same `setId` are processed concurrently by two different Lambda executions, they might read/write to the database simultaneously.
