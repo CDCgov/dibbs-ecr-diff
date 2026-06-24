@@ -161,14 +161,45 @@ Note:
 ## Corner Cases and Technical Concerns
 
 ### 1. Out-of-Order Document Delivery
+
+From the original ticket:
+
+> We only want to compare the current file being processed to the last file that was marked as having a meaningful change. (Is this true considering out of order documents?)
+
 Since document order is not guaranteed, the Lambda may receive versions out of order (ex: version 1, then version 3, and finally version 2).
 
-If version 3 is processed before version 2, its query for `versionNumber < 3` will only see version 1. It will compare version 3 to version 1. When version 2 later arrives, its query for `versionNumber < 2` will find version 1. It will compare version 2 to version 1.
+If version 3 is processed before version 2, its query for `versionNumber < 3` will only see version 1. It will compare version 3 to version 1. When version 2 later arrives, its query for `versionNumber < 2` will find version 1.
 
-*Proposed MVP Behavior:* We accept the gap. When we receive a new eICR:
-    1. We first check if a newer versionNumber exists in the DB. If so, we do not process this eICR.
-      1a. Or, we do save this eICR to the DB, set `isActionable = false`, and do not perform a diff.
-    2. Version 3's diff remains as compared to Version 1.
+*Proposed MVP Behavior:* We accept the gap, but how we handle following versions may require further discussion. Some ideas:
+
+#### Completely Ignore the late eICR version
+
+1. We first check if a newer versionNumber exists in the DB. If so, we do not process this eICR.
+2. Version 3's diff remains as compared to Version 1.
+
+Pros: Simpler solution, simple to implement
+Cons: Any changes in version 2 are lost
+
+#### Process the late eICR version as `isActionable = true` for further diffing
+
+1. We save this eICR to the DB, set `isActionable = true`, but do not perform a diff.
+2. Version 3's diff remains as compared to Version 1.
+
+* Example 1: v3 comes in right after v1. There are actionable changes. We mark v3 as `isActionable = true`. v2 comes in (no diff happens). v4 comes in, and is diffed against v3.
+
+* Example 2: v3 comes in right after v1. There are NO actionables changes. We mark v3 as `isActionable = false`. v2 comes in (no diff happens). v4 comes in, and is diffed against v2.
+
+
+#### Process the late eICR version and diff it against the earlier version
+
+1. We save this eICR to the DB, set `isActionable = true`, and **DO** perform the diff against Version 1.
+2. Version 3's diff remains as compared to Version 1.
+
+* Example 1: v3 comes in right after v1. There are actionable changes. We mark v3 as `isActionable = true`. v2 comes in and is diffed against v1. v4 comes in, and is diffed against v3. (v2 is essentially skipped).
+
+* Example 2: v3 comes in right after v1. There are NO actionables changes. We mark v3 as `isActionable = false`. v2 comes in and is diffed against v1. There are actionable changes. We mark v2 as `isActionable = true`. v4 comes in, and is diffed against v2.
+
+* Example 3: v3 comes in right after v1. There are NO actionables changes. We mark v3 as `isActionable = false`. v2 comes in and is diffed against v1. There are no actionable changes. We mark v2 as `isActionable = false`. v4 comes in, and is diffed against v1.
 
 ### 2. Concurrent Executions for the Same Set ID
 If messages for version 2 and version 3 of the same `setId` are processed concurrently by two different Lambda executions, they might read/write to the database simultaneously.
