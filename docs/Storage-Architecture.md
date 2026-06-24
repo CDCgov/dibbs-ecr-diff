@@ -6,7 +6,7 @@
 
 Difference in Docs requires persistence between Lambda executions to track previously seen eICR documents, identify their version numbers, and retrieve past files from S3.
 
-This document defines the schema, partition/sort keys, attributes, and query patterns for the DynamoDB storage layer we intend to use for Difference in Docs.
+This document defines the table structure, partition/sort keys, attributes, and query patterns for the DynamoDB storage layer we intend to use for Difference in Docs.
 
 ## DynamoDB Table Design
 
@@ -23,7 +23,7 @@ DynamoDB supports either a single primary key (composing of just the Partition K
   
 [More info on DynamoDB Primary Keys](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.CoreComponents.html).
 
-### Table Schema
+### Table Item Structure
 
 | Attribute | DynamoDB Type | Required | Description |
 | --- | --- | --- | --- |
