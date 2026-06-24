@@ -11,6 +11,14 @@ class RootExtension:
     extension: str = ""
 
 
+@dataclass(frozen=True, order=True)
+class CodeElement:
+    """Comparable fields extracted from a CDA <code> element."""
+
+    code: str
+    code_system: str
+
+
 @dataclass(frozen=True)
 class IdAttributeKeyBase:
     """Base for stable-key variants backed by XML ID/id attributes.
@@ -83,6 +91,31 @@ class NestedClinicalStatementTemplateIdElementSetKey(RootExtensionSetKeyBase):
 
 
 @dataclass(frozen=True)
+class CodeElementSetKeyBase:
+    """Base for stable-key variants backed by sets of CDA <code> elements.
+
+    Subclasses of CodeElementSetKeyBase are intentionally separate because the
+    source location, as captured in the subclass' name, is part of the key.
+    Dataclass equality requires the same concrete key class, so that identical
+    field values from different locations do not provide a false positive.
+    WARNING:Do not collapse these subclasses into a single dataclass unless
+    the matching logic is updated accordingly.
+    """
+
+    code_elements: tuple[CodeElement, ...]
+
+
+@dataclass(frozen=True)
+class DirectChildCodeElementSetKey(CodeElementSetKeyBase):
+    """Stable key from direct child <code> elements."""
+
+
+@dataclass(frozen=True)
+class NestedClinicalStatementCodeElementSetKey(CodeElementSetKeyBase):
+    """Stable key from child <code> elements on a nested clinical statement."""
+
+
+@dataclass(frozen=True)
 class RootExtensionKey:
     """Stable key for elements that can use root/extension as an identifier."""
 
@@ -106,6 +139,8 @@ type StableKey = (
     | DirectChildIdElementSetKey
     | NestedClinicalStatementIdElementSetKey
     | NestedSectionIdElementSetKey
+    | DirectChildCodeElementSetKey
+    | NestedClinicalStatementCodeElementSetKey
     | DirectChildTemplateIdElementSetKey
     | NestedSectionTemplateIdElementSetKey
     | NestedClinicalStatementTemplateIdElementSetKey

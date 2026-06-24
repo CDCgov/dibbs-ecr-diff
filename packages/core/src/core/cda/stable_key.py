@@ -4,10 +4,13 @@ from lxml import etree
 
 from core.cda.clinical_statement import clinical_statement_element_for_key_derivation
 from core.cda.key_models import (
+    CodeElement,
     CodeKey,
+    DirectChildCodeElementSetKey,
     DirectChildIdElementSetKey,
     DirectChildTemplateIdElementSetKey,
     DirectIdAttributeKey,
+    NestedClinicalStatementCodeElementSetKey,
     NestedClinicalStatementIdAttributeKey,
     NestedClinicalStatementIdElementSetKey,
     NestedClinicalStatementTemplateIdElementSetKey,
@@ -64,17 +67,38 @@ def _root_extension_key(elem: etree._Element) -> RootExtensionKey | None:
     )
 
 
-def _code_key(elem: etree._Element) -> CodeKey | None:
-    """Return a direct CDA <code> key only when codeSystem is present."""
+def _code_element(elem: etree._Element) -> CodeElement | None:
+    """Return comparable fields from a CDA <code> element."""
     if elem.tag != CODE_TAG:
         return None
 
-    code_value = elem.get(CODE_ATTRIBUTE)
+    code = elem.get(CODE_ATTRIBUTE)
     code_system = elem.get(CODE_SYSTEM_ATTRIBUTE)
-    if not (code_value and code_system):
+    if not (code and code_system):
         return None
 
-    return CodeKey(code=code_value, code_system=code_system)
+    return CodeElement(code=code, code_system=code_system)
+
+
+def _code_key(elem: etree._Element) -> CodeKey | None:
+    """Return a direct CDA <code> key only when codeSystem is present."""
+    code_element = _code_element(elem)
+    if code_element is None:
+        return None
+
+    return CodeKey(code=code_element.code, code_system=code_element.code_system)
+
+
+def _direct_child_code_elements(elem: etree._Element) -> tuple[CodeElement, ...]:
+    """Return sorted key fields from direct child <code> elements."""
+    child_code_elements: set[CodeElement] = set()
+
+    for child_code_element in elem.iterchildren(tag=CODE_TAG):
+        code_element = _code_element(child_code_element)
+        if code_element is not None:
+            child_code_elements.add(code_element)
+
+    return tuple(sorted(child_code_elements))
 
 
 def _attribute_key(elem: etree._Element) -> StableKey | None:
@@ -125,21 +149,31 @@ def stable_key(elem: etree._Element) -> StableKey | None:
            than the clinical statement's own ID/id attribute because they come
            from child <id> elements, similar to the difference between 1 and 2.
 
+      Child code priorities:
+        5. Direct child <code> keys. They are weaker than clinical statement ID keys
+           because a code usually identifies what kind of element this is, not the
+           specific instance. They still apply directly to the element being keyed,
+           so they are stronger than keys taken from descendant sections.
+        6. Nested clinical statement child <code> keys. They are less specific
+           than direct child <code> keys because they belong to the clinical
+           statement, which itself is a child or grandchild of the element being keyed.
+
       Section ID priority:
-        5. Nested <section> <id> keys. They are less specific than nested
-           clinical statement ID keys because they identify descendant
-           document-organization containers.
+        7. Nested <section> <id> keys. They are less specific than nested
+           clinical statement child <code> keys because they identify descendant
+           document-organization containers rather than the keyed element more
+           directly.
 
       TemplateId priorities:
-        6. Direct child <templateId> keys. They are less specific than nested
+        8. Direct child <templateId> keys. They are less specific than nested
            <section> <id> keys because templateIds identify conformance, not
            instances.
-        7. Nested <section> <templateId> keys. They are less specific than direct child
+        9. Nested <section> <templateId> keys. They are less specific than direct child
            templateIds because they belong to descendant sections. This method checks
            them before nested clinical statement templateIds as a deterministic
            tie-breaker, not because CDA makes section templateIds intrinsically more
            specific than clinical statement templateIds.
-        8. Nested clinical statement <templateId> keys. They are not
+        10. Nested clinical statement <templateId> keys. They are not
            intrinsically less specific than nested <section> templateIds, but
            this method orders them last. Both are type/conformance
            signals.
@@ -176,6 +210,24 @@ def stable_key(elem: etree._Element) -> StableKey | None:
         if stmt_child_id_root_extensions:
             return NestedClinicalStatementIdElementSetKey(
                 root_extensions=stmt_child_id_root_extensions,
+            )
+
+    direct_child_code_elements = _direct_child_code_elements(elem)
+    if direct_child_code_elements:
+        return DirectChildCodeElementSetKey(code_elements=direct_child_code_elements)
+
+    wrapped_clinical_statement_element = (
+        clinical_statement_element
+        if clinical_statement_element is not elem
+        else None
+    )
+    if wrapped_clinical_statement_element is not None:
+        stmt_child_code_elements = _direct_child_code_elements(
+            wrapped_clinical_statement_element
+        )
+        if stmt_child_code_elements:
+            return NestedClinicalStatementCodeElementSetKey(
+                code_elements=stmt_child_code_elements,
             )
 
     nested_section_id_root_extensions = nested_section_root_extensions_for_tag(
