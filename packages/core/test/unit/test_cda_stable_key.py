@@ -184,12 +184,11 @@ def test_nested_statement_direct_id_attribute_beats_nested_statement_child_id():
     )
 
 
-def test_nested_statement_direct_id_attribute_does_not_use_code_attributes():
+def test_nested_statement_template_id_used_when_no_identifier_attribute_or_code_exists():
     entry = elem(
         f"""
         <entry xmlns="{HL7_NS}">
-          <observation code="not-a-direct-statement-key"
-                       codeSystem="test-system">
+          <observation classCode="OBS" moodCode="EVN">
             <templateId root="statement-template"/>
           </observation>
         </entry>
