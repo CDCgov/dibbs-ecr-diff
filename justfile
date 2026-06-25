@@ -5,10 +5,6 @@ alias help := default
 default:
     @just --list --list-submodules
 
-# Run commands against the `server` package
-[group('server')]
-mod server './.justscripts/server.just'
-
 [group('structurizr')]
 mod arch './.justscripts/structurizr.just'
 
