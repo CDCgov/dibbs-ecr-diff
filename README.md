@@ -39,12 +39,6 @@ Download Python dependencies and sync all packages:
 just sync
 ```
 
-To start the FastAPI server, run:
-
-```bash
-just server dev
-```
-
 To access the CLI, run:
 
 ```bash
@@ -127,10 +121,7 @@ This project is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/wor
 │   ├── core                  # Core Difference in Docs logic and shared modules
 │   │   ├── pyproject.toml
 │   │   └── src/
-│   ├── lambda                # AWS Lambda package
-│   │   ├── pyproject.toml
-│   │   └── src/
-│   └── server                # Long-running FastAPI server
+│   └── lambda                # AWS Lambda package
 │       ├── pyproject.toml
 │       └── src/
 ├── pyproject.toml            # Workspace config (dependencies, linter rules, metadata)

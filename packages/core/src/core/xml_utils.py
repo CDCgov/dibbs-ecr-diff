@@ -8,11 +8,31 @@ from copy import deepcopy
 
 from lxml import etree
 
-from core.constants import NAMESPACES, XSI_TYPE_ATTR
+from core.constants import HL7_NS, NAMESPACES, SDTC_NS, XSI_NS
 
 # ---------------------------------------------------------------------------
 # Text and tag helpers
 # ---------------------------------------------------------------------------
+
+
+def clark_tag(namespace_uri: str, local_name: str) -> str:
+    """Return an expanded XML name in lxml Clark notation."""
+    return f"{{{namespace_uri}}}{local_name}"
+
+
+def hl7_clark_tag(local_name: str) -> str:
+    """Return an HL7/CDA expanded name in lxml Clark notation."""
+    return clark_tag(HL7_NS, local_name)
+
+
+def sdtc_clark_tag(local_name: str) -> str:
+    """Return an SDTC expanded name in lxml Clark notation."""
+    return clark_tag(SDTC_NS, local_name)
+
+
+def xsi_clark_tag(local_name: str) -> str:
+    """Return an XML Schema instance expanded name in lxml Clark notation."""
+    return clark_tag(XSI_NS, local_name)
 
 
 def normalize_text(text: str | None) -> str:
@@ -101,37 +121,6 @@ def _xpath_first_attribute_value(
     return str(first_attribute_value)
 
 
-def _collect_subtree_attribute_values(
-    elem: etree._Element, node_path: str, attribute_name: str, limit: int = 6
-) -> list[str]:
-    """Collect attribute values from a subtree.
-
-    Used when collecting several attribute values from a subtree, such as
-    gathering all templateId/@root values from nested elements to build a
-    composite identity key.
-
-    Collect up to `limit` values of `attribute_name` from elements matched by
-    the ElementPath `node_path`, relative to `elem`.
-
-    Matching nodes that do not have `attribute_name` are skipped.
-
-    Uses iterfind() so iteration can stop as soon as enough values are found,
-    unlike xpath(), which evaluates the full result set first. This guards
-    against large subtree evaluation.
-    """
-    if limit <= 0:
-        return []
-
-    attribute_values: list[str] = []
-    for node in elem.iterfind(node_path, namespaces=NAMESPACES):
-        attribute_value = node.get(attribute_name)
-        if attribute_value is not None:
-            attribute_values.append(attribute_value)
-            if len(attribute_values) >= limit:
-                break
-    return attribute_values
-
-
 def _xpath_first_element(
     element: etree._Element,
     xpath_expression: str,
@@ -171,7 +160,7 @@ def _complete_attribute_pair(
     This is useful when the two attributes are meaningful as a single
     composite value, such as `root` + `extension` or `code` + `codeSystem`.
     Returning None for partial data lets callers treat the pair as one
-    atomic value for matching, identity checks, or key construction.
+    atomic value for matching, key checks, or key construction.
     """
     if node is None:
         return None
@@ -219,7 +208,7 @@ def _collect_standalone_namespace_requirements(
             # lxml will preserve namespaces in element and attribute names, but
             # it does not understand that the string value "cda:CD" also depends
             # on the lexical prefix `cda` remaining bound.
-            if attr_name != XSI_TYPE_ATTR:
+            if attr_name != xsi_clark_tag("type"):
                 continue
 
             attr_value_text = attr_value.strip()
