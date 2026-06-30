@@ -1,5 +1,4 @@
 <ClinicalDocument xmlns="urn:hl7-org:v3" xmlns:cda="urn:hl7-org:v3" xmlns:sdtc="urn:hl7-org:sdtc" xmlns:voc="http://www.lantanagroup.com/voc" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:hl7-org:v3 ../../../cda-core-2.0/schema/extensions/SDTC/infrastructure/cda/CDA_SDTC.xsd">
-  
   <realmCode code="US"/>
   <typeId extension="POCD_HD000040" root="2.16.840.1.113883.1.3"/>
   <templateId root="2.16.840.1.113883.10.20.22.1.1"/>
@@ -45,7 +44,6 @@
         <sdtc:deceasedInd value="false"/>
         <raceCode code="2106-3" codeSystem="2.16.840.1.113883.6.238" codeSystemName="Race &amp; Ethnicity - CDC" displayName="White"/>
         <ethnicGroupCode code="2186-5" codeSystem="2.16.840.1.113883.6.238" codeSystemName="Race &amp; Ethnicity - CDC" displayName="Not Hispanic or Latino"/>
-      
         <languageCommunication>
           <languageCode code="en"/>
           <modeCode code="ESP" codeSystem="2.16.840.1.113883.5.60" codeSystemName="LanguageAbilityMode" displayName="Expressed spoken"/>
@@ -555,7 +553,6 @@
               </entryRelationship>
             </substanceAdministration>
           </entry>
-         
         </section>
       </component>
       <component>
@@ -732,7 +729,6 @@
                   <templateId root="2.16.840.1.113883.10.20.22.4.80"/>
                   <templateId extension="2015-08-01" root="2.16.840.1.113883.10.20.22.4.80"/>
                   <code code="29308-4" codeSystem="2.16.840.1.113883.6.1" codeSystemName="LOINC" displayName="Diagnosis"/>
-                  
                   <entryRelationship typeCode="SUBJ">
                     <observation classCode="OBS" moodCode="EVN" negationInd="false">
                       <templateId root="2.16.840.1.113883.10.20.22.4.4"/>
@@ -1337,7 +1333,6 @@
               <routeCode code="C38288" codeSystem="2.16.840.1.113883.3.26.1.1" codeSystemName="NCI Thesaurus" displayName="ORAL"/>
               <doseQuantity value="1"/>
               <consumable>
-                
                 <manufacturedProduct classCode="MANU">
                   <templateId extension="2014-06-09" root="2.16.840.1.113883.10.20.22.4.23"/>
                   <id root="2a620155-9d11-439e-92b3-5d9815ff4ee8"/>
@@ -1368,7 +1363,6 @@
             </substanceAdministration>
           </entry>
         </section>
-        
       </component>
       <component>
         <section>
@@ -1391,7 +1385,6 @@
                   <consumable>
                     <manufacturedProduct classCode="MANU">
                       <templateId extension="2014-06-09" root="2.16.840.1.113883.10.20.22.4.23"/>
-                     
                       <id root="2a620155-9d11-439e-92b3-5d9815ff4ee8"/>
                       <manufacturedMaterial>
                         <code code="1115699" codeSystem="2.16.840.1.113883.6.88" codeSystemName="RxNorm" displayName="oseltamivir 6 MG/ML [Tamiflu]"/>
@@ -1444,7 +1437,6 @@
                         <low value="20201101"/>
                       </effectiveTime>
                       <value code="268910001" codeSystem="2.16.840.1.113883.6.96" codeSystemName="SNOMED CT" displayName="Patient's condition improved (finding)" xsi:type="CD"/>
-                      
                     </observation>
                   </entryRelationship>
                 </substanceAdministration>
@@ -1466,7 +1458,6 @@
                   <consumable>
                     <manufacturedProduct classCode="MANU">
                       <templateId extension="2014-06-09" root="2.16.840.1.113883.10.20.22.4.23"/>
-                      
                       <id root="2a620155-9d11-439e-92b3-5d9815ff4ee8"/>
                       <manufacturedMaterial>
                         <code code="1165486" codeSystem="2.16.840.1.113883.6.88" codeSystemName="RxNorm" displayName="ritonavir Oral Product"/>
@@ -1519,7 +1510,6 @@
                         <low value="20201101"/>
                       </effectiveTime>
                       <value code="268910001" codeSystem="2.16.840.1.113883.6.96" codeSystemName="SNOMED CT" displayName="Patient's condition improved (finding)" xsi:type="CD"/>
-                      
                     </observation>
                   </entryRelationship>
                 </substanceAdministration>
@@ -1611,7 +1601,6 @@
                 <observation classCode="OBS" moodCode="EVN" negationInd="false">
                   <templateId root="2.16.840.1.113883.10.20.22.4.4"/>
                   <templateId extension="2015-08-01" root="2.16.840.1.113883.10.20.22.4.4"/>
-                 
                   <id root="db734647-fc99-424c-a864-7e3cda82e705"/>
                   <code code="29308-4" codeSystem="2.16.840.1.113883.6.1" codeSystemName="LOINC" displayName="Diagnosis">
                     <translation code="282291009" codeSystem="2.16.840.1.113883.6.96" codeSystemName="SNOMED CT" displayName="Diagnosis"/>
@@ -1662,7 +1651,6 @@
           </entry>
         </section>
       </component>
-      
       <component>
         <section>
           <templateId root="1.3.6.1.4.1.19376.1.5.3.1.3.18"/>
@@ -2113,9 +2101,7 @@
           </text>
           <entry>
             <procedure classCode="PROC" moodCode="EVN">
-              
               <templateId extension="2014-06-09" root="2.16.840.1.113883.10.20.22.4.14"/>
-             
               <templateId extension="2021-01-01" root="2.16.840.1.113883.10.20.15.2.3.14"/>
               <id root="9a6d1bac-17d3-4195-89c4-1121bc809b5a"/>
               <code code="233573008" codeSystem="2.16.840.1.113883.6.96" codeSystemName="SNOMED CT" displayName="Extracorporeal membrane oxygenation (procedure)" sdtc:valueSet="2.16.840.1.114222.4.11.7508" sdtc:valueSetVersion="2020-11-13"/>
@@ -2765,7 +2751,6 @@
                   </representedOrganization>
                 </assignedAuthor>
               </author>
-            
               <entryRelationship typeCode="RSON">
                 <observation classCode="OBS" moodCode="EVN">
                   <templateId extension="2014-06-09" root="2.16.840.1.113883.10.20.22.4.9"/>
@@ -3857,7 +3842,6 @@
               </tbody>
             </table>
           </text>
-
           <entry typeCode="DRIV">
             <observation classCode="OBS" moodCode="EVN">
               <templateId root="2.16.840.1.113883.10.20.15.3.8"/>
@@ -3968,8 +3952,7 @@
               <tbody>
                 <tr>
                   <td>05/20/2014 7:36pm</td>
-                  <td>
-                    <content ID="SystolicBP_2">120</content>/<content ID="DiastolicBP_2">80</content>mm[Hg] </td>
+                  <td><content ID="SystolicBP_2">120</content>/<content ID="DiastolicBP_2">80</content>mm[Hg] </td>
                   <td ID="Pulse_2">80 /min</td>
                   <td ID="Temp_2">99.0 F</td>
                   <td ID="RespRate_2">18 /min</td>
