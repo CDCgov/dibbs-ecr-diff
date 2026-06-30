@@ -77,8 +77,8 @@ DIFF_SECTION_DISPLAY_NAME: Final[str] = "Difference in Docs eCR Diff"
 # multi-condition cases, the wire-protocol contract details,
 # and open IG questions tracked against this design
 
-REFINER_DETERMINISTIC_NS: Final[uuid.UUID] = uuid.UUID(
-    "cdcd1bb5-ecdc-4cdc-8cdc-d1bb5ecdc0dc"
+DIFF_DETERMINISTIC_NS: Final[uuid.UUID] = uuid.UUID(
+    "c33d292a-3af2-4478-9246-f6af1259a7f3"
 )
 
 _SEED_PREFIX_EICR_SETID: Final[str] = "eicr-setid"
@@ -131,7 +131,7 @@ def _derive_augmented_eicr_id(
     """
     return str(
         uuid.uuid5(
-            REFINER_DETERMINISTIC_NS,
+            DIFF_DETERMINISTIC_NS,
             f"{jurisdiction_id}{_SEED_FIELD_SEPARATOR}"
             f"{_scope_seed_value(condition_grouper_uuid)}{_SEED_FIELD_SEPARATOR}"
             f"{original_eicr_id_root}",
@@ -154,7 +154,7 @@ def _derive_augmented_rr_id(
     """
     return str(
         uuid.uuid5(
-            REFINER_DETERMINISTIC_NS,
+            DIFF_DETERMINISTIC_NS,
             f"{jurisdiction_id}{_SEED_FIELD_SEPARATOR}"
             f"{_scope_seed_value(scope)}{_SEED_FIELD_SEPARATOR}"
             f"{original_rr_id_root}",
@@ -178,7 +178,7 @@ def _derive_augmented_eicr_setid(
     """
     return str(
         uuid.uuid5(
-            REFINER_DETERMINISTIC_NS,
+            DIFF_DETERMINISTIC_NS,
             f"{jurisdiction_id}{_SEED_FIELD_SEPARATOR}"
             f"{_scope_seed_value(condition_grouper_uuid)}{_SEED_FIELD_SEPARATOR}"
             f"{_SEED_PREFIX_EICR_SETID}:{original_eicr_setid_root}",
@@ -206,7 +206,7 @@ def _derive_augmented_rr_setid(
     """
     return str(
         uuid.uuid5(
-            REFINER_DETERMINISTIC_NS,
+            DIFF_DETERMINISTIC_NS,
             f"{jurisdiction_id}{_SEED_FIELD_SEPARATOR}"
             f"{_scope_seed_value(scope)}{_SEED_FIELD_SEPARATOR}"
             f"{_SEED_PREFIX_RR_SETID}:{original_eicr_setid_root}",
@@ -249,7 +249,7 @@ class AugmentationRun:
     Per-call inputs that vary across augmentations within a run:
     jurisdiction_id, scope, and the tool identity kwargs are NOT on
     the run. They travel as direct arguments to augment_eicr and
-    augment_rr. Production callers always use the Refiner tool
+    augment_rr. Production callers always use the Difference in Docs tool
     defaults; tests can override to simulate prior augmentations by
     other tools.
 
@@ -374,7 +374,7 @@ def augment_eicr(
     is the validator; the caller converts the canonical_url to a
     UUID before calling.
 
-    tool_code and tool_display default to the Refiner's identity from
+    tool_code and tool_display default to Difference in Docs's identity from
     the Data Augmentation Tool value set (Vol 2 Table 2). Production
     callers always use the defaults; tests may override to simulate
     augmentations performed by other tools.
@@ -459,7 +459,7 @@ def augment_rr(
     cannot equal any real grouper UUID — UUIDs have a fixed
     hyphenated 36-character shape that the literal does not satisfy.
 
-    tool_code and tool_display default to the Refiner's identity from
+    tool_code and tool_display default to the Difference in Docs's identity from
     the Data Augmentation Tool value set (Vol 2 Table 2). Production
     callers always use the defaults; tests may override to simulate
     augmentations performed by other tools.
@@ -588,8 +588,8 @@ def _replace_document_id(
     """Replace the document <id> with a new id root and assigningAuthorityName.
 
     The assigningAuthorityName is drawn from the Data Augmentation
-    Document Source value set, we use "ecr-refiner" for
-    Refiner-produced documents.
+    Document Source value set, we use "ecr-difference-in-docs" for
+    DID-produced documents.
     """
     old_id = _find_required(doc_root, "hl7:id")
 
@@ -622,8 +622,8 @@ def _replace_set_id(
     """Replace or insert the document <setId>.
 
     The augmented setId carries assigningAuthorityName from the Data
-    Augmentation Document Source value set (we use "ecr-refiner"
-    for Refiner-produced documents).
+    Augmentation Document Source value set (we use "ecr-difference-in-docs"
+    for DID-produced documents).
 
     If <setId> doesn't exist (optional in CDA R2), inserts one in the
     correct schema position: after <languageCode> or
