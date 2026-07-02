@@ -1,1592 +1,1388 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html xmlns:n1="urn:hl7-org:v3" xmlns:in="urn:lantana-com:inline-variable-data" xmlns:sdtc="urn:hl7-org:sdtc">
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- Do NOT edit this HTML directly: it was generated via an XSLT transformation from a CDA Release 2 XML document. -->
-    <title class="cda-title">Initial Public Health Case Report</title>
-    <script type="text/javascript" src="https://code.jquery.com/jquery-1.12.1.min.js"></script>
-
-    <script type="text/javascript"
-            src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.0/jquery-ui.min.js"></script>
-    <link xmlns:xs="http://www.w3.org/2001/XMLSchema" rel="stylesheet"
-          href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
-    <script type="text/javascript" src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
-    <script xmlns:xs="http://www.w3.org/2001/XMLSchema" type="text/javascript">
-        $(document).ready(function () {
-            $('#navbar-list-cda').height($(window).height() - 100);
-        });
-        $(window).resize(function () {
-            $('#navbar-list-cda').height($(window).height() - 100);
-        });
-
-        $(document).ready(function () {
-            $('#navbar-list-cda').height($(window).height() - 100);
-        });
-
-        $(window).resize(function () {
-            $('#navbar-list-cda').height($(window).height() - 100);
-        });
-
-        $(document).ready(function () {
-            $('.cda-render a[href*="#"]:not([href="#"])').bind('click.smoothscroll', function (e) {
-                e.preventDefault();
-
-                var target = this.hash,
-                    $target = $(target);
-
-                $('html, body').stop().animate({
-                        'scrollTop': $target.offset().top
-                    },
-                    1000, 'swing', function () {
-                        window.location.hash = target;
-
-                        // lets add a div in the background
-                        $('&lt;div /&gt;').css({
-                            'background': '#336b7a'
-                        }).prependTo($target).fadeIn('fast', function () {
-                            $(this).fadeOut('fast', function () {
-                                $(this).remove();
-                            });
-                        });
-                    });
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Do NOT edit this HTML directly: it was generated via an XSLT transformation from a CDA Release 2 XML document. --><title class="cda-title">Initial Public Health Case Report</title>
+        <script type="text/javascript" src="https://code.jquery.com/jquery-1.12.1.min.js"></script>
+      
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.0/jquery-ui.min.js"></script>
+      <link xmlns:xs="http://www.w3.org/2001/XMLSchema" rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+        <script type="text/javascript" src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+      <script xmlns:xs="http://www.w3.org/2001/XMLSchema" type="text/javascript">
+            $(document).ready(function () {
+            $('#navbar-list-cda').height($(window).height() -100);
             });
-        });
+            $(window).resize(function () {
+            $('#navbar-list-cda').height($(window).height() -100);
+            });
 
-        $(function () {
+            $(document).ready(function () {
+            $('#navbar-list-cda').height($(window).height() -100);
+            });
+
+            $(window).resize(function () {
+            $('#navbar-list-cda').height($(window).height() -100);
+            });
+
+            $(document).ready(function () {
+            $('.cda-render a[href*="#"]:not([href="#"])').bind('click.smoothscroll', function (e) {
+            e.preventDefault();
+
+            var target = this.hash,
+            $target = $(target);
+
+            $('html, body').stop().animate({
+            'scrollTop': $target.offset().top
+            },
+            1000, 'swing', function () {
+            window.location.hash = target;
+
+            // lets add a div in the background
+            $('&lt;div /&gt;').css({
+            'background': '#336b7a'
+            }).prependTo($target).fadeIn('fast', function () {
+            $(this).fadeOut('fast', function () {
+            $(this).remove();
+            });
+            });
+            });
+            });
+            });
+
+            $(function () {
             $("#navbar-list-cda-sortable").sortable();
             $("#navbar-list-cda-sortable").disableSelection();
-        });
+            });
 
-        $(function () {
+            $(function () {
             var $nav = $('#navbar-list-cda-sortable');
             var $content = $('#doc-clinical-info');
             var $originalContent = $content.clone();
             $nav.sortable({
-                update: function (e) {
-                    $content.empty();
-                    $nav.find('a').each(function () {
-                        $content.append($originalContent.clone().find($(this).attr('href')).parent());
-                    });
-
-                    $('[data-spy="scroll"]').each(function () {
-                        var $spy = $(this).scrollspy('refresh')
-                    })
-                }
+            update: function (e) {
+            $content.empty();
+            $nav.find('a').each(function () {
+            $content.append($originalContent.clone().find($(this).attr('href')).parent ());
             });
-        });</script>
-    <style xmlns:xs="http://www.w3.org/2001/XMLSchema">
-        /* Catch all for the document */
-        .cda-render {
+
+            $('[data-spy="scroll"]').each(function () {
+            var $spy = $(this).scrollspy('refresh')
+            })
+            }
+            });
+            });</script><style xmlns:xs="http://www.w3.org/2001/XMLSchema">
+            /* Catch all for the document */
+            .cda-render {
             font-family: CenturyGothic, sans-serif;
             /*font-size:1.25em;*/
-        }
+            }
 
-        /* One-off - CDA Document Title */
-        .cda-render h1.cda-title {
+            /* One-off - CDA Document Title */
+            .cda-render h1.cda-title {
             color: #b3623d;
             font-size: 1.5em;
             font-weight: bold;
             text-align: center;
             text-transform: uppercase;
-        }
+            }
 
 
-        /* One-off - Table of contents formatting */
-        .cda-render .toc-header-container {
+            /* One-off - Table of contents formatting */
+            .cda-render .toc-header-container {
             padding-top: 0.5em;
             border-bottom-width: 0.1em;
             border-bottom-style: solid;
             border-bottom-color: #b3623d;
             padding-bottom: 0.5em;
-        }
+            }
 
-        .cda-render .toc-header {
+            .cda-render .toc-header {
             text-transform: uppercase;
             color: #b3623d;
             font-weight: bold;
-        }
+            }
 
-        .cda-render .toc {
+            .cda-render .toc {
             margin-top: 3em;
             padding: 0px 15px;
-        }
+            }
 
-        .cda-render .toc-box {
+            .cda-render .toc-box {
 
-        }
+            }
 
 
-        /* One-off - Patient Name Formatting */
-        .cda-render .patient-name {
+            /* One-off - Patient Name Formatting */
+            .cda-render .patient-name {
             color: #336b7a;
             font-size: 1.25em;
             font-weight: bold;
-        }
+            }
 
-        /* Patient ID Formatting */
-        .patient-id {
+            /* Patient ID Formatting */
+            .patient-id {
             border-left-width: 0.15em;
             border-left-style: solid;
             border-left-color: #478B95;
-        }
-
-        /* Re-usable - Section-Title */
-        .cda-render .section-title {
+            }
+            /* Re-usable - Section-Title */
+            .cda-render .section-title {
             color: #336b7a;
             font-size: 1.09em;
             font-weight: bold;
             text-transform: uppercase;
-        }
+            }
 
-        /* Re-usable - Attribute title */
-        .cda-render .attribute-title {
+            /* Re-usable - Attribute title */
+            .cda-render .attribute-title {
             color: #000000;
             font-weight: bold;
             font-size: 1.04em;
-        }
+            }
 
 
-        /***** Header Grouping */
-        .cda-render .header {
+            /***** Header Grouping */
+            .cda-render .header {
             border-bottom-width: 0.1em;
             border-bottom-style: solid;
             border-bottom-color: #1B6373;
             padding-bottom: 0.5em;
-        }
+            }
 
-        .cda-render .header-group-content {
+            .cda-render .header-group-content {
             margin-left: 1em;
             padding-left: 0.5em;
             border-left-width: 0.15em;
             border-left-style: solid;
             border-left-color: #478B95;
-        }
+            }
 
-        .cda-render .tight {
+            .cda-render .tight {
             margin: 0;
-        }
-
-        .cda-render .generated-text {
+            }
+            .cda-render .generated-text {
             white-space: no-wrap;
             margin: 0em;
             color: #B0592C;
             font-style: italic;
-        }
-
-        .cda-render .bottom {
+            }
+            .cda-render .bottom {
             border-top-width: 0.2em;
             border-top-color: #B0592C;
             border-top-style: solid;
-        }
+            }
 
-        /***** Table of Contents Attributes */
-        /* Table of contents entry */
-        .cda-render .lantana-toc {
+            /***** Table of Contents Attributes */
+            /* Table of contents entry */
+            .cda-render .lantana-toc {
             text-transform: uppercase;
-        }
+            }
 
-        .cda-render .bold {
+            .cda-render .bold {
             font-weight: bold;
-        }
+            }
 
-        .cda-render .active {
+            .cda-render .active {
             border-right-color: #336b7a;
             border-right-style: solid;
             border-left-color: #336b7a;
             border-left-style: solid;
             background-color: #eee;
-        }
+            }
 
-        #navbar-list-cda {
+            #navbar-list-cda {
             overflow: auto;
-        }</style>
+            }</style>
 </head>
 <body data-spy="scroll" data-target="#navbar-cda">
-<div class="cda-render toc col-md-3" role="complementary">
-    <nav class="cda-render hidden-print hidden-xs hidden-sm affix toc-box" id="navbar-cda">
-        <div class="container-fluid cda-render toc-header-container">
-            <div class="cda-render toc-header">Eve Everywoman</div>
-            <div class="cda-render toc-header">Initial Public Health Case Report</div>
-        </div>
-        <ul class="cda-render nav nav-stacked fixed" id="navbar-list-cda">
-            <li><a class="cda-render lantana-toc" href="#top">BACK TO TOP</a></li>
-            <li><a class="cda-render lantana-toc" href="#cda-patient">DEMOGRAPHICS</a></li>
-            <li><a class="cda-render lantana-toc" href="#author-performer">AUTHORING DETAILS</a></li>
-            <li>
-                <a class="cda-render lantana-toc bold" href="#doc-clinical-info">Clinical Sections</a>
-                <ul class="cda-render nav nav-stacked fixed" id="navbar-list-cda-sortable">
-                    <li><a class="cda-render lantana-toc" href="#id1">Plan of Treatment</a></li>
-                    <li><a class="cda-render lantana-toc" href="#id2">Encounters</a></li>
-                    <li><a class="cda-render lantana-toc" href="#id3">History of Present Illness</a></li>
-                    <li><a class="cda-render lantana-toc" href="#id4">PAST MEDICAL HISTORY</a></li>
-                    <li><a class="cda-render lantana-toc" href="#id5">Medications Administered</a></li>
-                    <li><a class="cda-render lantana-toc" href="#id6">MEDICATIONS</a></li>
-                    <li><a class="cda-render lantana-toc" href="#id7">Admission Medications</a></li>
-                    <li><a class="cda-render lantana-toc" href="#id8">HOSPITAL ADMISSION DIAGNOSIS</a></li>
-                    <li><a class="cda-render lantana-toc" href="#id9">REVIEW OF SYSTEMS</a></li>
-                    <li><a class="cda-render lantana-toc" href="#id10">Problems</a></li>
-                    <li><a class="cda-render lantana-toc" href="#id11">Chief Complaint</a></li>
-                    <li><a class="cda-render lantana-toc" href="#id12">Reason for Visit</a></li>
-                    <li><a class="cda-render lantana-toc" href="#id13">Results</a></li>
-                    <li><a class="cda-render lantana-toc" href="#id14">Procedures</a></li>
-                    <li><a class="cda-render lantana-toc" href="#id15">Immunizations</a></li>
-                    <li><a class="cda-render lantana-toc" href="#id16">Social History</a></li>
-                    <li><a class="cda-render lantana-toc" href="#id17">Pregnancy Section</a></li>
-                    <li><a class="cda-render lantana-toc" href="#id18">Vital Signs (Last Filed)</a></li>
-                    <li><a class="cda-render lantana-toc" href="#id19">Emergency Outbreak Information Section</a></li>
-                </ul>
-            </li>
-            <li><a class="cda-render lantana-toc" href="#doc-info">SIGNATURES</a></li>
-        </ul>
-    </nav>
+<div class="cda-render toc col-md-3" role="complementary"><nav class="cda-render hidden-print hidden-xs hidden-sm affix toc-box" id="navbar-cda"><div class="container-fluid cda-render toc-header-container">
+<div class="cda-render toc-header">Eve Everywoman</div>
+<div class="cda-render toc-header">Initial Public Health Case Report</div>
 </div>
+<ul class="cda-render nav nav-stacked fixed" id="navbar-list-cda">
+<li><a class="cda-render lantana-toc" href="#top">BACK TO TOP</a></li>
+<li><a class="cda-render lantana-toc" href="#cda-patient">DEMOGRAPHICS</a></li>
+<li><a class="cda-render lantana-toc" href="#author-performer">AUTHORING DETAILS</a></li>
+<li>
+<a class="cda-render lantana-toc bold" href="#doc-clinical-info">Clinical Sections</a><ul class="cda-render nav nav-stacked fixed" id="navbar-list-cda-sortable">
+<li><a class="cda-render lantana-toc" href="#id1">Plan of Treatment</a></li>
+<li><a class="cda-render lantana-toc" href="#id2">Encounters</a></li>
+<li><a class="cda-render lantana-toc" href="#id3">History of Present Illness</a></li>
+<li><a class="cda-render lantana-toc" href="#id4">PAST MEDICAL HISTORY</a></li>
+<li><a class="cda-render lantana-toc" href="#id5">Medications Administered</a></li>
+<li><a class="cda-render lantana-toc" href="#id6">MEDICATIONS</a></li>
+<li><a class="cda-render lantana-toc" href="#id7">Admission Medications</a></li>
+<li><a class="cda-render lantana-toc" href="#id8">HOSPITAL ADMISSION DIAGNOSIS</a></li>
+<li><a class="cda-render lantana-toc" href="#id9">REVIEW OF SYSTEMS</a></li>
+<li><a class="cda-render lantana-toc" href="#id10">Problems</a></li>
+<li><a class="cda-render lantana-toc" href="#id11">Chief Complaint</a></li>
+<li><a class="cda-render lantana-toc" href="#id12">Reason for Visit</a></li>
+<li><a class="cda-render lantana-toc" href="#id13">Results</a></li>
+<li><a class="cda-render lantana-toc" href="#id14">Procedures</a></li>
+<li><a class="cda-render lantana-toc" href="#id15">Immunizations</a></li>
+<li><a class="cda-render lantana-toc" href="#id16">Social History</a></li>
+<li><a class="cda-render lantana-toc" href="#id17">Pregnancy Section</a></li>
+<li><a class="cda-render lantana-toc" href="#id18">Vital Signs (Last Filed)</a></li>
+<li><a class="cda-render lantana-toc" href="#id19">Emergency Outbreak Information Section</a></li>
+</ul>
+</li>
+<li><a class="cda-render lantana-toc" href="#doc-info">SIGNATURES</a></li>
+</ul></nav></div>
 <div class="cda-render container-fluid col-md-9 cda-render-main" role="main">
-    <row><h1 id="top" class="cda-title">Initial Public Health Case Report</h1></row>
-    <div class="top container-fluid">
-        <div class="header container-fluid" id="cda-patient">
-            <div class="patient-heading container-fluid">
-                <div class="patient-name row">Eve Everywoman</div>
-                <div class="patient-identifier container-fluid">
-                    <div class="attribute-title row">Patient Identifiers</div>
-                    <div class="row">
-                        <div class="col-md-6 patient-id">123453 Meaningless identifier, not to be used for any actual
-                            entities. Examples only.
-                        </div>
+<row><h1 id="top" class="cda-title">Initial Public Health Case Report</h1></row><div class="top container-fluid">
+<div class="header container-fluid" id="cda-patient">
+<div class="patient-heading container-fluid">
+<div class="patient-name row">Eve Everywoman</div>
+<div class="patient-identifier container-fluid">
+<div class="attribute-title row">Patient Identifiers</div>
+<div class="row"><div class="col-md-6 patient-id">123453 Meaningless identifier, not to be used for any actual entities. Examples only.</div></div>
+</div>
+</div>
+<div class="patient-info container-fluid">
+<div class="col-md-6">
+<h2 class="section-title col-md-6">About</h2>
+<div class="header-group-content col-md-8">
+<div class="row">
+<div class="attribute-title col-md-6">Date of Birth</div>
+<div class="col-md-6">11/24/1975 </div>
+</div>
+<div class="row">
+<div class="attribute-title col-md-6">Sex</div>
+<div class="col-md-6">Female</div>
+</div>
+<div class="row">
+<div class="attribute-title col-md-6">Race</div>
+<div class="col-md-6">White</div>
+</div>
+<div class="row">
+<div class="attribute-title col-md-6">Ethnicity</div>
+<div class="col-md-6">Not Hispanic or Latino</div>
+</div>
+<div class="row">
+<div class="attribute-title col-md-6">Preferred Language</div>
+<div class="col-md-6">English</div>
+</div>
+</div>
+</div>
+<div class="col-md-6">
+<h2 class="section-title col-md-6">Contact</h2>
+<div class="header-group-content col-md-8">
+<div class="address-group">
+<div class="adress-group-header">Home (07/20/2000, 08:45  to present)</div>
+<div class="address-group-content">
+<p class="tight">2222 Home Street </p>
+<p class="tight">Provo, UT</p>
+<p class="tight">84097, US</p>
+</div>
+</div>
+<div class="address-group"><div class="address-group-header">tel:  (Primary Home) +1-555-555-2003</div></div>
+<div class="address-group"><div class="address-group-header">tel:  (Work Place) +1-555-555-2004</div></div>
+</div>
+</div>
+</div>
+<div class="guardian-info container-fluid"><div class="row">
+<div class="col-md-6"><div class="guardian-name container-fluid">
+<h2 class="section-title col-md-6">Parent/Guardian</h2>
+<div class="header-group-content col-md-8">Martha Mum</div>
+</div></div>
+<div class="row"><div class="col-md-6">
+<h2 class="section-title col-md-6">Contact</h2>
+<div class="header-group-content col-md-8">
+<div class="address-group">
+<div class="adress-group-header">Home</div>
+<div class="address-group-content">
+<p class="tight">4444 Home Street </p>
+<p class="tight">Provo, UT</p>
+<p class="tight">84097, US</p>
+</div>
+</div>
+<div class="address-group"><div class="address-group-header">tel:  (Primary Home) +1-555-555-2008</div></div>
+<div class="address-group"><div class="address-group-header">email: mail@guardian.com</div></div>
+</div>
+</div></div>
+</div></div>
+</div>
+<div class="header container-fluid">
+<div class="container-fluid">
+<div class="col-md-6">
+<h2 class="section-title col-md-6" id="author-performer">Author</h2>
+<div class="header-group-content col-md-8">
+<div class="row">
+<div class="attribute-title col-md-6">Time: </div>
+<div class="col-md-6">09/15/2012, 10:30 </div>
+</div>
+<div class="row"><div class="col-md-8">Patricia Primary, M.D.</div></div>
+<div class="row"><div class="col-md-8">5555555555 NPI (US)</div></div>
+</div>
+</div>
+<div class="col-md-6">
+<h2 class="section-title col-md-6">Contact</h2>
+<div class="header-group-content col-md-8">
+<div class="address-group">
+<div class="adress-group-header"></div>
+<div class="address-group-content">
+<p class="tight">1004 Healthcare Drive  </p>
+<p class="tight">Provo, UT</p>
+<p class="tight">84097, US</p>
+</div>
+</div>
+<div class="address-group"><div class="address-group-header">tel:  (Work Place) +1(555)555-1004</div></div>
+</div>
+</div>
+</div>
+<div class="container-fluid">
+<div class="col-md-6">
+<h2 class="section-title col-md-6" id="author-performer">Author Organization</h2>
+<div class="header-group-content col-md-8">
+<div class="row"><div class="col-md-8">Childrens Hospital of Provo</div></div>
+<div class="row"><div class="col-md-8">10 OID: 1.2.840.114350.1.13.306.3.7.2.696570</div></div>
+</div>
+</div>
+<div class="col-md-6">
+<h2 class="section-title col-md-6">Contact</h2>
+<div class="header-group-content col-md-8">
+<div class="address-group">
+<div class="adress-group-header">Work Place</div>
+<div class="address-group-content">
+<p class="tight">1234 Facility Drive </p>
+<p class="tight">Provo, UT</p>
+<p class="tight">78097, US</p>
+</div>
+</div>
+<div class="address-group"></div>
+</div>
+</div>
+</div>
+<div class="container-fluid">
+<div class="col-md-6">
+<h2 class="section-title col-md-6" id="author-performer">Author</h2>
+<div class="header-group-content col-md-8">
+<div class="row">
+<div class="attribute-title col-md-6">Time: </div>
+<div class="col-md-6">08/9/2024, 17:40 </div>
+</div>
+<div class="row"><div class="col-md-8">1.0.0</div></div>
+<div class="row"><div class="col-md-8"> OID: 0cafa72d-33d2-4d43-87fb-5651f5569c39</div></div>
+</div>
+</div>
+<div class="col-md-6">
+<h2 class="section-title col-md-6">Contact</h2>
+<div class="header-group-content col-md-8"></div>
+</div>
+</div>
+<div class="container-fluid">
+<div class="col-md-6">
+<h2 class="section-title col-md-6" id="author-performer">Author</h2>
+<div class="header-group-content col-md-8">
+<div class="row">
+<div class="attribute-title col-md-6">Time: </div>
+<div class="col-md-6">08/9/2024, 17:40 </div>
+</div>
+<div class="row"><div class="col-md-8">Version 3.1.X</div></div>
+<div class="row"><div class="col-md-8"> OID: 02ae519a-f890-41d9-98fb-4eb08ca78ade</div></div>
+</div>
+</div>
+<div class="col-md-6">
+<h2 class="section-title col-md-6">Contact</h2>
+<div class="header-group-content col-md-8"></div>
+</div>
+</div>
+<div class="container-fluid">
+<div class="col-md-6">
+<h2 class="section-title col-md-6" id="author-performer">Author</h2>
+<div class="header-group-content col-md-8">
+<div class="row">
+<div class="attribute-title col-md-6">Time: </div>
+<div class="col-md-6">08/9/2024, 17:40 </div>
+</div>
+<div class="row"><div class="col-md-8">1.0.0</div></div>
+<div class="row"><div class="col-md-8"> OID: 7f28ecf9-6409-4eb2-b1fc-e4badb1882bb</div></div>
+</div>
+</div>
+<div class="col-md-6">
+<h2 class="section-title col-md-6">Contact</h2>
+<div class="header-group-content col-md-8"></div>
+</div>
+</div>
+<div class="container-fluid">
+<div class="col-md-6">
+<h2 class="section-title col-md-6" id="author-performer">Author</h2>
+<div class="header-group-content col-md-8">
+<div class="row">
+<div class="attribute-title col-md-6">Time: </div>
+<div class="col-md-6">06/18/2026, 12:19 </div>
+</div>
+<div class="row"><div class="col-md-8">Difference in Docs</div></div>
+<div class="row"><div class="col-md-8"></div></div>
+</div>
+</div>
+<div class="col-md-6">
+<h2 class="section-title col-md-6">Contact</h2>
+<div class="header-group-content col-md-8"><div class="address-group"></div></div>
+</div>
+</div>
+</div>
+<div class="header container-fluid"><div class="container-fluid col-md-8"><div class="container-fluid">
+<h2 class="section-title col-md-10">Encounter</h2>
+<div class="header-group-content col-md-10">
+<div class="row">
+<div class="attribute-title col-md-2">Identifier</div>
+<div class="col-md-6">9937012 OID: 2.16.840.1.113883.19</div>
+</div>
+<div class="row">
+<div class="attribute-title col-md-2">Type</div>
+<div class="col-md-6">Ambulatory</div>
+</div>
+<div class="row">
+<div class="attribute-title col-md-2">Date</div>
+<div class="col-md-4">
+<span class="attribute-title">From: </span>11/7/2020, 08:44 </div>
+</div>
+<div class="row">
+<div class="attribute-title col-md-2">Location</div>
+<div class="col-md-6">Outpatient facility of Good Health Hospital</div>
+</div>
+</div>
+<div class="col-md-6">
+<h2 class="section-title col-md-6">Responsible Party</h2>
+<div class="header-group-content col-md-8">Henry Seven, M.D. of Community Health and Hospitals</div>
+</div>
+<div class="col-md-6">
+<h2 class="section-title col-md-6">Contact</h2>
+<div class="header-group-content col-md-8">
+<div class="address-group">
+<div class="adress-group-header"></div>
+<div class="address-group-content">
+<p class="tight">1002 Healthcare Drive </p>
+<p class="tight">Provo, UT</p>
+<p class="tight">84097, US</p>
+</div>
+</div>
+<div class="address-group"><div class="address-group-header">tel:  (Work Place) +1(555)555-1003</div></div>
+<div class="address-group"><div class="address-group-header">fax:  (Work Place) +1(555)555-1234</div></div>
+<div class="address-group"><div class="address-group-header">email:  (Work Place) mail@provider_domain.com</div></div>
+</div>
+</div>
+</div></div></div>
+<div class="container-fluid"></div>
+<div class="container-fluid"></div>
+<div class="container-fluid"></div>
+</div>
+<div class="middle" id="doc-clinical-info">
+<div class="container-fluid header">
+<h1 class="section-title" id="id1" ng-click="gotoAnchor('toc')">Plan of Treatment</h1>
+<div class="section-text">
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Initial Case Report Trigger<br>Code Lab Test Order</th>
+                                    <th>Trigger Code</th>
+                                    <th>Trigger Code codeSystem</th>
+                                    <th>RCTC OID</th>
+                                    <th>RCTC Version</th>
+                                    <th>Ordered Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr ID="id_b52bee94-c34b-4e2c-8c15-5ad9d6def205_ref">
+                                    <td>Zika virus envelope (E) gene [Presence] in Serum<br>by Probe and target amplification method</td>
+                                    <td>80825-3</td>
+                                    <td>LOINC</td>
+                                    <td>2.16.840.1.114222.4.11.7508</td>
+                                    <td>19/05/2020</td>
+                                    <td>NOV 8, 2020</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
                     </div>
-                </div>
-            </div>
-            <div class="patient-info container-fluid">
-                <div class="col-md-6">
-                    <h2 class="section-title col-md-6">About</h2>
-                    <div class="header-group-content col-md-8">
-                        <div class="row">
-                            <div class="attribute-title col-md-6">Date of Birth</div>
-                            <div class="col-md-6">11/24/1975</div>
-                        </div>
-                        <div class="row">
-                            <div class="attribute-title col-md-6">Sex</div>
-                            <div class="col-md-6">Female</div>
-                        </div>
-                        <div class="row">
-                            <div class="attribute-title col-md-6">Race</div>
-                            <div class="col-md-6">White</div>
-                        </div>
-                        <div class="row">
-                            <div class="attribute-title col-md-6">Ethnicity</div>
-                            <div class="col-md-6">Not Hispanic or Latino</div>
-                        </div>
-                        <div class="row">
-                            <div class="attribute-title col-md-6">Preferred Language</div>
-                            <div class="col-md-6">English</div>
-                        </div>
+</div>
+<div class="container-fluid header">
+<h1 class="section-title" id="id2" ng-click="gotoAnchor('toc')">Encounters</h1>
+<div class="section-text">
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Encounter</th>
+                                    <th>Date(s)</th>
+                                    <th>Location</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr ID="id_2a620155-9d11-439e-92b3-5d9815ff4de8_ref">
+                                    <td>Office outpatient visit 15 minutes</td>
+                                    <td>NOV 7, 2020</td>
+                                    <td>
+                                        <ul style="list-style-type:none"><li>
+                                                <content styleCode="Italics">Urgent Care Center</content>
+                                            </li></ul>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="20">
+                                        <ul style="list-style-type:none"><li>
+                                                <div class="table-responsive"><table class="table table-striped table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Encounter Diagnosis Type</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td>Diagnosis</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td colspan="20">
+                                                                <ul style="list-style-type:none"><li>
+                                                                        <div class="table-responsive"><table class="table table-striped table-hover">
+                                                                            <thead>
+                                                                                <tr>
+                                                                                    <th>Initial Case Report Trigger<br>Code Problem Observation </th>
+                                                                                    <th>Problem</th>
+                                                                                    <th>Trigger Code</th>
+                                                                                    <th>Trigger Code codeSystem</th>
+                                                                                    <th>RCTC OID</th>
+                                                                                    <th>RCTC Version</th>
+                                                                                    <th>Date(s)</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                <tr ID="id_db734647-fc99-424c-a864-7e3cda82e705_ref">
+                                                                                    <td>Diagnosis</td>
+                                                                                    <td>Pertussis (disorder)</td>
+                                                                                    <td>27836007</td>
+                                                                                    <td>SNOMED CT</td>
+                                                                                    <td>2.16.840.1.114222.4.11.7508</td>
+                                                                                    <td>19/05/2020</td>
+                                                                                    <td>NOV 7, 2020</td>
+                                                                                </tr>
+                                                                            </tbody>
+                                                                        </table></div>
+                                                                        <div class="table-responsive"><table class="table table-striped table-hover">
+                                                                            <thead>
+                                                                                <tr>
+                                                                                    <th>Encounter Diagnosis Type</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                <tr>
+                                                                                    <td>Diagnosis</td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <td colspan="20">
+                                                                                        <ul style="list-style-type:none"><li>
+                                                                                                <div class="table-responsive"><table class="table table-striped table-hover">
+                                                                                                    <thead>
+                                                                                                        <tr>
+                                                                                                            <th>Problem Type</th>
+                                                                                                            <th>Problem</th>
+                                                                                                            <th>Date(s)</th>
+                                                                                                        </tr>
+                                                                                                    </thead>
+                                                                                                    <tbody>
+                                                                                                        <tr ID="id_db734647-fc99-424c-a864-7e3cda82e704_ref">
+                                                                                                            <td>Diagnosis</td>
+                                                                                                            <td>A non-trigger code diagnosis (disorder)</td>
+                                                                                                            <td>NOV 7, 2020</td>
+                                                                                                        </tr>
+                                                                                                    </tbody>
+                                                                                                </table></div>
+                                                                                            </li></ul>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            </tbody>
+                                                                        </table></div>
+                                                                    </li></ul>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table></div>
+                                            </li></ul>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table></div>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <h2 class="section-title col-md-6">Contact</h2>
-                    <div class="header-group-content col-md-8">
-                        <div class="address-group">
-                            <div class="adress-group-header">Home (07/20/2000, 08:45 to present)</div>
-                            <div class="address-group-content">
-                                <p class="tight">2222 Home Street </p>
-                                <p class="tight">Provo, UT</p>
-                                <p class="tight">84097, US</p>
-                            </div>
-                        </div>
-                        <div class="address-group">
-                            <div class="address-group-header">tel: (Primary Home) +1-555-555-2003</div>
-                        </div>
-                        <div class="address-group">
-                            <div class="address-group-header">tel: (Work Place) +1-555-555-2004</div>
-                        </div>
+</div>
+<div class="container-fluid header">
+<h1 class="section-title" id="id3" ng-click="gotoAnchor('toc')">History of Present Illness</h1>
+<div class="section-text">
+                        <p> Persistent Cough REPORTED starting on 2020/10/05<br> Whooping Respiration not reported<br> Paroxysms Of Coughing REPORTED starting on 2020/11/04<br> Post-tussive vomiting not reported<br>
+                        </p>
                     </div>
-                </div>
-            </div>
-            <div class="guardian-info container-fluid">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="guardian-name container-fluid">
-                            <h2 class="section-title col-md-6">Parent/Guardian</h2>
-                            <div class="header-group-content col-md-8">Martha Mum</div>
-                        </div>
+</div>
+<div class="container-fluid header">
+<h1 class="section-title" id="id4" ng-click="gotoAnchor('toc')">PAST MEDICAL HISTORY</h1>
+<div class="section-text">
+                        <p>Past medical history text</p>
                     </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h2 class="section-title col-md-6">Contact</h2>
-                            <div class="header-group-content col-md-8">
-                                <div class="address-group">
-                                    <div class="adress-group-header">Home</div>
-                                    <div class="address-group-content">
-                                        <p class="tight">4444 Home Street </p>
-                                        <p class="tight">Provo, UT</p>
-                                        <p class="tight">84097, US</p>
-                                    </div>
-                                </div>
-                                <div class="address-group">
-                                    <div class="address-group-header">tel: (Primary Home) +1-555-555-2008</div>
-                                </div>
-                                <div class="address-group">
-                                    <div class="address-group-header">email: mail@guardian.com</div>
-                                </div>
-                            </div>
-                        </div>
+</div>
+<div class="container-fluid header">
+<h1 class="section-title" id="id5" ng-click="gotoAnchor('toc')">Medications Administered</h1>
+<div class="section-text">
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Medication</th>
+                                    <th>Dose</th>
+                                    <th>Duration</th>
+                                    <th>Route</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr ID="id_6c844c75-aa34-411c-b7bd-5e4a9f206e29_ref">
+                                    <td>Azithromycin 500 MG Oral Tablet</td>
+                                    <td>1 g</td>
+                                    <td>NOV 7, 2020 11:59</td>
+                                    <td>ORAL</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
                     </div>
-                </div>
-            </div>
-        </div>
-        <div class="header container-fluid">
-            <div class="container-fluid">
-                <div class="col-md-6">
-                    <h2 class="section-title col-md-6" id="author-performer">Author</h2>
-                    <div class="header-group-content col-md-8">
-                        <div class="row">
-                            <div class="attribute-title col-md-6">Time:</div>
-                            <div class="col-md-6">09/15/2012, 10:30</div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-8">Patricia Primary, M.D.</div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-8">5555555555 NPI (US)</div>
-                        </div>
+</div>
+<div class="container-fluid header">
+<h1 class="section-title" id="id6" ng-click="gotoAnchor('toc')">MEDICATIONS</h1>
+<div class="section-text">
+                        Narrative Text
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <h2 class="section-title col-md-6">Contact</h2>
-                    <div class="header-group-content col-md-8">
-                        <div class="address-group">
-                            <div class="adress-group-header"></div>
-                            <div class="address-group-content">
-                                <p class="tight">1004 Healthcare Drive </p>
-                                <p class="tight">Provo, UT</p>
-                                <p class="tight">84097, US</p>
-                            </div>
-                        </div>
-                        <div class="address-group">
-                            <div class="address-group-header">tel: (Work Place) +1(555)555-1004</div>
-                        </div>
+</div>
+<div class="container-fluid header">
+<h1 class="section-title" id="id7" ng-click="gotoAnchor('toc')">Admission Medications</h1>
+<div class="section-text">Some text here</div>
+</div>
+<div class="container-fluid header">
+<h1 class="section-title" id="id8" ng-click="gotoAnchor('toc')">HOSPITAL ADMISSION DIAGNOSIS</h1>
+<div class="section-text">Appendicitis</div>
+</div>
+<div class="container-fluid header">
+<h1 class="section-title" id="id9" ng-click="gotoAnchor('toc')">REVIEW OF SYSTEMS</h1>
+<div class="section-text">
+                        <p>
+                            Patient denies recent history of fever or malaise. Positive
+                            For weakness and shortness of breath. One episode of melena. No recent
+                            headaches. Positive for osteoarthritis in hips, knees and hands.
+                        </p>
                     </div>
-                </div>
-            </div>
-            <div class="container-fluid">
-                <div class="col-md-6">
-                    <h2 class="section-title col-md-6" id="author-performer">Author Organization</h2>
-                    <div class="header-group-content col-md-8">
-                        <div class="row">
-                            <div class="col-md-8">Childrens Hospital of Provo</div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-8">10 OID: 1.2.840.114350.1.13.306.3.7.2.696570</div>
-                        </div>
+</div>
+<div class="container-fluid header">
+<h1 class="section-title" id="id10" ng-click="gotoAnchor('toc')">Problems</h1>
+<div class="section-text">
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Concern</th>
+                                    <th>Concern Status</th>
+                                    <th>Date(s)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr ID="id_ec8a6ff8-ed4b-4f7e-82c3-e98e58b45de7_ref">
+                                    <td>Problem</td>
+                                    <td>active</td>
+                                    <td>NOV 7, 2020</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="20">
+                                        <ul style="list-style-type:none"><li>
+                                                <div class="table-responsive"><table class="table table-striped table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Problem Type</th>
+                                                            <th>Problem</th>
+                                                            <th>Date(s)</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr ID="id_ab1791b0-5c71-11db-b0de-0800200c9a66_ref">
+                                                            <td>Symptom</td>
+                                                            <td>Dark stools (finding)</td>
+                                                            <td>NOV 1, 2020</td>
+                                                        </tr>
+                                                        <tr ID="id_ab1791b0-5c71-11db-b0de-0800200c9a67_ref">
+                                                            <td>Complaint</td>
+                                                            <td>Paroxysmal cough (finding)</td>
+                                                            <td>NOV 4, 2020</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table></div>
+                                            </li></ul>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table></div>
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Concern</th>
+                                    <th>Concern Status</th>
+                                    <th>Date(s)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr ID="id_ec8a6ff8-ed4b-4f7e-82c3-e98e58b45de8_ref">
+                                    <td>Problem</td>
+                                    <td>active</td>
+                                    <td>MAY 23, 2020</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <h2 class="section-title col-md-6">Contact</h2>
-                    <div class="header-group-content col-md-8">
-                        <div class="address-group">
-                            <div class="adress-group-header">Work Place</div>
-                            <div class="address-group-content">
-                                <p class="tight">1234 Facility Drive </p>
-                                <p class="tight">Provo, UT</p>
-                                <p class="tight">78097, US</p>
-                            </div>
-                        </div>
-                        <div class="address-group"></div>
+</div>
+<div class="container-fluid header">
+<h1 class="section-title" id="id11" ng-click="gotoAnchor('toc')">Chief Complaint</h1>
+<div class="section-text">
+                        <p>Chief Complaint (the patient's own description): Headache and rash</p>
                     </div>
-                </div>
-            </div>
-            <div class="container-fluid">
-                <div class="col-md-6">
-                    <h2 class="section-title col-md-6" id="author-performer">Author</h2>
-                    <div class="header-group-content col-md-8">
-                        <div class="row">
-                            <div class="attribute-title col-md-6">Time:</div>
-                            <div class="col-md-6">08/9/2024, 17:40</div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-8">1.0.0</div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-8"> OID: 0cafa72d-33d2-4d43-87fb-5651f5569c39</div>
-                        </div>
+</div>
+<div class="container-fluid header">
+<h1 class="section-title" id="id12" ng-click="gotoAnchor('toc')">Reason for Visit</h1>
+<div class="section-text">
+                        <p>Reason for Visit (as documented by provider): Headache, rash, and fever</p>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <h2 class="section-title col-md-6">Contact</h2>
-                    <div class="header-group-content col-md-8"></div>
-                </div>
-            </div>
-            <div class="container-fluid">
-                <div class="col-md-6">
-                    <h2 class="section-title col-md-6" id="author-performer">Author</h2>
-                    <div class="header-group-content col-md-8">
-                        <div class="row">
-                            <div class="attribute-title col-md-6">Time:</div>
-                            <div class="col-md-6">08/9/2024, 17:40</div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-8">Version 3.1.X</div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-8"> OID: 02ae519a-f890-41d9-98fb-4eb08ca78ade</div>
-                        </div>
+</div>
+<div class="container-fluid header">
+<h1 class="section-title" id="id13" ng-click="gotoAnchor('toc')">Results</h1>
+<div class="section-text">
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Results Panel</th>
+                                    <th>Date(s)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr ID="id_7d5a02b0-67a4-11db-bd13-0800200c9a66_ref">
+                                    <td>CBC W Auto Differential panel in Blood</td>
+                                    <td>NOV 7, 2020 to NOV 7, 2020</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="20">
+                                        <ul style="list-style-type:none"><li>
+                                                <div class="table-responsive"><table class="table table-striped table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Test</th>
+                                                            <th>Outcome</th>
+                                                            <th>Interpretation</th>
+                                                            <th>Date(s)</th>
+                                                            <th>Reference Range</th>
+                                                            <th>Reference Range Interpretation</th>
+                                                            <th>Reference Range Description</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr ID="id_7c0704bb-9c40-41b5-9c7d-26b2d59e234f_ref">
+                                                            <td>Hematocrit</td>
+                                                            <td>35.3 %</td>
+                                                            <td>Low</td>
+                                                            <td>NOV 7, 2020</td>
+                                                            <td>34.9 % to 44.5 %</td>
+                                                            <td>Low</td>
+                                                            <td>Low</td>
+                                                        </tr>
+                                                        <tr ID="id_7c0704bb-9c40-41b5-9c7d-26b2d59e234g_ref">
+                                                            <td>Lymphocytes [#/​volume] in Blood by Automated count</td>
+                                                            <td>5.2 10*3/uL</td>
+                                                            <td>High</td>
+                                                            <td>NOV 7, 2020</td>
+                                                            <td>1.0 10*3/uL to 4.8 10*3/uL</td>
+                                                            <td>Normal</td>
+                                                            <td></td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table></div>
+                                            </li></ul>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table></div>
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Results Panel</th>
+                                    <th>Date(s)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr ID="id_a4307cb2-b3b4-4f42-be03-1d9077376f4a_ref">
+                                    <td>Bordetella pertussis Ab<br>[Units/volume] in Serum</td>
+                                    <td>NOV 7, 2020 to NOV 7, 2020</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="20">
+                                        <ul style="list-style-type:none"><li>
+                                                <div class="table-responsive"><table class="table table-striped table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Initial Case Report Trigger<br>Code Result Observation </th>
+                                                            <th>Trigger Code</th>
+                                                            <th>Trigger Code codeSystem</th>
+                                                            <th>RCTC OID</th>
+                                                            <th>RCTC Version</th>
+                                                            <th>Outcome</th>
+                                                            <th>Interpretation</th>
+                                                            <th>Date(s)</th>
+                                                            <th>Reference Range</th>
+                                                            <th>Reference Range Interpretation</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr ID="id_bf9c0a26-4524-4395-b3ce-100450b9c9ad_ref">
+                                                            <td>Bordetella pertussis Ab<br>[Units/volume] in Serum</td>
+                                                            <td>11585-7</td>
+                                                            <td>LOINC</td>
+                                                            <td>2.16.840.1.114222.4.11.7508</td>
+                                                            <td>19/05/2020</td>
+                                                            <td>100 [iU]/mL</td>
+                                                            <td>High</td>
+                                                            <td>NOV 7, 2020</td>
+                                                            <td> to 45 [iU]/mL</td>
+                                                            <td>Normal</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table></div>
+                                            </li></ul>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table></div>
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Results Panel</th>
+                                    <th>Date(s)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr ID="id_a4307cb2-b3b4-4f42-be03-1d9077376f4b_ref">
+                                    <td>Bordetella pertussis [Presence]<br>in Throat by Organism specific culture</td>
+                                    <td>NOV 7, 2020 to NOV 7, 2020</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="20">
+                                        <ul style="list-style-type:none"><li>
+                                                <div class="table-responsive"><table class="table table-striped table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Initial Case Report Trigger Code Result Observation </th>
+                                                            <th>Trigger Code</th>
+                                                            <th>Trigger Code codeSystem</th>
+                                                            <th>RCTC OID</th>
+                                                            <th>RCTC Version</th>
+                                                            <th>Outcome</th>
+                                                            <th>Trigger Code</th>
+                                                            <th>Trigger Code codeSystem</th>
+                                                            <th>RCTC OID</th>
+                                                            <th>RCTC Version</th>
+                                                            <th>Interpretation</th>
+                                                            <th>Date(s)</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr ID="id_bf9c0a26-4524-4395-b3ce-100450b9c9ac_ref">
+                                                            <td>Bordetella pertussis [Presence]<br>in Throat by Organism specific culture</td>
+                                                            <td>548-8</td>
+                                                            <td>LOINC</td>
+                                                            <td>2.16.840.1.114222.4.11.7508</td>
+                                                            <td>19/05/2020</td>
+                                                            <td>Bordetella pertussis (organism)</td>
+                                                            <td>5247005</td>
+                                                            <td>SNOMED CT</td>
+                                                            <td>2.16.840.1.114222.4.11.7508</td>
+                                                            <td>19/05/2020</td>
+                                                            <td>Abnormal</td>
+                                                            <td>NOV 7, 2020</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table></div>
+                                            </li></ul>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table></div>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <h2 class="section-title col-md-6">Contact</h2>
-                    <div class="header-group-content col-md-8"></div>
-                </div>
-            </div>
-            <div class="container-fluid">
-                <div class="col-md-6">
-                    <h2 class="section-title col-md-6" id="author-performer">Author</h2>
-                    <div class="header-group-content col-md-8">
-                        <div class="row">
-                            <div class="attribute-title col-md-6">Time:</div>
-                            <div class="col-md-6">08/9/2024, 17:40</div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-8">1.0.0</div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-8"> OID: 7f28ecf9-6409-4eb2-b1fc-e4badb1882bb</div>
-                        </div>
+</div>
+<div class="container-fluid header">
+<h1 class="section-title" id="id14" ng-click="gotoAnchor('toc')">Procedures</h1>
+<div class="section-text">
+                        <div class="table-responsive"><table class="table table-striped table-hover" border="1" width="100%">
+                            <thead>
+                                <tr>
+                                    <th>Procedure</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Colonic polypectomy</td>
+                                    <td>November 15, 2020</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <h2 class="section-title col-md-6">Contact</h2>
-                    <div class="header-group-content col-md-8"></div>
-                </div>
-            </div>
-            <div class="container-fluid">
-                <div class="col-md-6">
-                    <h2 class="section-title col-md-6" id="author-performer">Author</h2>
-                    <div class="header-group-content col-md-8">
-                        <div class="row">
-                            <div class="attribute-title col-md-6">Time:</div>
-                            <div class="col-md-6">06/18/2026, 12:19</div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-8">Difference in Docs</div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-8"></div>
-                        </div>
+</div>
+<div class="container-fluid header">
+<h1 class="section-title" id="id15" ng-click="gotoAnchor('toc')">Immunizations</h1>
+<div class="section-text">
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Immunization</th>
+                                    <th>Immunization Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>diphtheria, tetanus toxoids and acellular<br>pertussis vaccine, 5 pertussis antigens</td>
+                                    <td>NOV 11, 2020</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Initial Case Report Trigger Code<br>Immunization Medication Activity</th>
+                                    <th>Immunization Date</th>
+                                    <th>Trigger<br>Code</th>
+                                    <th>Trigger Code<br>codeSystem</th>
+                                    <th>RCTC OID</th>
+                                    <th>RCTC<br>Version</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>influenza virus vaccine, unspecified formulation</td>
+                                    <td>NOV 11, 2020</td>
+                                    <td>88</td>
+                                    <td>CVX</td>
+                                    <td>2.16.840.1.114222.4.11.7508</td>
+                                    <td>19/05/2020</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Vaccinne Credential Patient Assertion</th>
+                                    <th>Assertion Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Yes</td>
+                                    <td>NOV 11, 2020</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <h2 class="section-title col-md-6">Contact</h2>
-                    <div class="header-group-content col-md-8">
-                        <div class="address-group"></div>
+</div>
+<div class="container-fluid header">
+<h1 class="section-title" id="id16" ng-click="gotoAnchor('toc')">Social History</h1>
+<div class="section-text">
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Birth Sex</th>
+                                    <th>Value</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Sex Assigned At Birth</td>
+                                    <td>Female</td>
+                                    <td>NOV 24, 1974</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Gender identity</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Female-to-male transsexual (finding)</td>
+                                    <td>JAN 1, 2020</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Characteristics of Home Environment</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Homeless</td>
+                                    <td>NOV 9, 2020</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Exposure/Contact Information</th>
+                                    <th>Date</th>
+                                    <th>Location</th>
+                                    <th>Address</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Mass Gathering: Football game</td>
+                                    <td>November 11, 2020</td>
+                                    <td>City Football Stadium</td>
+                                    <td>99 Football Stadium Road, My City, AZ, 8562</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Current Occupation</th>
+                                    <th>Current Industry</th>
+                                    <th>Current Job Title</th>
+                                    <th>Current Employer Name</th>
+                                    <th>Current Employer Address</th>
+                                    <th>Current Employer Telcom</th>
+                                    <th>Occupational Exposure</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Nursing, psychiatric, and home health aides</td>
+                                    <td>Accounting, tax preparation, bookkeeping, and payroll services</td>
+                                    <td>Nurse</td>
+                                    <td>University Hospital</td>
+                                    <td>Peachtree Street, Atlanta, Georgia</td>
+                                    <td>555-1212</td>
+                                    <td>Nursing care facilities</td>
+                                    <td>Asbestos</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Usual Occupation</th>
+                                    <th>Usual Industry</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Nursing, psychiatric, and home health aides</td>
+                                    <td>Nursing care facilities</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Travel History: Date(s)</th>
+                                    <th>Notes</th>
+                                    <th>Location</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>1999 to 2007</td>
+                                    <td>Spent 8 years in the UK during the BSE outbreak</td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td>In the 3 weeks before NOV 9, 2020</td>
+                                    <td></td>
+                                    <td>
+                                        <ul style="list-style-type:none"><li>Brazil</li></ul>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>APR 25, 2020 to APR 30, 2020</td>
+                                    <td></td>
+                                    <td>
+                                        <ul style="list-style-type:none"><li>Nadi, FJ</li></ul>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>MAY 6, 2020 to MAY 15, 2020</td>
+                                    <td></td>
+                                    <td>
+                                        <ul style="list-style-type:none"><li>Montreal, QC, CA</li></ul>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>JUL 13, 2020 to JUL 15, 2020</td>
+                                    <td></td>
+                                    <td>
+                                        <ul style="list-style-type:none"><li>Sydney, NSW, AU</li></ul>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>OCT 22, 2020 to OCT 30, 2020</td>
+                                    <td></td>
+                                    <td>
+                                        <ul style="list-style-type:none"><li>1170 N Rancho Robles Rd Oracle, AZ8562, US</li></ul>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table></div>
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Country of Residence</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>United Kingdom of Great Britain and Northern Ireland</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Country of Nationality</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Australia</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
                     </div>
-                </div>
-            </div>
-        </div>
-        <div class="header container-fluid">
-            <div class="container-fluid col-md-8">
-                <div class="container-fluid">
-                    <h2 class="section-title col-md-10">Encounter</h2>
-                    <div class="header-group-content col-md-10">
-                        <div class="row">
-                            <div class="attribute-title col-md-2">Identifier</div>
-                            <div class="col-md-6">9937012 OID: 2.16.840.1.113883.19</div>
-                        </div>
-                        <div class="row">
-                            <div class="attribute-title col-md-2">Type</div>
-                            <div class="col-md-6">Ambulatory</div>
-                        </div>
-                        <div class="row">
-                            <div class="attribute-title col-md-2">Date</div>
-                            <div class="col-md-4">
-                                <span class="attribute-title">From: </span>11/7/2020, 08:44
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="attribute-title col-md-2">Location</div>
-                            <div class="col-md-6">Outpatient facility of Good Health Hospital</div>
-                        </div>
+</div>
+<div class="container-fluid header">
+<h1 class="section-title" id="id17" ng-click="gotoAnchor('toc')">Pregnancy Section</h1>
+<div class="section-text">
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Pregnancy Status</th>
+                                    <th>Date(s) over which status holds<br>(if no high date, status was<br>current at time of recording)</th>
+                                    <th>Determination Method</th>
+                                    <th>Determination Date</th>
+                                    <th>Recorded Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Pregnant</td>
+                                    <td>AUG 26, 2017</td>
+                                    <td>Diagnostic ultrasonography</td>
+                                    <td>OCT 1, 2017</td>
+                                    <td>OCT 1, 2017 10:35</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="20">
+                                        <ul style="list-style-type:none"><li>
+                                                <div class="table-responsive"><table class="table table-striped table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Estimated Date of Delivery</th>
+                                                            <th>EDD</th>
+                                                            <th>EDD Determination Date</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td>Delivery date estimated from ovulation date</td>
+                                                            <td>MAY 22, 2017</td>
+                                                            <td>OCT 1, 2017 10:15</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table></div>
+                                                <div class="table-responsive"><table class="table table-striped table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Estimated Gestational Age of Pregnancy</th>
+                                                            <th>Days</th>
+                                                            <th>Determination Date</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td>Gestational age Estimated from selected delivery date</td>
+                                                            <td>143 d</td>
+                                                            <td>OCT 1, 2017 10:15</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td colspan="20">
+                                                                <ul style="list-style-type:none"><li>
+                                                                        <div class="table-responsive"><table class="table table-striped table-hover">
+                                                                            <thead>
+                                                                                <tr>
+                                                                                    <th>Reference to selected delivery date</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                <tr>
+                                                                                    <td>
+                                                                                        <a href="#id_f3dfc576-2329-4f71-af3f-d500cab1146b_ref">Link to referenced entry</a>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            </tbody>
+                                                                        </table></div>
+                                                                    </li></ul>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table></div>
+                                                <div class="table-responsive"><table class="table table-striped table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Pregnancy Outcome</th>
+                                                            <th>Birth Order</th>
+                                                            <th>Time</th>
+                                                            <th>Method of Delivery</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td>Stillbirth (finding)</td>
+                                                            <td>1</td>
+                                                            <td>JAN 5, 2020 08:50</td>
+                                                            <td>Breech delivery (procedure)</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>Term birth of newborn (finding)</td>
+                                                            <td>2</td>
+                                                            <td>JAN 5, 2020 10:05</td>
+                                                            <td>Breech delivery (procedure)</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table></div>
+                                            </li></ul>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table></div>
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Last menstrual period start date</th>
+                                    <th>Observation Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>AUG 1, 2017</td>
+                                    <td>JAN 5, 2020 10:15</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Postpartum Status</th>
+                                    <th>Observation date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Mid postpartum state (finding)</td>
+                                    <td>JAN 5, 2020 10:15</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
                     </div>
-                    <div class="col-md-6">
-                        <h2 class="section-title col-md-6">Responsible Party</h2>
-                        <div class="header-group-content col-md-8">Henry Seven, M.D. of Community Health and Hospitals
-                        </div>
+</div>
+<div class="container-fluid header">
+<h1 class="section-title" id="id18" ng-click="gotoAnchor('toc')">Vital Signs (Last Filed)</h1>
+<div class="section-text">
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Blood Pressure</th>
+                                    <th>Pulse</th>
+                                    <th>Temperature</th>
+                                    <th>Respiratory Rate</th>
+                                    <th>Height</th>
+                                    <th>Weight</th>
+                                    <th>BMI</th>
+                                    <th>SpO2</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>05/20/2014 7:36pm</td>
+                                    <td>
+<content ID="SystolicBP_2">120</content>/<content ID="DiastolicBP_2">80</content>mm[Hg] </td>
+                                    <td ID="Pulse_2">80 /min</td>
+                                    <td ID="Temp_2">99.0 F</td>
+                                    <td ID="RespRate_2">18 /min</td>
+                                    <td ID="Height_2">5'7 (67 inches)</td>
+                                    <td ID="Weight_2">239.9 lbs</td>
+                                    <td ID="BMI_2">37.58 kg/m2</td>
+                                    <td ID="SPO2_2">98%</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
                     </div>
-                    <div class="col-md-6">
-                        <h2 class="section-title col-md-6">Contact</h2>
-                        <div class="header-group-content col-md-8">
-                            <div class="address-group">
-                                <div class="adress-group-header"></div>
-                                <div class="address-group-content">
-                                    <p class="tight">1002 Healthcare Drive </p>
-                                    <p class="tight">Provo, UT</p>
-                                    <p class="tight">84097, US</p>
-                                </div>
-                            </div>
-                            <div class="address-group">
-                                <div class="address-group-header">tel: (Work Place) +1(555)555-1003</div>
-                            </div>
-                            <div class="address-group">
-                                <div class="address-group-header">fax: (Work Place) +1(555)555-1234</div>
-                            </div>
-                            <div class="address-group">
-                                <div class="address-group-header">email: (Work Place) mail@provider_domain.com</div>
-                            </div>
-                        </div>
+</div>
+<div class="container-fluid header">
+<h1 class="section-title" id="id19" ng-click="gotoAnchor('toc')">Emergency Outbreak Information Section</h1>
+<div class="section-text">
+                        <div class="table-responsive"><table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Information Type</th>
+                                    <th>Information Date</th>
+                                    <th>Result</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Employee desk distance from mail sorter</td>
+                                    <td>1 November 2020</td>
+                                    <td>2 meters</td>
+                                </tr>
+                            </tbody>
+                        </table></div>
                     </div>
-                </div>
-            </div>
-        </div>
-        <div class="container-fluid"></div>
-        <div class="container-fluid"></div>
-        <div class="container-fluid"></div>
-    </div>
-    <div class="middle" id="doc-clinical-info">
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id1" ng-click="gotoAnchor('toc')">Plan of Treatment</h1>
-            <div class="section-text">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Initial Case Report Trigger<br>Code Lab Test Order</th>
-                            <th>Trigger Code</th>
-                            <th>Trigger Code codeSystem</th>
-                            <th>RCTC OID</th>
-                            <th>RCTC Version</th>
-                            <th>Ordered Date</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr ID="id_b52bee94-c34b-4e2c-8c15-5ad9d6def205_ref">
-                            <td>Zika virus envelope (E) gene [Presence] in Serum<br>by Probe and target amplification
-                                method
-                            </td>
-                            <td>80825-3</td>
-                            <td>LOINC</td>
-                            <td>2.16.840.1.114222.4.11.7508</td>
-                            <td>19/05/2020</td>
-                            <td>NOV 8, 2020</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id2" ng-click="gotoAnchor('toc')">Encounters</h1>
-            <div class="section-text">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Encounter</th>
-                            <th>Date(s)</th>
-                            <th>Location</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr ID="id_2a620155-9d11-439e-92b3-5d9815ff4de8_ref">
-                            <td>Office outpatient visit 15 minutes</td>
-                            <td>NOV 7, 2020</td>
-                            <td>
-                                <ul style="list-style-type:none">
-                                    <li>
-                                        <content styleCode="Italics">Urgent Care Center</content>
-                                    </li>
-                                </ul>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="20">
-                                <ul style="list-style-type:none">
-                                    <li>
-                                        <div class="table-responsive">
-                                            <table class="table table-striped table-hover">
-                                                <thead>
-                                                <tr>
-                                                    <th>Encounter Diagnosis Type</th>
-                                                </tr>
-                                                </thead>
-                                                <tbody>
-                                                <tr>
-                                                    <td>Diagnosis</td>
-                                                </tr>
-                                                <tr>
-                                                    <td colspan="20">
-                                                        <ul style="list-style-type:none">
-                                                            <li>
-                                                                <div class="table-responsive">
-                                                                    <table class="table table-striped table-hover">
-                                                                        <thead>
-                                                                        <tr>
-                                                                            <th>Initial Case Report Trigger<br>Code
-                                                                                Problem Observation
-                                                                            </th>
-                                                                            <th>Problem</th>
-                                                                            <th>Trigger Code</th>
-                                                                            <th>Trigger Code codeSystem</th>
-                                                                            <th>RCTC OID</th>
-                                                                            <th>RCTC Version</th>
-                                                                            <th>Date(s)</th>
-                                                                        </tr>
-                                                                        </thead>
-                                                                        <tbody>
-                                                                        <tr ID="id_db734647-fc99-424c-a864-7e3cda82e705_ref">
-                                                                            <td>Diagnosis</td>
-                                                                            <td>Pertussis (disorder)</td>
-                                                                            <td>27836007</td>
-                                                                            <td>SNOMED CT</td>
-                                                                            <td>2.16.840.1.114222.4.11.7508</td>
-                                                                            <td>19/05/2020</td>
-                                                                            <td>NOV 7, 2020</td>
-                                                                        </tr>
-                                                                        </tbody>
-                                                                    </table>
-                                                                </div>
-                                                                <div class="table-responsive">
-                                                                    <table class="table table-striped table-hover">
-                                                                        <thead>
-                                                                        <tr>
-                                                                            <th>Encounter Diagnosis Type</th>
-                                                                        </tr>
-                                                                        </thead>
-                                                                        <tbody>
-                                                                        <tr>
-                                                                            <td>Diagnosis</td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td colspan="20">
-                                                                                <ul style="list-style-type:none">
-                                                                                    <li>
-                                                                                        <div class="table-responsive">
-                                                                                            <table class="table table-striped table-hover">
-                                                                                                <thead>
-                                                                                                <tr>
-                                                                                                    <th>Problem Type
-                                                                                                    </th>
-                                                                                                    <th>Problem</th>
-                                                                                                    <th>Date(s)</th>
-                                                                                                </tr>
-                                                                                                </thead>
-                                                                                                <tbody>
-                                                                                                <tr ID="id_db734647-fc99-424c-a864-7e3cda82e704_ref">
-                                                                                                    <td>Diagnosis</td>
-                                                                                                    <td>A non-trigger
-                                                                                                        code diagnosis
-                                                                                                        (disorder)
-                                                                                                    </td>
-                                                                                                    <td>NOV 7, 2020</td>
-                                                                                                </tr>
-                                                                                                </tbody>
-                                                                                            </table>
-                                                                                        </div>
-                                                                                    </li>
-                                                                                </ul>
-                                                                            </td>
-                                                                        </tr>
-                                                                        </tbody>
-                                                                    </table>
-                                                                </div>
-                                                            </li>
-                                                        </ul>
-                                                    </td>
-                                                </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </li>
-                                </ul>
-                            </td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id3" ng-click="gotoAnchor('toc')">History of Present Illness</h1>
-            <div class="section-text">
-                <p> Persistent Cough REPORTED starting on 2020/10/05<br> Whooping Respiration not reported<br> Paroxysms
-                    Of Coughing REPORTED starting on 2020/11/04<br> Post-tussive vomiting not reported<br>
-                </p>
-            </div>
-        </div>
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id4" ng-click="gotoAnchor('toc')">PAST MEDICAL HISTORY</h1>
-            <div class="section-text">
-                <p>Past medical history text</p>
-            </div>
-        </div>
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id5" ng-click="gotoAnchor('toc')">Medications Administered</h1>
-            <div class="section-text">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Medication</th>
-                            <th>Dose</th>
-                            <th>Duration</th>
-                            <th>Route</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr ID="id_6c844c75-aa34-411c-b7bd-5e4a9f206e29_ref">
-                            <td>Azithromycin 500 MG Oral Tablet</td>
-                            <td>1 g</td>
-                            <td>NOV 7, 2020 11:59</td>
-                            <td>ORAL</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id6" ng-click="gotoAnchor('toc')">MEDICATIONS</h1>
-            <div class="section-text">
-                Narrative Text
-            </div>
-        </div>
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id7" ng-click="gotoAnchor('toc')">Admission Medications</h1>
-            <div class="section-text">Some text here</div>
-        </div>
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id8" ng-click="gotoAnchor('toc')">HOSPITAL ADMISSION DIAGNOSIS</h1>
-            <div class="section-text">Appendicitis</div>
-        </div>
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id9" ng-click="gotoAnchor('toc')">REVIEW OF SYSTEMS</h1>
-            <div class="section-text">
-                <p>
-                    Patient denies recent history of fever or malaise. Positive
-                    For weakness and shortness of breath. One episode of melena. No recent
-                    headaches. Positive for osteoarthritis in hips, knees and hands.
-                </p>
-            </div>
-        </div>
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id10" ng-click="gotoAnchor('toc')">Problems</h1>
-            <div class="section-text">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Concern</th>
-                            <th>Concern Status</th>
-                            <th>Date(s)</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr ID="id_ec8a6ff8-ed4b-4f7e-82c3-e98e58b45de7_ref">
-                            <td>Problem</td>
-                            <td>active</td>
-                            <td>NOV 7, 2020</td>
-                        </tr>
-                        <tr>
-                            <td colspan="20">
-                                <ul style="list-style-type:none">
-                                    <li>
-                                        <div class="table-responsive">
-                                            <table class="table table-striped table-hover">
-                                                <thead>
-                                                <tr>
-                                                    <th>Problem Type</th>
-                                                    <th>Problem</th>
-                                                    <th>Date(s)</th>
-                                                </tr>
-                                                </thead>
-                                                <tbody>
-                                                <tr ID="id_ab1791b0-5c71-11db-b0de-0800200c9a66_ref">
-                                                    <td>Symptom</td>
-                                                    <td>Dark stools (finding)</td>
-                                                    <td>NOV 1, 2020</td>
-                                                </tr>
-                                                <tr ID="id_ab1791b0-5c71-11db-b0de-0800200c9a67_ref">
-                                                    <td>Complaint</td>
-                                                    <td>Paroxysmal cough (finding)</td>
-                                                    <td>NOV 4, 2020</td>
-                                                </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </li>
-                                </ul>
-                            </td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Concern</th>
-                            <th>Concern Status</th>
-                            <th>Date(s)</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr ID="id_ec8a6ff8-ed4b-4f7e-82c3-e98e58b45de8_ref">
-                            <td>Problem</td>
-                            <td>active</td>
-                            <td>MAY 23, 2020</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id11" ng-click="gotoAnchor('toc')">Chief Complaint</h1>
-            <div class="section-text">
-                <p>Chief Complaint (the patient's own description): Headache and rash</p>
-            </div>
-        </div>
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id12" ng-click="gotoAnchor('toc')">Reason for Visit</h1>
-            <div class="section-text">
-                <p>Reason for Visit (as documented by provider): Headache, rash, and fever</p>
-            </div>
-        </div>
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id13" ng-click="gotoAnchor('toc')">Results</h1>
-            <div class="section-text">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Results Panel</th>
-                            <th>Date(s)</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr ID="id_7d5a02b0-67a4-11db-bd13-0800200c9a66_ref">
-                            <td>CBC W Auto Differential panel in Blood</td>
-                            <td>NOV 7, 2020 to NOV 7, 2020</td>
-                        </tr>
-                        <tr>
-                            <td colspan="20">
-                                <ul style="list-style-type:none">
-                                    <li>
-                                        <div class="table-responsive">
-                                            <table class="table table-striped table-hover">
-                                                <thead>
-                                                <tr>
-                                                    <th>Test</th>
-                                                    <th>Outcome</th>
-                                                    <th>Interpretation</th>
-                                                    <th>Date(s)</th>
-                                                    <th>Reference Range</th>
-                                                    <th>Reference Range Interpretation</th>
-                                                    <th>Reference Range Description</th>
-                                                </tr>
-                                                </thead>
-                                                <tbody>
-                                                <tr ID="id_7c0704bb-9c40-41b5-9c7d-26b2d59e234f_ref">
-                                                    <td>Hematocrit</td>
-                                                    <td>35.3 %</td>
-                                                    <td>Low</td>
-                                                    <td>NOV 7, 2020</td>
-                                                    <td>34.9 % to 44.5 %</td>
-                                                    <td>Low</td>
-                                                    <td>Low</td>
-                                                </tr>
-                                                <tr ID="id_7c0704bb-9c40-41b5-9c7d-26b2d59e234g_ref">
-                                                    <td>Lymphocytes [#/​volume] in Blood by Automated count</td>
-                                                    <td>5.2 10*3/uL</td>
-                                                    <td>High</td>
-                                                    <td>NOV 7, 2020</td>
-                                                    <td>1.0 10*3/uL to 4.8 10*3/uL</td>
-                                                    <td>Normal</td>
-                                                    <td></td>
-                                                </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </li>
-                                </ul>
-                            </td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Results Panel</th>
-                            <th>Date(s)</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr ID="id_a4307cb2-b3b4-4f42-be03-1d9077376f4a_ref">
-                            <td>Bordetella pertussis Ab<br>[Units/volume] in Serum</td>
-                            <td>NOV 7, 2020 to NOV 7, 2020</td>
-                        </tr>
-                        <tr>
-                            <td colspan="20">
-                                <ul style="list-style-type:none">
-                                    <li>
-                                        <div class="table-responsive">
-                                            <table class="table table-striped table-hover">
-                                                <thead>
-                                                <tr>
-                                                    <th>Initial Case Report Trigger<br>Code Result Observation</th>
-                                                    <th>Trigger Code</th>
-                                                    <th>Trigger Code codeSystem</th>
-                                                    <th>RCTC OID</th>
-                                                    <th>RCTC Version</th>
-                                                    <th>Outcome</th>
-                                                    <th>Interpretation</th>
-                                                    <th>Date(s)</th>
-                                                    <th>Reference Range</th>
-                                                    <th>Reference Range Interpretation</th>
-                                                </tr>
-                                                </thead>
-                                                <tbody>
-                                                <tr ID="id_bf9c0a26-4524-4395-b3ce-100450b9c9ad_ref">
-                                                    <td>Bordetella pertussis Ab<br>[Units/volume] in Serum</td>
-                                                    <td>11585-7</td>
-                                                    <td>LOINC</td>
-                                                    <td>2.16.840.1.114222.4.11.7508</td>
-                                                    <td>19/05/2020</td>
-                                                    <td>100 [iU]/mL</td>
-                                                    <td>High</td>
-                                                    <td>NOV 7, 2020</td>
-                                                    <td> to 45 [iU]/mL</td>
-                                                    <td>Normal</td>
-                                                </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </li>
-                                </ul>
-                            </td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Results Panel</th>
-                            <th>Date(s)</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr ID="id_a4307cb2-b3b4-4f42-be03-1d9077376f4b_ref">
-                            <td>Bordetella pertussis [Presence]<br>in Throat by Organism specific culture</td>
-                            <td>NOV 7, 2020 to NOV 7, 2020</td>
-                        </tr>
-                        <tr>
-                            <td colspan="20">
-                                <ul style="list-style-type:none">
-                                    <li>
-                                        <div class="table-responsive">
-                                            <table class="table table-striped table-hover">
-                                                <thead>
-                                                <tr>
-                                                    <th>Initial Case Report Trigger Code Result Observation</th>
-                                                    <th>Trigger Code</th>
-                                                    <th>Trigger Code codeSystem</th>
-                                                    <th>RCTC OID</th>
-                                                    <th>RCTC Version</th>
-                                                    <th>Outcome</th>
-                                                    <th>Trigger Code</th>
-                                                    <th>Trigger Code codeSystem</th>
-                                                    <th>RCTC OID</th>
-                                                    <th>RCTC Version</th>
-                                                    <th>Interpretation</th>
-                                                    <th>Date(s)</th>
-                                                </tr>
-                                                </thead>
-                                                <tbody>
-                                                <tr ID="id_bf9c0a26-4524-4395-b3ce-100450b9c9ac_ref">
-                                                    <td>Bordetella pertussis [Presence]<br>in Throat by Organism
-                                                        specific culture
-                                                    </td>
-                                                    <td>548-8</td>
-                                                    <td>LOINC</td>
-                                                    <td>2.16.840.1.114222.4.11.7508</td>
-                                                    <td>19/05/2020</td>
-                                                    <td>Bordetella pertussis (organism)</td>
-                                                    <td>5247005</td>
-                                                    <td>SNOMED CT</td>
-                                                    <td>2.16.840.1.114222.4.11.7508</td>
-                                                    <td>19/05/2020</td>
-                                                    <td>Abnormal</td>
-                                                    <td>NOV 7, 2020</td>
-                                                </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </li>
-                                </ul>
-                            </td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id14" ng-click="gotoAnchor('toc')">Procedures</h1>
-            <div class="section-text">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover" border="1" width="100%">
-                        <thead>
-                        <tr>
-                            <th>Procedure</th>
-                            <th>Date</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>Colonic polypectomy</td>
-                            <td>November 15, 2020</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id15" ng-click="gotoAnchor('toc')">Immunizations</h1>
-            <div class="section-text">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Immunization</th>
-                            <th>Immunization Date</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>diphtheria, tetanus toxoids and acellular<br>pertussis vaccine, 5 pertussis antigens
-                            </td>
-                            <td>NOV 11, 2020</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Initial Case Report Trigger Code<br>Immunization Medication Activity</th>
-                            <th>Immunization Date</th>
-                            <th>Trigger<br>Code</th>
-                            <th>Trigger Code<br>codeSystem</th>
-                            <th>RCTC OID</th>
-                            <th>RCTC<br>Version</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>influenza virus vaccine, unspecified formulation</td>
-                            <td>NOV 11, 2020</td>
-                            <td>88</td>
-                            <td>CVX</td>
-                            <td>2.16.840.1.114222.4.11.7508</td>
-                            <td>19/05/2020</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Vaccinne Credential Patient Assertion</th>
-                            <th>Assertion Date</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>Yes</td>
-                            <td>NOV 11, 2020</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id16" ng-click="gotoAnchor('toc')">Social History</h1>
-            <div class="section-text">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Birth Sex</th>
-                            <th>Value</th>
-                            <th>Date</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>Sex Assigned At Birth</td>
-                            <td>Female</td>
-                            <td>NOV 24, 1974</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Gender identity</th>
-                            <th>Date</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>Female-to-male transsexual (finding)</td>
-                            <td>JAN 1, 2020</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Characteristics of Home Environment</th>
-                            <th>Date</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>Homeless</td>
-                            <td>NOV 9, 2020</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Exposure/Contact Information</th>
-                            <th>Date</th>
-                            <th>Location</th>
-                            <th>Address</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>Mass Gathering: Football game</td>
-                            <td>November 11, 2020</td>
-                            <td>City Football Stadium</td>
-                            <td>99 Football Stadium Road, My City, AZ, 8562</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Current Occupation</th>
-                            <th>Current Industry</th>
-                            <th>Current Job Title</th>
-                            <th>Current Employer Name</th>
-                            <th>Current Employer Address</th>
-                            <th>Current Employer Telcom</th>
-                            <th>Occupational Exposure</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>Nursing, psychiatric, and home health aides</td>
-                            <td>Accounting, tax preparation, bookkeeping, and payroll services</td>
-                            <td>Nurse</td>
-                            <td>University Hospital</td>
-                            <td>Peachtree Street, Atlanta, Georgia</td>
-                            <td>555-1212</td>
-                            <td>Nursing care facilities</td>
-                            <td>Asbestos</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Usual Occupation</th>
-                            <th>Usual Industry</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>Nursing, psychiatric, and home health aides</td>
-                            <td>Nursing care facilities</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Travel History: Date(s)</th>
-                            <th>Notes</th>
-                            <th>Location</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>1999 to 2007</td>
-                            <td>Spent 8 years in the UK during the BSE outbreak</td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td>In the 3 weeks before NOV 9, 2020</td>
-                            <td></td>
-                            <td>
-                                <ul style="list-style-type:none">
-                                    <li>Brazil</li>
-                                </ul>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>APR 25, 2020 to APR 30, 2020</td>
-                            <td></td>
-                            <td>
-                                <ul style="list-style-type:none">
-                                    <li>Nadi, FJ</li>
-                                </ul>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>MAY 6, 2020 to MAY 15, 2020</td>
-                            <td></td>
-                            <td>
-                                <ul style="list-style-type:none">
-                                    <li>Montreal, QC, CA</li>
-                                </ul>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>JUL 13, 2020 to JUL 15, 2020</td>
-                            <td></td>
-                            <td>
-                                <ul style="list-style-type:none">
-                                    <li>Sydney, NSW, AU</li>
-                                </ul>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>OCT 22, 2020 to OCT 30, 2020</td>
-                            <td></td>
-                            <td>
-                                <ul style="list-style-type:none">
-                                    <li>1170 N Rancho Robles Rd Oracle, AZ8562, US</li>
-                                </ul>
-                            </td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Country of Residence</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>United Kingdom of Great Britain and Northern Ireland</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Country of Nationality</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>Australia</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id17" ng-click="gotoAnchor('toc')">Pregnancy Section</h1>
-            <div class="section-text">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Pregnancy Status</th>
-                            <th>Date(s) over which status holds<br>(if no high date, status was<br>current at time of
-                                recording)
-                            </th>
-                            <th>Determination Method</th>
-                            <th>Determination Date</th>
-                            <th>Recorded Date</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>Pregnant</td>
-                            <td>AUG 26, 2017</td>
-                            <td>Diagnostic ultrasonography</td>
-                            <td>OCT 1, 2017</td>
-                            <td>OCT 1, 2017 10:35</td>
-                        </tr>
-                        <tr>
-                            <td colspan="20">
-                                <ul style="list-style-type:none">
-                                    <li>
-                                        <div class="table-responsive">
-                                            <table class="table table-striped table-hover">
-                                                <thead>
-                                                <tr>
-                                                    <th>Estimated Date of Delivery</th>
-                                                    <th>EDD</th>
-                                                    <th>EDD Determination Date</th>
-                                                </tr>
-                                                </thead>
-                                                <tbody>
-                                                <tr>
-                                                    <td>Delivery date estimated from ovulation date</td>
-                                                    <td>MAY 22, 2017</td>
-                                                    <td>OCT 1, 2017 10:15</td>
-                                                </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        <div class="table-responsive">
-                                            <table class="table table-striped table-hover">
-                                                <thead>
-                                                <tr>
-                                                    <th>Estimated Gestational Age of Pregnancy</th>
-                                                    <th>Days</th>
-                                                    <th>Determination Date</th>
-                                                </tr>
-                                                </thead>
-                                                <tbody>
-                                                <tr>
-                                                    <td>Gestational age Estimated from selected delivery date</td>
-                                                    <td>143 d</td>
-                                                    <td>OCT 1, 2017 10:15</td>
-                                                </tr>
-                                                <tr>
-                                                    <td colspan="20">
-                                                        <ul style="list-style-type:none">
-                                                            <li>
-                                                                <div class="table-responsive">
-                                                                    <table class="table table-striped table-hover">
-                                                                        <thead>
-                                                                        <tr>
-                                                                            <th>Reference to selected delivery date</th>
-                                                                        </tr>
-                                                                        </thead>
-                                                                        <tbody>
-                                                                        <tr>
-                                                                            <td>
-                                                                                <a href="#id_f3dfc576-2329-4f71-af3f-d500cab1146b_ref">Link
-                                                                                    to referenced entry</a>
-                                                                            </td>
-                                                                        </tr>
-                                                                        </tbody>
-                                                                    </table>
-                                                                </div>
-                                                            </li>
-                                                        </ul>
-                                                    </td>
-                                                </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        <div class="table-responsive">
-                                            <table class="table table-striped table-hover">
-                                                <thead>
-                                                <tr>
-                                                    <th>Pregnancy Outcome</th>
-                                                    <th>Birth Order</th>
-                                                    <th>Time</th>
-                                                    <th>Method of Delivery</th>
-                                                </tr>
-                                                </thead>
-                                                <tbody>
-                                                <tr>
-                                                    <td>Stillbirth (finding)</td>
-                                                    <td>1</td>
-                                                    <td>JAN 5, 2020 08:50</td>
-                                                    <td>Breech delivery (procedure)</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Term birth of newborn (finding)</td>
-                                                    <td>2</td>
-                                                    <td>JAN 5, 2020 10:05</td>
-                                                    <td>Breech delivery (procedure)</td>
-                                                </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </li>
-                                </ul>
-                            </td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Last menstrual period start date</th>
-                            <th>Observation Date</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>AUG 1, 2017</td>
-                            <td>JAN 5, 2020 10:15</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Postpartum Status</th>
-                            <th>Observation date</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>Mid postpartum state (finding)</td>
-                            <td>JAN 5, 2020 10:15</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id18" ng-click="gotoAnchor('toc')">Vital Signs (Last Filed)</h1>
-            <div class="section-text">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Blood Pressure</th>
-                            <th>Pulse</th>
-                            <th>Temperature</th>
-                            <th>Respiratory Rate</th>
-                            <th>Height</th>
-                            <th>Weight</th>
-                            <th>BMI</th>
-                            <th>SpO2</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>05/20/2014 7:36pm</td>
-                            <td>
-                                <content ID="SystolicBP_2">120</content>
-                                /
-                                <content ID="DiastolicBP_2">80</content>
-                                mm[Hg]
-                            </td>
-                            <td ID="Pulse_2">80 /min</td>
-                            <td ID="Temp_2">99.0 F</td>
-                            <td ID="RespRate_2">18 /min</td>
-                            <td ID="Height_2">5'7 (67 inches)</td>
-                            <td ID="Weight_2">239.9 lbs</td>
-                            <td ID="BMI_2">37.58 kg/m2</td>
-                            <td ID="SPO2_2">98%</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        <div class="container-fluid header">
-            <h1 class="section-title" id="id19" ng-click="gotoAnchor('toc')">Emergency Outbreak Information Section</h1>
-            <div class="section-text">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Information Type</th>
-                            <th>Information Date</th>
-                            <th>Result</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>Employee desk distance from mail sorter</td>
-                            <td>1 November 2020</td>
-                            <td>2 meters</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="bottom" id="doc-info">
-        <div class="container-fluid header">
-            <div class="col-md-6">
-                <h2 class="section-title col-md-6">Document maintained by</h2>
-                <div class="header-group-content col-md-8">Good Health Hospital</div>
-            </div>
-            <div class="col-md-6">
-                <h2 class="section-title col-md-6"> Contact </h2>
-                <div class="header-group-content col-md-8">
-                    <div class="address-group">
-                        <div class="adress-group-header"></div>
-                        <div class="address-group-content">
-                            <p class="tight">1000 Hospital Lane </p>
-                            <p class="tight">Provo, UT</p>
-                            <p class="tight">84097, US</p>
-                        </div>
-                    </div>
-                    <div class="address-group">
-                        <div class="address-group-header">tel: (Work Place) +1(555)555-1212</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="container-fluid">
-            <h2 class="section-title col-md-6">Document Information</h2>
-            <div class="table-responsive col-md-6">
-                <table class="table table-hover">
-                    <thead>
-                    <tr>
-                        <th>Document Identifier</th>
-                        <th>Document Created</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr>
-                        <td> OID: a539944f-0378-5e59-8b79-d14e67b90a2d</td>
-                        <td>06/18/2026, 12:19</td>
-                    </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+</div>
+</div>
+<div class="bottom" id="doc-info">
+<div class="container-fluid header">
+<div class="col-md-6">
+<h2 class="section-title col-md-6">Document maintained by</h2>
+<div class="header-group-content col-md-8">Good Health Hospital</div>
+</div>
+<div class="col-md-6">
+<h2 class="section-title col-md-6"> Contact </h2>
+<div class="header-group-content col-md-8">
+<div class="address-group">
+<div class="adress-group-header"></div>
+<div class="address-group-content">
+<p class="tight">1000 Hospital Lane </p>
+<p class="tight">Provo, UT</p>
+<p class="tight">84097, US</p>
+</div>
+</div>
+<div class="address-group"><div class="address-group-header">tel:  (Work Place) +1(555)555-1212</div></div>
+</div>
+</div>
+</div>
+<div class="container-fluid">
+<h2 class="section-title col-md-6">Document Information</h2>
+<div class="table-responsive col-md-6"><table class="table table-hover">
+<thead><tr>
+<th>Document Identifier</th>
+<th>Document Created</th>
+</tr></thead>
+<tbody><tr>
+<td> OID: a539944f-0378-5e59-8b79-d14e67b90a2d</td>
+<td>06/18/2026, 12:19 </td>
+</tr></tbody>
+</table></div>
+</div>
+</div>
 </div>
 </body>
 </html>
