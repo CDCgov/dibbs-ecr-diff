@@ -4,15 +4,15 @@ from typing import Optional, Tuple
 
 from lxml import etree
 
-from core.cda_clinical_statement import clinical_statement_element_for_key_derivation
-from core.cda_key_models import RootExtension
-from core.cda_narrative_keys import narrative_row_key, narrative_table_key
-from core.cda_root_extensions import (
+from core.cda.clinical_statement import clinical_statement_element_for_key_derivation
+from core.cda.key_models import RootExtension
+from core.cda.narrative_keys import narrative_row_key, narrative_table_key
+from core.cda.root_extensions import (
     EXTENSION_ATTRIBUTE,
     ROOT_ATTRIBUTE,
     direct_child_root_extensions_for_tag,
 )
-from core.cda_tags import ID_TAG, TEMPLATE_ID_TAG
+from core.cda.tags import ID_TAG, TEMPLATE_ID_TAG
 from core.constants import CODE_KEY_ATTRS, WEAK_KEY_ATTRS
 from core.xml_utils import (
     _complete_attribute_pair,

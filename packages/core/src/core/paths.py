@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 
 from lxml import etree
 
-from core.cda_key_models import (
+from core.cda.key_models import (
     CodeKey,
     DirectChildIdElementSetKey,
     DirectChildTemplateIdElementSetKey,
@@ -24,10 +24,10 @@ from core.cda_key_models import (
     RootExtensionKey,
     StableKey,
 )
-from core.cda_narrative_keys import narrative_row_key, narrative_table_key
-from core.cda_root_extensions import direct_child_root_extensions_for_tag
-from core.cda_stable_key import stable_key
-from core.cda_tags import TEMPLATE_ID_TAG
+from core.cda.narrative_keys import narrative_row_key, narrative_table_key
+from core.cda.root_extensions import direct_child_root_extensions_for_tag
+from core.cda.stable_key import stable_key
+from core.cda.tags import TEMPLATE_ID_TAG
 from core.constants import HL7_NS, HL7_PREFIX
 from core.xml_utils import _xpath_first_attribute_value, localname
 

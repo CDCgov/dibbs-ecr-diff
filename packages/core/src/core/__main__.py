@@ -11,7 +11,6 @@ import argparse
 
 from lxml import etree
 
-import core.config as _cfg
 from core.diff_collector import (
     _fingerprint_excluding_version_metadata,
     collect_additions_updates_deletes,
@@ -41,8 +40,6 @@ def main() -> None:
         help="Print verbose output about element matching/pairing decisions",
     )
     args = arg_parser.parse_args()
-
-    _cfg.DEBUG_MATCH = bool(args.debug_match)
 
     xml_parser = etree.XMLParser(remove_blank_text=True, huge_tree=True)
 
@@ -76,8 +73,6 @@ def main() -> None:
         print(f"Wrote:\n  {args.output}")
     else:
         print(f"No meaningful changes detected. Wrote:\n  {args.output}")
-    if _cfg.DEBUG_MATCH:
-        print("Debug: --debug-match enabled.")
 
 
 if __name__ == "__main__":

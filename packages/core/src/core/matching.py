@@ -24,10 +24,9 @@ from typing import Callable, Dict, List, Tuple, TypeAlias
 
 from lxml import etree
 
-import core.config as _cfg
-from core.cda_clinical_statement import CDA_CLINICAL_STATEMENT_TAGS
-from core.cda_fallback_keys import secondary_discriminator, soft_context_key
-from core.cda_key_models import (
+from core.cda.clinical_statement import CDA_CLINICAL_STATEMENT_TAGS
+from core.cda.fallback_keys import secondary_discriminator, soft_context_key
+from core.cda.key_models import (
     DirectChildIdElementSetKey,
     DirectChildTemplateIdElementSetKey,
     NestedClinicalStatementIdElementSetKey,
@@ -38,8 +37,8 @@ from core.cda_key_models import (
     RootExtensionSetKeyBase,
     StableKey,
 )
-from core.cda_narrative_keys import narrative_row_key, narrative_table_key
-from core.cda_stable_key import stable_key
+from core.cda.narrative_keys import narrative_row_key, narrative_table_key
+from core.cda.stable_key import stable_key
 from core.xml_utils import localname
 
 RootExtensionSetKeyTypes: TypeAlias = tuple[type[RootExtensionSetKeyBase], ...]
@@ -126,8 +125,6 @@ def _prefer_updates_pairing(
         pair_count   = min(len(before_group), len(after_group))
         for index in range(pair_count):
             matched_pairs.append((before_group[index], after_group[index]))
-            #replace the below line with python's logging library
-            _cfg.debug_log(f"[soft-pair] key={key}")
         unmatched_before.extend(before_group[pair_count:])
         unmatched_after.extend(after_group[pair_count:])
 
