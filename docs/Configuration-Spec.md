@@ -8,13 +8,18 @@ Difference in Docs (DiD) uses a configuration file to determine which changes de
 
 A configuration defines a set of rules that match changes based on XPath expressions. When a change matches a rule, DiD and the configuration determine whether that change contributes to APHL's decision to send the new eICR to the receiving jurisdiction(s).
 
-For the MVP, XPaths defined in configuration rules will be used to match **inactionable** changes.
-
 ## File format
 
 * Format: JSON
 * Encoding: UTF-8
 * Storage location and distribution: The default configuration is stored as a flat file in the code repository. Post-MVP, custom configurations may be enabled and stored using some persistence layer (ex: DynamoDB).
+
+### `ConfigMode` enum
+
+| Value         | Description                                                                      |
+| ------------- | -------------------------------------------------------------------------------- |
+| `WATCH_LIST`  | Changes matching rule XPaths are actionable. All other changes are inactionable. |
+| `IGNORE_LIST` | Changes matching rule XPaths are inactionable. All other changes are actionable. |
 
 ## Top-level schema
 
@@ -23,17 +28,25 @@ For the MVP, XPaths defined in configuration rules will be used to match **inact
 | `specVersion`              | string                        | Yes      | Version of this configuration spec.                                                              |
 | `id`                       | string                        | Yes      | Stable identifier for the configuration. Remains unchanged across configuration revisions.       |
 | `displayName`              | string                        | Optional | Human-readable name for the configuration.                                                       |
-| `mode`                     | string enum                   | Yes      | How to treat rule XPath matches. Either `WATCH_LIST` or `IGNORE_LIST`.                           |
+| `mode`                     | ConfigMode                    | Yes      | How to treat rule XPath matches.                          |
 | `createdAt`                | string ISO-8601 timestamp     | Yes      | A UTC ISO 8601 timestamp of when the configuration was created.                                  |
 | `rules`                    | array of [Rule](#rule-object) | Yes      | Ordered list of actionability rules.                                                             |
 
+### `ChangeType` enum
+
+| Value     | Description             |
+| --------- | ----------------------- |
+| `ADDED`   | An element was added.   |
+| `UPDATED` | An element was changed. |
+
 ### Rule object
 
-| Field           | Type            | Required | Description                                                                                   |
-| --------------- | --------------- | -------- | --------------------------------------------------------------------------------------------- |
-| `id`            | string          | Yes      | UUID identifying the rule. Must be unique within the configuration.                           |
-| `displayName`   | string          | Optional | Human-readable rule name.                                                                     |
-| `xpaths`        | array of string | Yes      | One or more XPath expressions used to match changed nodes.                                    |
+| Field         | Type                                  | Required | Description                                                                       |
+| ------------- | ------------------------------------- | -------- | --------------------------------------------------------------------------------- |
+| `id`          | string                                | Yes      | UUID identifying the rule. Must be unique within the configuration.               |
+| `displayName` | string                                | Optional | Human-readable rule name.                                                         |
+| `changeTypes` | array of [ChangeType](#change-types)  | Optional | Change types this rule applies to. Defaults to all change types when omitted.     |
+| `xpaths`      | array of string                       | Yes      | One or more XPath expressions used to match changed nodes.                        |
 
 ### Rule evaluation
 
@@ -92,7 +105,6 @@ The matching rule's `id` and `displayName` are included in the Diff Output docum
 1. **Rule precedence.** Is first-match-wins sufficient, or should multiple matching rules be allowed?
 2. **Configuration lifecycle.** How are configuration versions published, activated, and retired? Can multiple versions be active simultaneously?
 3. **Supported modes.** Are we only implementing the "IGNORE_LIST" mode for the MVP? The schema for this configuration does *not* lock us into this however; we can adapt the config to work with a "WATCH_LIST" mode as well.
-4. **Rule-specific changeType property.** With this idea, each `rule` object could have a `changeType` array of 1-3 `changeType`s `['ADDED', 'UPDATED', 'DELETED']`. By default, all changes would be reported by DiD as a change, but this allows rules that may target only 1-2 types of changes. Do we want to implement this for the MVP?
 
 ## Post-MVP considerations
 
