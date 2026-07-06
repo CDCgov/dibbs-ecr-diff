@@ -28,7 +28,7 @@ A configuration defines a set of rules that match changes based on XPath express
 | `specVersion`              | string                        | Yes      | Version of this configuration spec.                                                              |
 | `id`                       | string                        | Yes      | Stable identifier for the configuration. Remains unchanged across configuration revisions.       |
 | `displayName`              | string                        | Optional | Human-readable name for the configuration.                                                       |
-| `mode`                     | ConfigMode                    | Yes      | How to treat rule XPath matches.                          |
+| `mode`                     | ConfigMode                    | Yes      | How to treat rule XPath matches.                                                                 |
 | `createdAt`                | string ISO-8601 timestamp     | Yes      | A UTC ISO 8601 timestamp of when the configuration was created.                                  |
 | `rules`                    | array of [Rule](#rule-object) | Yes      | Ordered list of actionability rules.                                                             |
 
@@ -45,7 +45,7 @@ A configuration defines a set of rules that match changes based on XPath express
 | ------------- | ------------------------------------- | -------- | --------------------------------------------------------------------------------- |
 | `id`          | string                                | Yes      | UUID identifying the rule. Must be unique within the configuration.               |
 | `displayName` | string                                | Optional | Human-readable rule name.                                                         |
-| `changeTypes` | array of [ChangeType](#change-types)  | Optional | Change types this rule applies to. Defaults to all change types when omitted.     |
+| `changeTypes` | array of [ChangeType](#change-types)  | Yes      | Change types this rule applies to.                                                |
 | `xpaths`      | array of string                       | Yes      | One or more XPath expressions used to match changed nodes.                        |
 
 ### Rule evaluation
