@@ -79,14 +79,16 @@ The matching rule's `id` and `displayName` are included in the Diff Output docum
         "/ClinicalDocument/code",
         "/ClinicalDocument/id",
         "/ClinicalDocument/templateId"
-      ]
+      ],
+      "changeTypes": ["UPDATED", "ADDED"]
     },
     {
       "id": "d92c9890-4a85-4b21-a6dd-57864ae40ccc",
       "displayName": "Date of Diagnosis",
       "xpaths": [
         "//encounter[templateId/@root=2.16.840.1.113883.10.20.22.4.49]/effectiveTime/low"
-      ]
+      ],
+      "changeTypes": ["ADDED"]
     },
     {
       "id": "1f989163-596d-4eae-b2f2-8b9f00ddb635",
@@ -94,7 +96,8 @@ The matching rule's `id` and `displayName` are included in the Diff Output docum
       "xpaths": [
         "//encounter[templateId/@root=2.16.840.1.113883.10.20.22.4.49]/effectiveTime/low",
         "//encounter[templateId/@root=2.16.840.1.113883.10.20.22.4.49]/entryRelationship/act[templateId/@root=2.16.840.1.113883.10.20.22.4.80]/entryRelationship/observation[templateId/@root=2.16.840.1.113883.10.20.22.4.4]/value"
-      ]
+      ],
+      "changeTypes": ["UPDATED", "ADDED"]
     }
   ]
 }
