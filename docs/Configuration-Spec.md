@@ -14,30 +14,16 @@ A configuration defines a set of rules that match changes based on XPath express
 * Encoding: UTF-8
 * Storage location and distribution: The default configuration is stored as a flat file in the code repository. Post-MVP, custom configurations may be enabled and stored using some persistence layer (ex: DynamoDB).
 
-### `ConfigMode` enum
-
-| Value         | Description                                                                      |
-| ------------- | -------------------------------------------------------------------------------- |
-| `WATCH_LIST`  | Changes matching rule XPaths are actionable. All other changes are inactionable. |
-| `IGNORE_LIST` | Changes matching rule XPaths are inactionable. All other changes are actionable. |
-
 ## Top-level schema
 
-| Field                      | Type                          | Required | Description                                                                                      |
-| -------------------------- | ----------------------------- | -------- | ------------------------------------------------------------------------------------------------ |
-| `specVersion`              | string                        | Yes      | Version of this configuration spec.                                                              |
-| `id`                       | string                        | Yes      | Stable identifier for the configuration. Remains unchanged across configuration revisions.       |
-| `displayName`              | string                        | Optional | Human-readable name for the configuration.                                                       |
-| `mode`                     | ConfigMode                    | Yes      | How to treat rule XPath matches.                                                                 |
-| `createdAt`                | string ISO-8601 timestamp     | Yes      | A UTC ISO 8601 timestamp of when the configuration was created.                                  |
-| `rules`                    | array of [Rule](#rule-object) | Yes      | Ordered list of actionability rules.                                                             |
-
-### `ChangeType` enum
-
-| Value     | Description             |
-| --------- | ----------------------- |
-| `ADDED`   | An element was added.   |
-| `UPDATED` | An element was changed. |
+| Field                      | Type                           | Required | Description                                                                                      |
+| -------------------------- | ------------------------------ | -------- | ------------------------------------------------------------------------------------------------ |
+| `specVersion`              | string                         | Yes      | Version of this configuration spec.                                                              |
+| `id`                       | string                         | Yes      | Stable identifier for the configuration. Remains unchanged across configuration revisions.       |
+| `displayName`              | string                         | Optional | Human-readable name for the configuration.                                                       |
+| `mode`                     | [ConfigMode](#configmode-enum) | Yes      | How to treat rule XPath matches.                                                                 |
+| `createdAt`                | string ISO-8601 timestamp      | Yes      | A UTC ISO 8601 timestamp of when the configuration was created.                                  |
+| `rules`                    | array of [Rule](#rule-object)  | Yes      | Ordered list of actionability rules.                                                             |
 
 ### Rule object
 
@@ -47,6 +33,20 @@ A configuration defines a set of rules that match changes based on XPath express
 | `displayName` | string                                   | Optional | Human-readable rule name.                                                         |
 | `changeTypes` | array of [ChangeType](#changetype-enum)  | Yes      | Change types this rule applies to.                                                |
 | `xpaths`      | array of string                          | Yes      | One or more XPath expressions used to match changed nodes.                        |
+
+### `ConfigMode` enum
+
+| Value         | Description                                                                      |
+| ------------- | -------------------------------------------------------------------------------- |
+| `WATCH_LIST`  | Changes matching rule XPaths are actionable. All other changes are inactionable. |
+| `IGNORE_LIST` | Changes matching rule XPaths are inactionable. All other changes are actionable. |
+
+### `ChangeType` enum
+
+| Value     | Description             |
+| --------- | ----------------------- |
+| `ADDED`   | An element was added.   |
+| `UPDATED` | An element was changed. |
 
 ### Rule evaluation
 
