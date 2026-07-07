@@ -41,12 +41,12 @@ A configuration defines a set of rules that match changes based on XPath express
 
 ### Rule object
 
-| Field         | Type                                  | Required | Description                                                                       |
-| ------------- | ------------------------------------- | -------- | --------------------------------------------------------------------------------- |
-| `id`          | string                                | Yes      | UUID identifying the rule. Must be unique within the configuration.               |
-| `displayName` | string                                | Optional | Human-readable rule name.                                                         |
-| `changeTypes` | array of [ChangeType](#change-types)  | Yes      | Change types this rule applies to.                                                |
-| `xpaths`      | array of string                       | Yes      | One or more XPath expressions used to match changed nodes.                        |
+| Field         | Type                                     | Required | Description                                                                       |
+| ------------- | ---------------------------------------- | -------- | --------------------------------------------------------------------------------- |
+| `id`          | string                                   | Yes      | UUID identifying the rule. Must be unique within the configuration.               |
+| `displayName` | string                                   | Optional | Human-readable rule name.                                                         |
+| `changeTypes` | array of [ChangeType](#changetype-enum)  | Yes      | Change types this rule applies to.                                                |
+| `xpaths`      | array of string                          | Yes      | One or more XPath expressions used to match changed nodes.                        |
 
 ### Rule evaluation
 
