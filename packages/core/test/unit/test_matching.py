@@ -21,6 +21,14 @@ def _entry_with_direct_observation_ids(*roots: str):
     )
 
 
+def _assert_no_node_reused_across_pairs(pairs):
+    before_ids = [id(before) for before, _ in pairs if before is not None]
+    after_ids = [id(after) for _, after in pairs if after is not None]
+
+    assert len(before_ids) == len(set(before_ids))
+    assert len(after_ids) == len(set(after_ids))
+
+
 def test_matching_pairs_by_id_when_template_ids_change():
     before = observation(
         """
@@ -35,7 +43,10 @@ def test_matching_pairs_by_id_when_template_ids_change():
         """
     )
 
-    assert list(match_children_ignore_order([before], [after])) == [(before, after)]
+    pairs = list(match_children_ignore_order([before], [after]))
+
+    assert pairs == [(before, after)]
+    _assert_no_node_reused_across_pairs(pairs)
 
 
 def test_matching_pairs_by_unambiguous_overlapping_child_id_when_id_is_added():
@@ -51,7 +62,10 @@ def test_matching_pairs_by_unambiguous_overlapping_child_id_when_id_is_added():
         """,
     )
 
-    assert list(match_children_ignore_order([before], [after])) == [(before, after)]
+    pairs = list(match_children_ignore_order([before], [after]))
+
+    assert pairs == [(before, after)]
+    _assert_no_node_reused_across_pairs(pairs)
 
 
 def test_matching_pairs_by_unambiguous_overlapping_nested_statement_id():
@@ -75,7 +89,10 @@ def test_matching_pairs_by_unambiguous_overlapping_nested_statement_id():
         """
     )
 
-    assert list(match_children_ignore_order([before], [after])) == [(before, after)]
+    pairs = list(match_children_ignore_order([before], [after]))
+
+    assert pairs == [(before, after)]
+    _assert_no_node_reused_across_pairs(pairs)
 
 
 def test_matching_does_not_pair_ambiguous_overlapping_child_ids():
@@ -98,16 +115,21 @@ def test_matching_does_not_pair_ambiguous_overlapping_child_ids():
         """,
     )
 
-    pairs = list(match_children_ignore_order(
-        [before_first, before_second],
-        [after],
-    ))
+    pairs = list(
+        match_children_ignore_order(
+            [before_first, before_second],
+            [after],
+        )
+    )
 
     assert (before_first, after) not in pairs
     assert (before_second, after) not in pairs
     assert (before_first, None) in pairs
     assert (before_second, None) in pairs
     assert (None, after) in pairs
+
+    assert len(pairs) == 3
+    _assert_no_node_reused_across_pairs(pairs)
 
 
 def test_template_id_extension_changes_do_not_match_as_same_element():
@@ -125,10 +147,11 @@ def test_template_id_extension_changes_do_not_match_as_same_element():
     )
 
     pairs = list(match_children_ignore_order([before], [after]))
-
-    assert len(pairs) == 2
     assert (before, None) in pairs
     assert (None, after) in pairs
+
+    assert len(pairs) == 2
+    _assert_no_node_reused_across_pairs(pairs)
 
 
 def test_matching_pairs_by_complete_direct_template_id_subset():
@@ -145,7 +168,10 @@ def test_matching_pairs_by_complete_direct_template_id_subset():
     )
 
     assert stable_key(before) != stable_key(after)
-    assert list(match_children_ignore_order([before], [after])) == [(before, after)]
+    pairs = list(match_children_ignore_order([before], [after]))
+
+    assert pairs == [(before, after)]
+    _assert_no_node_reused_across_pairs(pairs)
 
 
 def test_matching_does_not_pair_partial_direct_template_id_overlap():
@@ -163,10 +189,12 @@ def test_matching_does_not_pair_partial_direct_template_id_overlap():
     )
 
     pairs = list(match_children_ignore_order([before], [after]))
-
     assert (before, after) not in pairs
     assert (before, None) in pairs
     assert (None, after) in pairs
+
+    assert len(pairs) == 2
+    _assert_no_node_reused_across_pairs(pairs)
 
 
 def test_matching_does_not_pair_ambiguous_direct_template_id_subset():
@@ -187,16 +215,21 @@ def test_matching_does_not_pair_ambiguous_direct_template_id_subset():
         """
     )
 
-    pairs = list(match_children_ignore_order(
-        [before_first, before_second],
-        [after],
-    ))
+    pairs = list(
+        match_children_ignore_order(
+            [before_first, before_second],
+            [after],
+        )
+    )
 
     assert (before_first, after) not in pairs
     assert (before_second, after) not in pairs
     assert (before_first, None) in pairs
     assert (before_second, None) in pairs
     assert (None, after) in pairs
+
+    assert len(pairs) == 3
+    _assert_no_node_reused_across_pairs(pairs)
 
 
 def test_matching_pairs_by_complete_nested_section_template_id_subset():
@@ -217,7 +250,10 @@ def test_matching_pairs_by_complete_nested_section_template_id_subset():
     )
 
     assert stable_key(before) != stable_key(after)
-    assert list(match_children_ignore_order([before], [after])) == [(before, after)]
+    pairs = list(match_children_ignore_order([before], [after]))
+
+    assert pairs == [(before, after)]
+    _assert_no_node_reused_across_pairs(pairs)
 
 
 def test_template_id_subset_matching_does_not_cross_stable_key_kinds():
@@ -242,6 +278,9 @@ def test_template_id_subset_matching_does_not_cross_stable_key_kinds():
     assert (before, None) in pairs
     assert (None, after) in pairs
 
+    assert len(pairs) == 2
+    _assert_no_node_reused_across_pairs(pairs)
+
 
 def test_matching_pairs_by_complete_nested_statement_template_id_subset():
     before = elem(
@@ -265,7 +304,10 @@ def test_matching_pairs_by_complete_nested_statement_template_id_subset():
     )
 
     assert stable_key(before) != stable_key(after)
-    assert list(match_children_ignore_order([before], [after])) == [(before, after)]
+    pairs = list(match_children_ignore_order([before], [after]))
+
+    assert pairs == [(before, after)]
+    _assert_no_node_reused_across_pairs(pairs)
 
 
 def test_matching_pairs_by_complete_nested_section_id_subset_when_section_is_added():
@@ -288,7 +330,10 @@ def test_matching_pairs_by_complete_nested_section_id_subset_when_section_is_add
     )
 
     assert stable_key(before) != stable_key(after)
-    assert list(match_children_ignore_order([before], [after])) == [(before, after)]
+    pairs = list(match_children_ignore_order([before], [after]))
+
+    assert pairs == [(before, after)]
+    _assert_no_node_reused_across_pairs(pairs)
 
 
 def test_matching_pairs_by_complete_direct_statement_id_subset():
@@ -297,13 +342,18 @@ def test_matching_pairs_by_complete_direct_statement_id_subset():
     after_xy = _entry_with_direct_observation_ids("x", "y")
     after_abz = _entry_with_direct_observation_ids("a", "b", "z")
 
-    pairs = list(match_children_ignore_order(
-        [before_ab, before_xy],
-        [after_xy, after_abz],
-    ))
+    pairs = list(
+        match_children_ignore_order(
+            [before_ab, before_xy],
+            [after_xy, after_abz],
+        )
+    )
 
     assert (before_ab, after_abz) in pairs
     assert (before_xy, after_xy) in pairs
+
+    assert len(pairs) == 2
+    _assert_no_node_reused_across_pairs(pairs)
 
 
 def test_matching_does_not_pair_partial_nested_section_id_overlap():
@@ -330,6 +380,9 @@ def test_matching_does_not_pair_partial_nested_section_id_overlap():
     assert (before, None) in pairs
     assert (None, after) in pairs
 
+    assert len(pairs) == 2
+    _assert_no_node_reused_across_pairs(pairs)
+
 
 def test_matching_does_not_pair_ambiguous_nested_section_id_overlap():
     before_first = elem(
@@ -355,10 +408,12 @@ def test_matching_does_not_pair_ambiguous_nested_section_id_overlap():
         """
     )
 
-    pairs = list(match_children_ignore_order(
-        [before_first, before_second],
-        [after],
-    ))
+    pairs = list(
+        match_children_ignore_order(
+            [before_first, before_second],
+            [after],
+        )
+    )
 
     assert (before_first, after) not in pairs
     assert (before_second, after) not in pairs
@@ -366,21 +421,30 @@ def test_matching_does_not_pair_ambiguous_nested_section_id_overlap():
     assert (before_second, None) in pairs
     assert (None, after) in pairs
 
+    assert len(pairs) == 3
+    _assert_no_node_reused_across_pairs(pairs)
+
 
 def test_matching_pairs_template_ids_independent_of_document_order():
     before_first = elem(f'<section xmlns="{HL7_NS}"><id root="a"/></section>')
     before_second = elem(f'<section xmlns="{HL7_NS}"><id root="b"/></section>')
-    
+
     after_first = elem(f'<section xmlns="{HL7_NS}"><id root="b"/></section>')
     after_second = elem(f'<section xmlns="{HL7_NS}"><id root="a"/></section>')
-    
-    assert list(match_children_ignore_order(
-        [before_first, before_second],
-        [after_first, after_second],
-    )) == [
-               (before_first, after_second),
-               (before_second, after_first),
-           ]
+
+    pairs = list(
+        match_children_ignore_order(
+            [before_first, before_second],
+            [after_first, after_second],
+        )
+    )
+
+    assert pairs == [
+        (before_first, after_second),
+        (before_second, after_first),
+    ]
+
+    _assert_no_node_reused_across_pairs(pairs)
 
 
 def test_weak_attributes_are_only_late_in_bucket_discriminators():
@@ -397,10 +461,15 @@ def test_weak_attributes_are_only_late_in_bucket_discriminators():
         f"""<telecom xmlns="{HL7_NS}" use="HP" value="tel:+15551119999"/>"""
     )
 
-    pairs = list(match_children_ignore_order(
-        [before_home, before_work],
-        [after_work, after_home],
-    ))
+    pairs = list(
+        match_children_ignore_order(
+            [before_home, before_work],
+            [after_work, after_home],
+        )
+    )
 
     assert (before_home, after_home) in pairs
     assert (before_work, after_work) in pairs
+
+    assert len(pairs) == 2
+    _assert_no_node_reused_across_pairs(pairs)

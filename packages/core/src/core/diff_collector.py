@@ -159,12 +159,6 @@ def collect_additions_updates_deletes(
     added_nodes: list[AddedEntry] = []
     updated_nodes: list[UpdatedEntry] = []
     deleted_nodes: list[DeletedEntry] = []
-
-    # Track seen node ids to prevent duplicates across recursion paths
-    seen_added: set[int] = set()
-    seen_updated: set[int] = set()  # keyed on id(after_node)
-    seen_deleted: set[int] = set()
-
     fingerprint_cache = {}
 
     def recurse(
@@ -180,24 +174,16 @@ def collect_additions_updates_deletes(
             return
 
         if before_node is None and after_node is not None:
-            if id(after_node) not in seen_added:
-                seen_added.add(id(after_node))
-                added_nodes.append(after_node)
-            return
+            added_nodes.append(after_node)
 
         if after_node is None and before_node is not None:
-            if id(before_node) not in seen_deleted:
-                seen_deleted.add(id(before_node))
-                deleted_nodes.append(before_node)
-            return
+            deleted_nodes.append(before_node)
 
         assert before_node is not None
         assert after_node is not None
 
         if _node_updated(before_node, after_node):
-            if id(after_node) not in seen_updated:
-                seen_updated.add(id(after_node))
-                updated_nodes.append((before_node, after_node))
+            updated_nodes.append((before_node, after_node))
 
         if _equivalent_excluding_version_metadata(
             before_node, after_node, fingerprint_cache
