@@ -19,6 +19,14 @@ from core.diff_collector import (
 from helpers import HL7_NS, elem
 
 
+def _assert_added_and_updated_nodes_do_not_overlap(added, updated):
+    added_ids = set()
+    for node in added:
+        added_ids.add(id(node))
+    for _, after in updated:
+        assert id(after) not in added_ids
+
+
 def test_added_child_id_remains_visible_after_parent_overlap_match():
     before_root = elem(
         f"""

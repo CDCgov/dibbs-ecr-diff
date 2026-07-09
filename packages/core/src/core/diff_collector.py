@@ -106,7 +106,9 @@ def _equivalent_excluding_version_metadata(
     ) == _fingerprint_excluding_version_metadata(after, cache)
 
 
-def _node_updated(before_node: etree._Element, after_node: etree._Element) -> bool:
+def _nodes_are_different(
+    before_node: etree._Element, after_node: etree._Element
+) -> bool:
     """Return True if two nodes differ in tag, filtered attributes, or text content."""
     return (
         before_node.tag != after_node.tag
@@ -115,25 +117,48 @@ def _node_updated(before_node: etree._Element, after_node: etree._Element) -> bo
     )
 
 
-def _prune_to_outermost(nodes: list[etree._Element]) -> list[etree._Element]:
-    """Return the outermost changed nodes.
+def _prune_descendants(nodes: list[etree._Element]) -> list[etree._Element]:
+    """
+    Return the highest-level changed nodes.
 
     Remove any node whose ancestor is also in the list, keeping only the
     outermost (highest-level) changed nodes to avoid redundant entries.
     """
-    node_set = {id(node) for node in nodes}
+    changed_node_ids = {id(node) for node in nodes}
     result = []
     for node in nodes:
         ancestor = node.getparent()
-        dominated = False
+        has_changed_ancestor = False
         while ancestor is not None:
-            if id(ancestor) in node_set:
-                dominated = True
+            if id(ancestor) in changed_node_ids:
+                has_changed_ancestor = True
                 break
             ancestor = ancestor.getparent()
-        if not dominated:
+        if not has_changed_ancestor:
             result.append(node)
     return result
+
+
+def _prune_updated_descendant_pairs(
+    updated_nodes: list[UpdatedEntry],
+) -> list[UpdatedEntry]:
+    """
+    Keep only outermost (highest-level) update pairs.
+
+    Updates are stored as (before, after) pairs. To prune, ancestry is checked
+    on the after nodes. Remove any pair whose `after` ancestor is also in the list.
+
+    Ex: [(old_a, new_a), (old_b, new_b)] becomes [(old_a, new_a)]
+        when new_b is a descendant of new_a.
+    """
+    after_nodes = [after for _, after in updated_nodes]
+    pruned_after_nodes = _prune_descendants(after_nodes)
+    pruned_after_ids = {id(node) for node in pruned_after_nodes}
+    return [
+        (before, after)
+        for before, after in updated_nodes
+        if id(after) in pruned_after_ids
+    ]
 
 
 def collect_additions_updates_deletes(
@@ -151,8 +176,8 @@ def collect_additions_updates_deletes(
     ignored: document id, document effectiveTime, versionNumber, and RPLC
     relatedDocument lineage.
 
-    After collection, ancestor pruning ensures that if both a parent and a
-    child are marked, only the outermost node is kept.
+    After collection, ancestor pruning ensures that if both an ancestor and a
+    child are marked, only the highest-level node is kept.
 
     Returns (added, updated, deleted).
     """
@@ -175,14 +200,16 @@ def collect_additions_updates_deletes(
 
         if before_node is None and after_node is not None:
             added_nodes.append(after_node)
+            return
 
         if after_node is None and before_node is not None:
             deleted_nodes.append(before_node)
+            return
 
         assert before_node is not None
         assert after_node is not None
 
-        if _node_updated(before_node, after_node):
+        if _nodes_are_different(before_node, after_node):
             updated_nodes.append((before_node, after_node))
 
         if _equivalent_excluding_version_metadata(
@@ -204,20 +231,9 @@ def collect_additions_updates_deletes(
 
     recurse(before_root, after_root)
 
-    # Additions take precedence over updates for the same after_node
-    added_ids = {id(node) for node in added_nodes}
-    updated_nodes = [
-        (before, after) for before, after in updated_nodes if id(after) not in added_ids
-    ]
-
-    pruned_added: list[AddedEntry] = _prune_to_outermost(added_nodes)
-    pruned_updated_after = _prune_to_outermost([after for _, after in updated_nodes])
-    pruned_updated_ids = {id(node) for node in pruned_updated_after}
-    pruned_updated: list[UpdatedEntry] = [
-        (before, after)
-        for before, after in updated_nodes
-        if id(after) in pruned_updated_ids
-    ]
-    pruned_deleted: list[DeletedEntry] = _prune_to_outermost(deleted_nodes)
+    # prune each node list to highest-level added/updated/deleted nodes or node pairs
+    pruned_added: list[AddedEntry] = _prune_descendants(added_nodes)
+    pruned_deleted: list[DeletedEntry] = _prune_descendants(deleted_nodes)
+    pruned_updated: list[UpdatedEntry] = _prune_updated_descendant_pairs(updated_nodes)
 
     return pruned_added, pruned_updated, pruned_deleted
