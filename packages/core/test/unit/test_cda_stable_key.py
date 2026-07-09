@@ -1,7 +1,10 @@
-from core.cda_key_models import (
+from core.cda.key_models import (
+    CodeElement,
     CodeKey,
+    DirectChildCodeElementSetKey,
     DirectChildIdElementSetKey,
     DirectChildTemplateIdElementSetKey,
+    NestedClinicalStatementCodeElementSetKey,
     NestedClinicalStatementIdAttributeKey,
     NestedClinicalStatementIdElementSetKey,
     NestedClinicalStatementTemplateIdElementSetKey,
@@ -10,7 +13,7 @@ from core.cda_key_models import (
     RootExtension,
     RootExtensionKey,
 )
-from core.cda_stable_key import stable_key
+from core.cda.stable_key import stable_key
 from helpers import HL7_NS, elem, observation
 
 
@@ -181,12 +184,11 @@ def test_nested_statement_direct_id_attribute_beats_nested_statement_child_id():
     )
 
 
-def test_nested_statement_direct_id_attribute_does_not_use_code_attributes():
+def test_nested_statement_template_id_used_when_no_identifier_attribute_or_code_exists():
     entry = elem(
         f"""
         <entry xmlns="{HL7_NS}">
-          <observation code="not-a-direct-statement-key"
-                       codeSystem="test-system">
+          <observation classCode="OBS" moodCode="EVN">
             <templateId root="statement-template"/>
           </observation>
         </entry>
@@ -280,6 +282,89 @@ def test_direct_code_key_only_applies_to_code_elements():
     )
 
     assert stable_key(coded_value_element) is None
+
+
+def test_stable_key_uses_order_insensitive_direct_child_code_elements():
+    first = observation(
+        """
+        <code code="b" codeSystem="test-system"/>
+        <code code="a" codeSystem="test-system"/>
+        <code code="missing-system"/>
+        """
+    )
+    second = observation(
+        """
+        <code code="a" codeSystem="test-system"/>
+        <code code="b" codeSystem="test-system"/>
+        """
+    )
+
+    assert stable_key(first) == stable_key(second)
+    assert stable_key(first) == DirectChildCodeElementSetKey(
+        code_elements=(
+            CodeElement(code="a", code_system="test-system"),
+            CodeElement(code="b", code_system="test-system"),
+        ),
+    )
+
+
+def test_direct_child_id_beats_direct_child_code():
+    statement = observation(
+        """
+        <code code="statement-kind" codeSystem="test-system"/>
+        <id root="statement-id" extension="1"/>
+        """
+    )
+
+    assert stable_key(statement) == DirectChildIdElementSetKey(
+        root_extensions=(RootExtension(root="statement-id", extension="1"),),
+    )
+
+
+def test_nested_statement_id_beats_direct_child_code():
+    entry = elem(
+        f"""
+        <entry xmlns="{HL7_NS}">
+          <code code="entry-kind" codeSystem="test-system"/>
+          <observation classCode="OBS" moodCode="EVN">
+            <id root="statement-id" extension="1"/>
+          </observation>
+        </entry>
+        """
+    )
+
+    assert stable_key(entry) == NestedClinicalStatementIdElementSetKey(
+        root_extensions=(RootExtension(root="statement-id", extension="1"),),
+    )
+
+
+def test_stable_key_uses_nested_statement_child_code():
+    entry = elem(
+        f"""
+        <entry xmlns="{HL7_NS}">
+          <observation classCode="OBS" moodCode="EVN">
+            <code code="statement-kind" codeSystem="test-system"/>
+          </observation>
+        </entry>
+        """
+    )
+
+    assert stable_key(entry) == NestedClinicalStatementCodeElementSetKey(
+        code_elements=(CodeElement(code="statement-kind", code_system="test-system"),),
+    )
+
+
+def test_direct_child_code_beats_template_ids():
+    statement = observation(
+        """
+        <templateId root="template-a"/>
+        <code code="statement-kind" codeSystem="test-system"/>
+        """
+    )
+
+    assert stable_key(statement) == DirectChildCodeElementSetKey(
+        code_elements=(CodeElement(code="statement-kind", code_system="test-system"),),
+    )
 
 
 def test_coded_statement_attributes_do_not_outrank_direct_child_id():

@@ -1,4 +1,4 @@
-from core.cda_stable_key import stable_key
+from core.cda.stable_key import stable_key
 from core.matching import match_children_ignore_order
 from helpers import HL7_NS, elem, observation
 
@@ -301,10 +301,12 @@ def test_matching_pairs_by_complete_direct_statement_id_subset():
     after_xy = _entry_with_direct_observation_ids("x", "y")
     after_abz = _entry_with_direct_observation_ids("a", "b", "z")
 
-    pairs = list(match_children_ignore_order(
-        [before_ab, before_xy],
-        [after_xy, after_abz],
-    ))
+    pairs = list(
+        match_children_ignore_order(
+            [before_ab, before_xy],
+            [after_xy, after_abz],
+        )
+    )
 
     assert (before_ab, after_abz) in pairs
     assert (before_xy, after_xy) in pairs
@@ -374,22 +376,21 @@ def test_matching_does_not_pair_ambiguous_nested_section_id_overlap():
 
 
 def test_matching_pairs_template_ids_independent_of_document_order():
-    before = observation(
-        """
-        <templateId root="2" extension="b"/>
-        <templateId root="1"/>
-        """,
-        '<code code="before" codeSystem="test"/>',
-    )
-    after = observation(
-        """
-        <templateId root="1"/>
-        <templateId root="2" extension="b"/>
-        """,
-        '<code code="after" codeSystem="test"/>',
-    )
+    before_first = elem(f'<section xmlns="{HL7_NS}"><id root="a"/></section>')
+    before_second = elem(f'<section xmlns="{HL7_NS}"><id root="b"/></section>')
 
-    assert list(match_children_ignore_order([before], [after])) == [(before, after)]
+    after_first = elem(f'<section xmlns="{HL7_NS}"><id root="b"/></section>')
+    after_second = elem(f'<section xmlns="{HL7_NS}"><id root="a"/></section>')
+
+    assert list(
+        match_children_ignore_order(
+            [before_first, before_second],
+            [after_first, after_second],
+        )
+    ) == [
+        (before_first, after_second),
+        (before_second, after_first),
+    ]
 
 
 def test_weak_attributes_are_only_late_in_bucket_discriminators():

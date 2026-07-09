@@ -1,11 +1,11 @@
-from core.cda_key_models import (
+from core.cda.key_models import (
     DirectChildIdElementSetKey,
     RootExtension,
 )
-from core.cda_stable_key import (
+from core.cda.stable_key import (
     stable_key,
 )
-from core.cda_tags import (
+from core.cda.tags import (
     EFFECTIVE_TIME_TAG,
     ID_TAG,
     OBSERVATION_TAG,

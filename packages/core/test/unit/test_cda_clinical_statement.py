@@ -1,5 +1,5 @@
 import pytest
-from core.cda_clinical_statement import (
+from core.cda.clinical_statement import (
     CDA_CLINICAL_STATEMENT_LOCAL_NAMES,
     CDA_CLINICAL_STATEMENT_WRAPPER_LOCAL_NAMES,
     clinical_statement_element_for_key_derivation,

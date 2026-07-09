@@ -5,10 +5,6 @@ alias help := default
 default:
     @just --list --list-submodules
 
-# Run commands against the `server` package
-[group('server')]
-mod server './.justscripts/server.just'
-
 [group('structurizr')]
 mod arch './.justscripts/structurizr.just'
 
@@ -19,6 +15,7 @@ alias i := sync
 [group('python')]
 sync:
     uv sync --all-packages
+    uv run lefthook install
 
 # Run pytest unit tests
 [group('python')]

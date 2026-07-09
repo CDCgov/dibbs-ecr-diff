@@ -1,4 +1,4 @@
-from core.cda_tags import (
+from core.cda.tags import (
     CLINICAL_DOCUMENT_TAG,
     CODE_TAG,
     EFFECTIVE_TIME_TAG,

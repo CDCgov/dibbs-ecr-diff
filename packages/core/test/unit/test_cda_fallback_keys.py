@@ -1,5 +1,5 @@
-from core.cda_fallback_keys import secondary_discriminator, soft_context_key
-from core.cda_key_models import RootExtension
+from core.cda.fallback_keys import secondary_discriminator, soft_context_key
+from core.cda.key_models import RootExtension
 from helpers import observation
 
 

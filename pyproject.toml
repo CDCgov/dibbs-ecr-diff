@@ -5,11 +5,12 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "pydantic>=2.12.5",
+    "pydantic>=2.13.4",
 ]
 
 [dependency-groups]
 dev = [
+    "lefthook>=2.1.9",
     "pytest>=9.0.3",
     "ruff>=0.15.5",
     "ty>=0.0.21",
@@ -25,8 +26,7 @@ core = { workspace = true }
 include = [
     "packages/cli/src",
     "packages/core/src",
-    "packages/lambda/src",
-    "packages/server/src"
+    "packages/lambda/src"
 ]
 
 [tool.ty.environment]
@@ -36,13 +36,11 @@ root = [
     "packages/cli/src",
     "packages/core/src",
     "packages/lambda/src",
-    "packages/server/src",
 
     # test directories
     "packages/cli/test",
     "packages/core/test",
-    "packages/lambda/test",
-    "packages/server/test",
+    "packages/lambda/test"
 ]
 
 [tool.ruff.lint]
