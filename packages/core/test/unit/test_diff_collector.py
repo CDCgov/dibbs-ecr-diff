@@ -455,3 +455,127 @@ def test_clinical_statement_effective_time_is_not_ignored_by_diff():
     assert updated[0][0].tag == EFFECTIVE_TIME_TAG
     assert updated[0][1].tag == EFFECTIVE_TIME_TAG
     assert deleted == []
+
+
+def test_added_and_updated_nodes_do_not_overlap_with_same_matched_parent():
+    before_root = elem(
+        f"""
+      <ClinicalDocument xmlns="{HL7_NS}">
+        <component>
+          <observation>
+            <id root="stable-id"/>
+            <effectiveTime value="20200101"/>
+          </observation>
+        </component>
+      </ClinicalDocument>
+      """
+    )
+    after_root = elem(
+        f"""
+      <ClinicalDocument xmlns="{HL7_NS}">
+        <component>
+          <observation>
+            <id root="stable-id"/>
+            <id root="new-id"/>
+            <effectiveTime value="20200102"/>
+          </observation>
+        </component>
+      </ClinicalDocument>
+      """
+    )
+
+    added, updated, deleted = collect_additions_updates_deletes(
+        before_root,
+        after_root,
+    )
+
+    assert [(node.tag, node.get("root")) for node in added] == [
+        (ID_TAG, "new-id"),
+    ]
+    assert len(updated) == 1
+    updated_before, updated_after = updated[0]
+    assert updated_before.tag == EFFECTIVE_TIME_TAG
+    assert updated_after.tag == EFFECTIVE_TIME_TAG
+
+    assert len(added) == 1
+    assert added[0].tag == ID_TAG
+    assert deleted == []
+
+    _assert_added_and_updated_nodes_do_not_overlap(added, updated)
+
+
+def test_added_and_updated_nodes_do_not_overlap_in_fallback_strategies():
+    before_root = elem(
+        f"""
+        <ClinicalDocument xmlns="{HL7_NS}" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <component>
+                <section>
+                    <entry>
+                        <act classCode="ACT" moodCode="EVN">
+                            <templateId root="shared-template"/>
+                            <effectiveTime value="20200101"/>
+                            <value xsi:type="CD" code="old-flu"/>
+                        </act>
+                        <act classCode="ACT" moodCode="EVN">
+                            <templateId root="shared-template"/>
+                            <effectiveTime value="20200202"/>
+                            <value xsi:type="CD" code="old-covid"/>
+                        </act>
+                    </entry>
+                </section>
+            </component>
+        </ClinicalDocument>
+        """
+    )
+    after_root = elem(
+        f"""
+        <ClinicalDocument xmlns="{HL7_NS}" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <component>
+                <section>
+                    <entry>
+                        <act classCode="ACT" moodCode="EVN">
+                            <templateId root="shared-template"/>
+                            <effectiveTime value="20200202"/>
+                            <value xsi:type="CD" code="new-covid"/>
+                            <interpretationCode code="A"/>
+                        </act>
+                        <act classCode="ACT" moodCode="EVN">
+                            <templateId root="shared-template"/>
+                            <effectiveTime value="20200101"/>
+                            <value xsi:type="CD" code="new-flu"/>
+                            <interpretationCode code="B"/>
+                        </act>
+                        <act classCode="ACT" moodCode="EVN">
+                            <templateId root="shared-template"/>
+                            <effectiveTime value="20200303"/>
+                            <value xsi:type="CD" code="brand-new"/>
+                        </act>
+                    </entry>
+                </section>
+            </component>
+        </ClinicalDocument>
+        """
+    )
+
+    added, updated, deleted = collect_additions_updates_deletes(
+        before_root,
+        after_root,
+    )
+
+    assert len(added) == 3
+    assert added[0].tag == "{urn:hl7-org:v3}interpretationCode"
+    assert added[1].tag == "{urn:hl7-org:v3}interpretationCode"
+    assert added[2].tag == "{urn:hl7-org:v3}act"
+
+    assert len(updated) == 2
+    before, after = updated[0]
+    assert before.tag == after.tag == "{urn:hl7-org:v3}value"
+    assert before.get("code") != after.get("code")
+    assert after.get("code") == "new-flu"
+
+    before, after = updated[1]
+    assert before.tag == after.tag == "{urn:hl7-org:v3}value"
+    assert before.get("code") != after.get("code")
+    assert after.get("code") == "new-covid"
+
+    _assert_added_and_updated_nodes_do_not_overlap(added, updated)
