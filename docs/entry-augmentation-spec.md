@@ -41,8 +41,12 @@ Clear augmentation markings will differentiate augmented data from existing data
 ```
 ### Describing changes using the functionCode element
 The most important augmentation information is the code attribute of the functionCode element, which will indicate the nature
-of the change to the eCR, e.g. "added" or "changed". So, a lab observation with an augmented author element containing an
+of the change to the eCR, e.g. `added` or `updated`. So, a lab observation with an augmented author element containing an
 "added" code will be present in the current eCR but not the previous comparison eCR.
+
+List of DiD MVP functionCode values:
+-added
+-updated
 
 ### Why is the inner assignedAuthor element there if its just full of nullFlavors?
 This is to maintain proper structure of an author element in a CDA eCR for validation. The assignedAuthor tag must contain
@@ -71,9 +75,9 @@ This is an example augmented laboratory Observation added between two versions o
              xsi:type="CD" />
       <author>
          <!-- DATA AUGMENTATION: functionCode specifies type of change
-              "added" which signifies that the containing template has been
+              "added" which signifies that the containing element has been
               added since the previous version of the document -->
-         <functionCode code="value-change" codeSystem="2.16.840.1.113883.10.20.15.2.7.1"
+         <functionCode code="added" codeSystem="2.16.840.1.113883.10.20.15.2.7.1"
                        codeSystemName="eCRDataAugmentation" />
          <!-- DATA AUGMENTATION: <time of data augmentation operation> -->
          <time value="20260507103000-0500" />
@@ -97,6 +101,7 @@ This is an example augmented laboratory Observation added between two versions o
 ## Open questions
 
 1. **How do we signal deletions, if at all:** We can't flag an element that doesn't exist anymore. Do we even need to acknowledge deletions at all? Is a deletion an inherently non-actionable change?
+2. **How do we flag changes in sections of the document that can't accept an author element?** RecordTarget, which contains patient information, is a notable example of this
 
 ## Post-MVP considerations
 
