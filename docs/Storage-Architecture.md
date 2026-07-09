@@ -59,7 +59,7 @@ When a new message arrives for a document `D`, of setId `SET_ID` and of version 
     --endpoint-url <DYNAMODB_ENDPOINT>
   ```
 
-3. Filter the results to retrieve the the latest record.
+3. Filter the results to retrieve the latest record.
     * This can be done from within the Lambda.
     * Let this baseline document be `B` (if it exists).
 
