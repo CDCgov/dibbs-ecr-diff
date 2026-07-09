@@ -19,7 +19,7 @@ Clear augmentation markings will differentiate augmented data from existing data
 ```xml
 <author>
    <!-- DATA AUGMENTATION: functionCode specifies type of change
-        "added" which signifies that the containing template has been
+        "added" which signifies that the containing element has been
         added since the previous version of the document -->
    <functionCode code="added" codeSystem="2.16.840.1.113883.10.20.15.2.7.1"
                  codeSystemName="eCRDataAugmentation" />
