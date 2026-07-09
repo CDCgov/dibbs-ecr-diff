@@ -60,7 +60,7 @@ APHL uses the diff to decide whether to send the new eICR to the receiving juris
 
 ```json
 {
-  "specVersion": "1.0",
+  "outputSpecVersion": "1.0",
   "generatedAt": "2026-06-05T00:00:00Z",
   "configurationId": "44d9a0b0-3c0c-4f49-bd11-6f219c7cfa9b",
   "configurationVersion": "1",

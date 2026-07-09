@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
@@ -5,11 +6,15 @@ from pydantic import BaseModel, Field
 
 
 class DiffMode(StrEnum):
+    """Configuration mode for deciding which configured changes are actionable."""
+
     WATCH_LIST = "WATCH_LIST"
     IGNORE_LIST = "IGNORE_LIST"
 
 
 class DiffingOptions(BaseModel):
+    """Runtime options supplied to the diff command."""
+
     file1: str
     file2: str
     config: str
@@ -17,31 +22,57 @@ class DiffingOptions(BaseModel):
 
 
 class ChangeType(StrEnum):
-    ADDED = "ADDED"
-    DELETED = "DELETED"
-    UPDATED = "UPDATED"
+    """Possible diff change types."""
+
+    ADDED = "added"
+    UPDATED = "updated"
+    DELETED = "deleted"
 
 
 class Change(BaseModel):
-    xpath: str
-    rule_name: str | None = None
+    """Single changed node reported in the diff output."""
+
     changeType: ChangeType
-    # maybe omit the xml in prod mode?
-    # or omit entirely for PII reasons
-    xml: str
+    xPath: str
+    xPathDocumentId: str
+    isActionable: bool
+    actionabilityRuleId: str
+    actionabilityRuleDisplayName: str
+
+
+class Document(BaseModel):
+    """Document metadata included in the diff output for current and previous documents."""
+
+    documentId: str
+    versionNumber: str
 
 
 class DiffOutput(BaseModel):
-    changes: list[Change] = []
+    """Top-level diff output payload."""
+
+    outputSpecVersion: str
+    generatedAt: datetime
+    configurationId: str
+    configurationVersion: str
+    configurationDisplayName: str
+    setId: str
+    currentDocument: Document
+    previousDocument: Document
+    hasActionableChanges: bool
+    changes: list[Change] = Field(default_factory=list)
 
 
 class RuleConfig(BaseModel):
+    """Configured rule used to match relevant XML nodes."""
+
     id: UUID = Field(default_factory=uuid4)
     name: str
     xpaths: list[str] = Field(default_factory=list)
 
 
 class Configuration(BaseModel):
+    """Diff configuration loaded by the CLI."""
+
     version: str
     mode: DiffMode
     rules: list[RuleConfig] = Field(default_factory=list)
