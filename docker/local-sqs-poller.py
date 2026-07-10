@@ -17,16 +17,16 @@ AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
 QUEUE_URL = os.getenv("QUEUE_URL")
 LAMBDA_URL = os.getenv("LAMBDA_URL")
 
-while True:
-    try:
-        response = httpx.get(f"{AWS_ENDPOINT_URL}/_localstack/init/ready", timeout=2)
-        if response.json().get("completed"):
-            break
-    except (httpx.HTTPError, ValueError):
-        pass
+# while True:
+#     try:
+#         response = httpx.get(f"{AWS_ENDPOINT_URL}/_localstack/init/ready", timeout=2)
+#         if response.json().get("completed"):
+#             break
+#     except (httpx.HTTPError, ValueError):
+#         pass
 
-    print("waiting for localstack...", flush=True)
-    time.sleep(2)
+#     print("waiting for localstack...", flush=True)
+#     time.sleep(2)
 
 sqs = boto3.client(
     "sqs",

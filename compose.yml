@@ -30,7 +30,8 @@ services:
           path: ./uv.lock
 
   localstack:
-    image: docker.io/localstack/localstack:community-archive
+    # image: docker.io/localstack/localstack:community-archive
+    image: docker.io/floci/floci:latest-compat
     ports:
       - "${LOCALSTACK_HOST_PORT:-4566}:4566"
     environment:
@@ -40,7 +41,8 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
     volumes:
-      - localstack-data:/var/lib/localstack
+      # - localstack-data:/var/lib/localstack
+      - localstack-data:/app/data
       - ./docker/s3-init.sh:/etc/localstack/init/ready.d/10-s3-init.sh
       - ./docker/dynamodb-init.sh:/etc/localstack/init/ready.d/20-dynamodb-init.sh
 
