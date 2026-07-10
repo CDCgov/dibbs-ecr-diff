@@ -2,15 +2,15 @@ pre-commit:
   parallel: true
   commands:
     format:
-      glob: "*.py"
+      glob: "src/**/*.py"
       run: uv run ruff format {staged_files}
       stage_fixed: true
 
     lint:
-      glob: "*.py"
+      glob: "src/**/*.py"
       run: uv run ruff check --fix {staged_files}
       stage_fixed: true
 
     typecheck:
-      glob: "*.py"
+      glob: "src/**/*.py"
       run: uv run ty check {staged_files}
