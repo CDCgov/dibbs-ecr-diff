@@ -12,18 +12,26 @@ import httpx
 AWS_ENDPOINT_URL = os.getenv("AWS_ENDPOINT_URL", "http://localstack:4566")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "test")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "test")
-REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
-QUEUE_URL = os.getenv(
-    "QUEUE_URL", "http://localstack:4566/000000000000/did-eicr-events"
-)
-LAMBDA_URL = os.getenv(
-    "LAMBDA_URL", "http://lambda:8080/2015-03-31/functions/function/invocations"
-)
+
+AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+QUEUE_URL = os.getenv("QUEUE_URL")
+LAMBDA_URL = os.getenv("LAMBDA_URL")
+
+while True:
+    try:
+        response = httpx.get(f"{AWS_ENDPOINT_URL}/_localstack/init/ready", timeout=2)
+        if response.json().get("completed"):
+            break
+    except (httpx.HTTPError, ValueError):
+        pass
+
+    print("waiting for localstack...", flush=True)
+    time.sleep(2)
 
 sqs = boto3.client(
     "sqs",
     endpoint_url=AWS_ENDPOINT_URL,
-    region_name=REGION,
+    region_name=AWS_DEFAULT_REGION,
     aws_access_key_id=AWS_ACCESS_KEY_ID,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
 )
@@ -49,7 +57,7 @@ while True:
                     "md5OfBody": message.get("MD5OfBody"),
                     "eventSource": "aws:sqs",
                     "eventSourceARN": os.getenv("QUEUE_ARN", ""),
-                    "awsRegion": REGION,
+                    "awsRegion": AWS_DEFAULT_REGION,
                 }
             ]
         }

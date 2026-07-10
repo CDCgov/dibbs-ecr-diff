@@ -4,13 +4,7 @@ set -euo pipefail
 # this script is run as a LocalStack init hook (specified in compose.yml)
 # see: https://docs.localstack.cloud/aws/customization/advanced/initialization-hooks/
 
-INIT_MARKER="/var/lib/localstack/dynamodb-init"
 TABLE_NAME="did-eicr-record"
-
-if [[ -f "${INIT_MARKER}" ]]; then
-  echo "DynamoDB init already completed; skipping."
-  exit 0
-fi
 
 export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-test}"
 export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-test}"
@@ -31,6 +25,4 @@ if ! awslocal dynamodb describe-table --table-name "${TABLE_NAME}" >/dev/null 2>
     >/dev/null
 fi
 
-# write marker file to denote that DynamoDB has been initialized
 echo "DynamoDB Intitialization Complete."
-touch "${INIT_MARKER}"
