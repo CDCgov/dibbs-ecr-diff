@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: ./docker/lambda.Dockerfile
     ports:
-      - "9000:8080"
+      - "${LAMBDA_HOST_PORT:-9000}:8080"
     environment:
       - VERSION=local
     depends_on:
@@ -12,7 +12,6 @@ services:
     restart: unless-stopped
     develop:
       watch:
-        # rebuild image when there are changes to core or lambda packages
         - action: rebuild
           path: ./packages/core
           ignore:
@@ -21,14 +20,13 @@ services:
           path: ./packages/lambda
           ignore:
             - test
-        # rebuild the image if dependencies change by checking uv.lock
         - action: rebuild
           path: ./uv.lock
 
   localstack:
     image: docker.io/localstack/localstack:community-archive
     ports:
-      - "4566:4566"
+      - "${LOCALSTACK_HOST_PORT:-4566}:4566"
     environment:
       - SERVICES=s3,dynamodb,sqs
       - PERSISTENCE=1
@@ -36,6 +34,23 @@ services:
       - localstack-data:/var/lib/localstack
       - ./docker/s3-init.sh:/etc/localstack/init/ready.d/10-s3-init.sh
       - ./docker/dynamodb-init.sh:/etc/localstack/init/ready.d/20-dynamodb-init.sh
+
+  queue-poller:
+    image: ghcr.io/astral-sh/uv:python3.14-alpine
+    command: uv run /app/local-sqs-poller.py
+    volumes:
+      - ./docker/local-sqs-poller.py:/app/local-sqs-poller.py:ro
+    environment:
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - QUEUE_URL=http://localstack:4566/000000000000/did-eicr-events
+      - LAMBDA_URL=http://lambda:8080/2015-03-31/functions/function/invocations
+    depends_on:
+      - localstack
+      - lambda
+    restart: unless-stopped
 
 volumes:
   localstack-data:

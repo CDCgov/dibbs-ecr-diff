@@ -5,6 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "boto3>=1.43.46",
+    "httpx>=0.28.1",
     "pydantic>=2.13.4",
 ]
 
