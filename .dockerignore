@@ -1,8 +1,6 @@
 # Git and tooling
 .git
 .github
-.agents
-.codex
 .gram
 .justscripts
 .vscode
