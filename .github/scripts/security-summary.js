@@ -144,19 +144,13 @@ function formatGitHubComment(scanResults, repoOwner, repoName) {
 /**
  * Post or update PR comment
  */
-async function postGitHubComment(scanResults, github, context) {
+async function postGitHubComment(github, context, message) {
   const prNumber = context.payload.pull_request?.number;
 
   if (!prNumber) {
     console.log("Not a PR, skipping GitHub comment");
     return;
   }
-
-  const message = formatGitHubComment(
-    scanResults,
-    context.repo.owner,
-    context.repo.repo,
-  );
 
   const comments = await github.rest.issues.listComments({
     issue_number: prNumber,
@@ -192,11 +186,23 @@ async function postGitHubComment(scanResults, github, context) {
 /**
  * For PR scans - posts comment to PR
  */
-async function generatePRSummary(github, context, core, images = []) {
+async function generatePRSummary(github, context, core, images = [], isLocalActRun = false) {
   if (!images.length) return; // no images to generate results for
 
   // Parse all scan results
   const scanResults = parseScanResults(images);
+
+  const message = formatGitHubComment(
+    scanResults,
+    context.repo.owner,
+    context.repo.repo,
+  );
+
+  if (isLocalActRun) {
+    // log the message
+    core.info(message);
+    return;
+  }
 
   // Warn if critical or high vulnerabilities found
   if (scanResults.totalCritical > 0 || scanResults.totalHigh > 0) {
@@ -206,7 +212,7 @@ async function generatePRSummary(github, context, core, images = []) {
   }
 
   // Post GitHub comment
-  await postGitHubComment(scanResults, github, context);
+  await postGitHubComment(github, context, message);
 }
 
 module.exports = {
