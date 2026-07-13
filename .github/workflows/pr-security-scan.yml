@@ -15,8 +15,6 @@ concurrency:
 env:
   TRIVY_SEVERITY: "CRITICAL,HIGH,MEDIUM,LOW"
 
-# https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstepsuses
-# https://docs.github.com/en/actions/reference/security/secure-use#using-third-party-actions
 jobs:
   build-and-scan:
     runs-on: ubuntu-latest
