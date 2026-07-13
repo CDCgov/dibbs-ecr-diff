@@ -1,7 +1,6 @@
 # Git and tooling
 .git
 .github
-.gram
 .justscripts
 .vscode
 
@@ -22,7 +21,6 @@ dist
 coverage.xml
 
 # Not used by this image
-tmp
 docs
 prototype
 packages/cli
