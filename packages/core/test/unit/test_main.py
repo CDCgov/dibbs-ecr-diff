@@ -4,8 +4,8 @@ from helpers import HL7_NS
 
 
 def test_cli_did_change_ignores_document_version_metadata(
-    tmp_path,
-    monkeypatch,
+        tmp_path,
+        monkeypatch,
 ):
     from core.__main__ import main
 

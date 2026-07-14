@@ -67,30 +67,22 @@ def _attributes_for_update(node: etree._Element) -> dict:
     return attributes
 
 
-def _fingerprint_excluding_version_metadata(
-    node: etree._Element, cache: dict[etree._Element, tuple]
-) -> tuple:
+def _fingerprint_excluding_version_metadata(node: etree._Element) -> tuple:
     """Return a fingerprint excluding direct ClinicalDocument version metadata."""
-    if node in cache:
-        return cache[node]
-
     attrs = tuple(sorted(_attributes_for_update(node).items()))
     children = sorted(
-        _fingerprint_excluding_version_metadata(child, cache)
+        _fingerprint_excluding_version_metadata(child)
         for child in node
         if isinstance(child.tag, str) and not _is_ignored_version_metadata(child)
     )
 
-    result = (
+    return (
         node.tag,
         normalize_text(node.text),
         normalize_text(node.tail),
         attrs,
         tuple(children),
     )
-
-    cache[node] = result
-    return result
 
 
 def _node_updated(before_node: etree._Element, after_node: etree._Element) -> bool:
@@ -152,8 +144,6 @@ def collect_additions_updates_deletes(
     seen_updated: set[int] = set()  # keyed on id(after_node)
     seen_deleted: set[int] = set()
 
-    fingerprint_cache = {}
-
     def recurse(
         before_node: etree._Element | None,
         after_node: etree._Element | None,
@@ -187,16 +177,14 @@ def collect_additions_updates_deletes(
                 updated_nodes.append((before_node, after_node))
 
         if _fingerprint_excluding_version_metadata(
-            before_node, fingerprint_cache
-        ) == _fingerprint_excluding_version_metadata(after_node, fingerprint_cache):
+            before_node
+        ) == _fingerprint_excluding_version_metadata(after_node):
             return
 
         before_immediate_child_groups = build_immediate_child_groups(before_node)
         after_immediate_child_groups = build_immediate_child_groups(after_node)
 
-        for tag in sorted(
-            set(before_immediate_child_groups) | set(after_immediate_child_groups)
-        ):
+        for tag in sorted(set(before_immediate_child_groups) | set(after_immediate_child_groups)):
             for before_child, after_child in match_children_ignore_order(
                 before_immediate_child_groups.get(tag, []),
                 after_immediate_child_groups.get(tag, []),
