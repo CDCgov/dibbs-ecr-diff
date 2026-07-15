@@ -33,11 +33,13 @@ class Change(BaseModel):
     """Single changed node reported in the diff output."""
 
     changeType: ChangeType
-    xPath: str
+    xpath: str
     xPathDocumentId: str
-    isActionable: bool
-    actionabilityRuleId: str
-    actionabilityRuleDisplayName: str
+    isActionable: bool = (
+        True  # TODO: Replace placeholders once configurations implemented
+    )
+    actionabilityRuleId: str = "00000000-0000-0000-0000-000000000000"
+    actionabilityRuleDisplayName: str = "placeholder"
 
 
 class Document(BaseModel):
@@ -50,11 +52,11 @@ class Document(BaseModel):
 class DiffOutput(BaseModel):
     """Top-level diff output payload."""
 
-    outputSpecVersion: str
+    outputSpecVersion: str = "1.0"
     generatedAt: datetime
-    configurationId: str
-    configurationVersion: str
-    configurationDisplayName: str
+    configurationId: str = "00000000-0000-0000-0000-000000000000"  # TODO: Populate from configuration once implemented
+    configurationVersion: str = "placeholder"
+    configurationDisplayName: str = "placeholder"
     setId: str
     currentDocument: Document
     previousDocument: Document
