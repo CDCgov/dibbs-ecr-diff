@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from lxml import etree
+from lxml.etree import ElementTree
 
 from core.xml_utils import build_standalone_xml_string
 
@@ -13,7 +14,6 @@ from .models import (
     Change,
     ChangeType,
     Configuration,
-    DiffingOptions,
     DiffMode,
     DiffOutput,
     RuleConfig,
@@ -90,15 +90,11 @@ def matching_subtree(node: etree._Element, cache: NodeCache) -> list[WatchedNode
     return matching_nodes(node, node.iterdescendants(), cache)
 
 
-# only diff for ignore list
-def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
+def diff_xml(
+    left_tree: ElementTree, right_tree: ElementTree, config: Configuration
+) -> DiffOutput:
     """Returns a XML diff string."""
     diff_output = DiffOutput()
-    parser = etree.XMLParser(remove_blank_text=True, huge_tree=True)
-
-    with measure_time("Parse XML files"):
-        left_tree = etree.parse(opts.file1, parser)
-        right_tree = etree.parse(opts.file2, parser)
 
     with measure_time("Execute XPaths"):
         left_cache = build_cache(left_tree, config.rules)
@@ -119,6 +115,7 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
                             rule_name=match.rule_name,
                             changeType=ChangeType.ADDED,
                             xml=build_standalone_xml_string(match.effective_node),
+                            after_node_ref=after,
                         )
                     )
             elif config.mode == DiffMode.IGNORE_LIST:
@@ -130,6 +127,7 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
                         xpath=after.getroottree().getpath(after),
                         changeType=ChangeType.ADDED,
                         xml=build_standalone_xml_string(after),
+                        after_node_ref=after,
                     )
                 )
 
@@ -143,6 +141,7 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
                             rule_name=match.rule_name,
                             changeType=ChangeType.UPDATED,
                             xml=build_standalone_xml_string(match.effective_node),
+                            after_node_ref=after,
                         )
                     )
             elif config.mode == DiffMode.IGNORE_LIST:
@@ -156,6 +155,7 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
                         xpath=after.getroottree().getpath(after),
                         changeType=ChangeType.UPDATED,
                         xml=build_standalone_xml_string(after),
+                        after_node_ref=after,
                     )
                 )
 
@@ -169,6 +169,7 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
                             rule_name=match.rule_name,
                             changeType=ChangeType.DELETED,
                             xml=build_standalone_xml_string(match.effective_node),
+                            after_node_ref=after,
                         )
                     )
             elif config.mode == DiffMode.IGNORE_LIST:
@@ -180,6 +181,7 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
                         xpath=before.getroottree().getpath(before),
                         changeType=ChangeType.DELETED,
                         xml=build_standalone_xml_string(before),
+                        after_node_ref=after,
                     )
                 )
 

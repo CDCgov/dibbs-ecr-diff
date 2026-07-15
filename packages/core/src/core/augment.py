@@ -6,11 +6,16 @@ from typing import Final, Literal
 from uuid import UUID
 
 from lxml import etree
-from lxml.etree import CDATA, _Element
+from lxml.etree import _Element
 
-from core.models import DiffOutput
+from core.cda.clinical_statement import CDA_CLINICAL_STATEMENT_TAGS
+from core.models import Change, ChangeType, DiffOutput
+from core.xml_utils import (
+    _xpath_first_attribute_value,
+    hl7_clark_tag,
+)
 
-from .constants import HL7_NS, NAMESPACES, XSI_NS
+from .constants import HL7_NS, NAMESPACES
 
 # NOTE:
 # CONSTANTS
@@ -212,8 +217,6 @@ def _derive_augmented_rr_setid(
             f"{_SEED_PREFIX_RR_SETID}:{original_eicr_setid_root}",
         )
     )
-
-
 
 
 # NOTE:
@@ -423,8 +426,8 @@ def augment_eicr(
     # STEP 8: restructure relatedDocument chain into v4-shape siblings
     _add_related_document(eicr_root, original)
 
-    # STEP 9: add diff summary
-    _insert_diff_summary(eicr_root, diff_output)
+    # STEP 9: add entry level diff info
+    _process_diff_output_changes(diff_output, run.augmentation_time)
 
     return augmented_result
 
@@ -860,79 +863,70 @@ def _insert_related_document(doc_root: _Element, related_doc: _Element) -> None:
 
 
 # NOTE:
-# PRIVATE HELPERS — DIFF SUMMARY
+# PRIVATE HELPERS — DIFF
 # =============================================================================
 
-def _insert_diff_summary(doc_root: _Element, diff_output: DiffOutput) -> None:
-    """Insert diff summary as a new eICR section.
 
-    We insert after the last existing <component> within <structuredBody>.
+def _process_diff_output_changes(diff_output: DiffOutput, timestamp: str) -> None:
+    # Can't add entry-level augmentation to a deleted element that doesn't exist in the new eICR
+    filtered_changes = [x for x in diff_output.changes if x != ChangeType.DELETED]
 
-    WIP
-    """
-    structured_body = doc_root.find(
-        "hl7:component/hl7:structuredBody", NAMESPACES
-    )
-    if structured_body is None:
-        raise ValueError(
-            "Cannot insert diff summary: eICR has no "
-            "<component>/<structuredBody>."
-        )
+    for change in filtered_changes:
+        node = change.after_node_ref
+        nearest_author_allowed_element = _nearest_author_allowed_element(node)
 
-    component = _make_element("component")
-    section = etree.SubElement(component, f"{{{HL7_NS}}}section")
+        if nearest_author_allowed_element is None:
+            continue
 
-    etree.SubElement(
-        section,
-        f"{{{HL7_NS}}}templateId",
-        root=DIFF_SECTION_TEMPLATE_ROOT,
-    )
+        if not _contains_diff_author_element(nearest_author_allowed_element):
+            _insert_entry_level_diff_augmentation(
+                nearest_author_allowed_element, change, timestamp
+            )
 
-    etree.SubElement(
-        section,
-        f"{{{HL7_NS}}}code",
-        code=DIFF_SECTION_CODE,
-        codeSystem=DIFF_CODE_SYSTEM_OID,
-        displayName=DIFF_SECTION_DISPLAY_NAME,
-    )
 
-    title_el = etree.SubElement(section, f"{{{HL7_NS}}}title")
-    title_el.text = DIFF_SECTION_DISPLAY_NAME
+def _nearest_author_allowed_element(node: _Element) -> _Element | None:
+    author_allowed_tags = [*CDA_CLINICAL_STATEMENT_TAGS]
+    # First check node itself, then ancestors, then descendants
+    for el in [node, *node.iterancestors(), *node.iterdescendants()]:
+        if el.tag in author_allowed_tags:
+            return el
 
-    text_el = etree.SubElement(section, f"{{{HL7_NS}}}text")
-    paragraph_el = etree.SubElement(text_el, f"{{{HL7_NS}}}paragraph")
-    paragraph_el.text = (
-        "This section contains the machine-readable diff produced by "
-        "Difference in Docs comparing the current eICR against its "
-        "prior version. See the <value> element below for the JSON "
-        "payload."
-    )
+    return None
 
-    entry = etree.SubElement(section, f"{{{HL7_NS}}}entry")
-    observation = etree.SubElement(
-        entry,
-        f"{{{HL7_NS}}}observation",
-        classCode="OBS",
-        moodCode="EVN",
-    )
 
-    etree.SubElement(observation, f"{{{HL7_NS}}}id", nullFlavor="NA")
+def _contains_diff_author_element(element: _Element) -> bool:
+    diff_author_xpath = "./hl7:author/hl7:assignedAuthor/hl7:assignedAuthoringDevice/hl7:manufacturerModelName/@displayName"
+    diff_author_displayName = _xpath_first_attribute_value(element, diff_author_xpath)
+    return diff_author_displayName is not None
 
-    etree.SubElement(
-        observation,
-        f"{{{HL7_NS}}}code",
-        code=DIFF_SECTION_CODE,
-        codeSystem=DIFF_CODE_SYSTEM_OID,
-    )
 
-    etree.SubElement(observation, f"{{{HL7_NS}}}statusCode", code="completed")
+def _insert_entry_level_diff_augmentation(
+    node: _Element, change: Change, timestamp: str
+) -> None:
+    author = etree.SubElement(node, hl7_clark_tag("author"))
 
-    value_el = etree.SubElement(observation, f"{{{HL7_NS}}}value")
-    value_el.set(f"{{{XSI_NS}}}type", "ED")
-    value_el.set("mediaType", "application/json")
-    value_el.text = CDATA(diff_output.model_dump_json(indent=2))
+    function_code = etree.SubElement(author, hl7_clark_tag("functionCode"))
+    function_code.set("code", change.changeType)
+    function_code.set("codeSystem", ECR_DATA_AUG_CODE_SYSTEM)
+    function_code.set("codeSystemName", ECR_DATA_AUG_CODE_SYSTEM_NAME)
 
-    structured_body.append(component)
+    time = etree.SubElement(author, hl7_clark_tag("time"))
+    time.set("value", timestamp)
+
+    assigned_author = etree.SubElement(author, hl7_clark_tag("assignedAuthor"))
+
+    id = etree.SubElement(assigned_author, hl7_clark_tag("id"))
+    id.set("nullFlavor", "NA")
+
+    addr = etree.SubElement(assigned_author, hl7_clark_tag("addr"))
+    addr.set("nullFlavor", "NA")
+
+    telecom = etree.SubElement(assigned_author, hl7_clark_tag("telecom"))
+    telecom.set("nullFlavor", "NA")
+
+    device = etree.SubElement(assigned_author, hl7_clark_tag("assignedAuthoringDevice"))
+    model_name = etree.SubElement(device, hl7_clark_tag("manufacturerModelName"))
+    model_name.set("displayName", DIFF_TOOL_DISPLAY)
 
 
 # NOTE:

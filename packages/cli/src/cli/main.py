@@ -1,13 +1,13 @@
-import uuid
 import argparse
 import json
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from uuid import uuid4
 
 from core import diff_xml
 from core.augment import augment_eicr, create_augmentation_run
 from core.models import Configuration, DiffingOptions
+from core.performance import measure_time
 from lxml import etree
 
 DEFAULT_CONFIG_PATH = Path(__file__).parent / "default_config.json"
@@ -36,7 +36,13 @@ def main() -> None:
     with open(opts.config) as f:
         config = Configuration(**json.load(f))
 
-    diff_output = diff_xml(opts, config)
+    parser = etree.XMLParser(remove_blank_text=True, huge_tree=True)
+
+    with measure_time("Parse XML files"):
+        before_tree = etree.parse(opts.file1, parser)
+        after_tree = etree.parse(opts.file2, parser)
+
+    diff_output = diff_xml(before_tree, after_tree, config)
     diff_output_json = diff_output.model_dump_json(indent=2)
 
     if opts.output_diff_file:
@@ -44,8 +50,7 @@ def main() -> None:
         json_out_path.write_text(diff_output_json, encoding="utf-8")
         print(f"Wrote {json_out_path.resolve()}")
 
-    parser = etree.XMLParser(remove_blank_text=True, huge_tree=True)
-    eicr_root = etree.parse(opts.file2, parser).getroot()
+    eicr_root = after_tree.getroot()
     augmentation_run = create_augmentation_run(eicr_root)
 
     # TODO: extract jurisdiction id
