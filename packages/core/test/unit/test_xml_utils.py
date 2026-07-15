@@ -43,16 +43,6 @@ def test_clark_tag_helpers_use_expected_namespaces():
     )
 
 
-def test_clark_tag_helpers_use_expected_namespaces():
-    assert xml_utils.clark_tag(HL7_NS, "id") == xml_utils.hl7_clark_tag("id")
-    assert xml_utils.hl7_clark_tag("id") == "{urn:hl7-org:v3}id"
-    assert xml_utils.sdtc_clark_tag("valueSet") == "{urn:hl7-org:sdtc}valueSet"
-    assert (
-        xml_utils.xsi_clark_tag("type")
-        == "{http://www.w3.org/2001/XMLSchema-instance}type"
-    )
-
-
 @pytest.fixture
 def cda_document() -> etree._Element:
     """A small CDA-like document with inherited namespaces and nested entries."""
