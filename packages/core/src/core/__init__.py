@@ -64,7 +64,7 @@ def build_cache(elem: etree._ElementTree, rules: list[RuleConfig]) -> NodeCache:
     return nodes
 
 
-def matching_nodes(
+def nodes_in_cache(
     origin_node: etree._Element, nodes: Iterable[etree._Element], cache: NodeCache
 ) -> list[WatchedNode]:
     """Generic method for collecting all matched nodes from a cache."""
@@ -80,14 +80,14 @@ def matching_nodes(
     return matches
 
 
-def matching_ancestry(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
+def cached_ancestry(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
     """Collect node and all ancestor matches."""
-    return matching_nodes(node, node.iterancestors(), cache)
+    return nodes_in_cache(node, node.iterancestors(), cache)
 
 
-def matching_subtree(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
+def cached_subtree(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
     """Collect node and all descendant matches."""
-    return matching_nodes(node, node.iterdescendants(), cache)
+    return nodes_in_cache(node, node.iterdescendants(), cache)
 
 
 def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
@@ -111,17 +111,17 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
     with measure_time("Process additions"):
         for after in added:
             if config.mode == DiffMode.WATCH_LIST:
-                for match in matching_subtree(after, right_cache):
+                for cached in cached_subtree(after, right_cache):
                     diff_output.changes.append(
                         Change(
-                            xpath=match.xpath,
-                            rule_name=match.rule_name,
+                            xpath=cached.xpath,
+                            rule_name=cached.rule_name,
                             changeType=ChangeType.ADDED,
-                            xml=build_standalone_xml_string(match.effective_node),
+                            xml=build_standalone_xml_string(cached.effective_node),
                         )
                     )
             elif config.mode == DiffMode.IGNORE_LIST:
-                if matching_ancestry(after, right_cache):
+                if cached_ancestry(after, right_cache):
                     continue
 
                 diff_output.changes.append(
@@ -135,17 +135,17 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
     with measure_time("Process updates"):
         for [before, after] in updated:
             if config.mode == DiffMode.WATCH_LIST:
-                for match in matching_ancestry(after, right_cache):
+                for cached in cached_ancestry(after, right_cache):
                     diff_output.changes.append(
                         Change(
-                            xpath=match.xpath,
-                            rule_name=match.rule_name,
+                            xpath=cached.xpath,
+                            rule_name=cached.rule_name,
                             changeType=ChangeType.UPDATED,
-                            xml=build_standalone_xml_string(match.effective_node),
+                            xml=build_standalone_xml_string(cached.effective_node),
                         )
                     )
             elif config.mode == DiffMode.IGNORE_LIST:
-                if matching_ancestry(before, left_cache) or matching_ancestry(
+                if cached_ancestry(before, left_cache) or cached_ancestry(
                     after, right_cache
                 ):
                     continue
@@ -161,17 +161,17 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
     with measure_time("Process deletions"):
         for before in deleted:
             if config.mode == DiffMode.WATCH_LIST:
-                for match in matching_subtree(before, left_cache):
+                for cached in cached_subtree(before, left_cache):
                     diff_output.changes.append(
                         Change(
-                            xpath=match.xpath,
-                            rule_name=match.rule_name,
+                            xpath=cached.xpath,
+                            rule_name=cached.rule_name,
                             changeType=ChangeType.DELETED,
-                            xml=build_standalone_xml_string(match.effective_node),
+                            xml=build_standalone_xml_string(cached.effective_node),
                         )
                     )
             elif config.mode == DiffMode.IGNORE_LIST:
-                if matching_ancestry(before, left_cache):
+                if cached_ancestry(before, left_cache):
                     continue
 
                 diff_output.changes.append(
