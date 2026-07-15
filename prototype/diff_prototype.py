@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""cda_eicr_diff_with_markers_after.py
+"""
+cda_eicr_diff_with_markers_after.py
 
 Compares two CDA/eICR XML documents and produces four output files:
 
@@ -49,7 +50,7 @@ import json
 import sys
 from collections import defaultdict
 from copy import deepcopy
-from typing import Any
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 try:
     from lxml import etree
@@ -90,10 +91,10 @@ PH_DEL   = "__CHG_DEL__"
 # ---------------------------------------------------------------------------
 
 # (change_type, after_node, before_node_or_None)
-ChangeWrap = tuple[str, etree._Element, etree._Element | None]
+ChangeWrap = Tuple[str, etree._Element, Optional[etree._Element]]
 
 # (parent_in_after, reference_sibling_or_None, placement, deleted_before_node)
-DeleteAnchor = tuple[etree._Element, etree._Element | None, str, etree._Element]
+DeleteAnchor = Tuple[etree._Element, Optional[etree._Element], str, etree._Element]
 
 # Internal marker tuples passed through the marker pipeline
 Marker = tuple
@@ -120,7 +121,7 @@ def debug_log(*args, **kwargs):
 # Basic XML helpers
 # ---------------------------------------------------------------------------
 
-def norm_text(t: str | None) -> str:
+def norm_text(t: Optional[str]) -> str:
     """Collapse internal whitespace and strip leading/trailing whitespace."""
     if t is None:
         return ""
@@ -138,7 +139,8 @@ def _pfx(tag: str) -> str:
 
 
 def fingerprint(elem: etree._Element) -> tuple:
-    """Order-insensitive recursive fingerprint for an element subtree.
+    """
+    Order-insensitive recursive fingerprint for an element subtree.
 
     Two elements with identical fingerprints are considered unchanged.
     Child fingerprints are sorted before hashing so that sibling reordering
@@ -156,26 +158,27 @@ def fingerprint(elem: etree._Element) -> tuple:
 # XPath query helpers (all use the hl7: namespace prefix)
 # ---------------------------------------------------------------------------
 
-def _xpath_attr(elem: etree._Element, expr: str) -> str | None:
+def _xpath_attr(elem: etree._Element, expr: str) -> Optional[str]:
     """Return the first string result of an XPath attribute expression, or None."""
     results = elem.xpath(expr, namespaces=NS)
     return results[0] if results else None
 
 
-def _xpath_attrs(elem: etree._Element, expr: str, limit: int = 6) -> list[str]:
+def _xpath_attrs(elem: etree._Element, expr: str, limit: int = 6) -> List[str]:
     """Return up to `limit` string results of an XPath attribute expression."""
     return list(elem.xpath(expr, namespaces=NS)[:limit])
 
 
-def _xpath_node(elem: etree._Element, expr: str) -> etree._Element | None:
+def _xpath_node(elem: etree._Element, expr: str) -> Optional[etree._Element]:
     """Return the first element result of an XPath node expression, or None."""
     results = elem.xpath(expr, namespaces=NS)
     return results[0] if results else None
 
 
-def _attr_pair(node: etree._Element | None,
-               attr1: str, attr2: str) -> tuple[str, str] | None:
-    """Return (attr1_value, attr2_value) from node if both attributes are present,
+def _attr_pair(node: Optional[etree._Element],
+               attr1: str, attr2: str) -> Optional[Tuple[str, str]]:
+    """
+    Return (attr1_value, attr2_value) from node if both attributes are present,
     otherwise None.
     """
     if node is None:
@@ -189,7 +192,8 @@ def _attr_pair(node: etree._Element | None,
 # ---------------------------------------------------------------------------
 
 def _clinical_statement_xpath() -> str:
-    """XPath that selects the primary clinical statement child of an <entry> element.
+    """
+    XPath that selects the primary clinical statement child of an <entry> element.
     Covers all act classes that can appear directly under <entry> in CDA.
     """
     return (
@@ -200,14 +204,15 @@ def _clinical_statement_xpath() -> str:
     )
 
 
-def _get_statement(elem: etree._Element) -> etree._Element | None:
-    """Return the primary clinical statement node nested under elem (via an <entry>),
+def _get_statement(elem: etree._Element) -> Optional[etree._Element]:
+    """
+    Return the primary clinical statement node nested under elem (via an <entry>),
     or None if elem does not contain one.
     """
     return _xpath_node(elem, _clinical_statement_xpath())
 
 
-def _template_root(elem: etree._Element) -> str | None:
+def _template_root(elem: etree._Element) -> Optional[str]:
     """Return the @root of the first <templateId> child of elem, or None."""
     return _xpath_attr(elem, "./hl7:templateId/@root")
 
@@ -216,8 +221,9 @@ def _template_root(elem: etree._Element) -> str | None:
 # Narrative table / row identity
 # ---------------------------------------------------------------------------
 
-def narrative_table_key(elem: etree._Element) -> tuple | None:
-    """Derive a stable identity key for a CDA narrative <table> element.
+def narrative_table_key(elem: etree._Element) -> Optional[tuple]:
+    """
+    Derive a stable identity key for a CDA narrative <table> element.
 
     Prefers the column header labels from <thead>; falls back to the text of
     the first cell in the first row.  Returns None for non-table elements.
@@ -242,8 +248,9 @@ def narrative_table_key(elem: etree._Element) -> tuple | None:
     return None
 
 
-def narrative_row_key(elem: etree._Element) -> tuple | None:
-    """Derive a stable identity key for a CDA narrative <tr> element.
+def narrative_row_key(elem: etree._Element) -> Optional[tuple]:
+    """
+    Derive a stable identity key for a CDA narrative <tr> element.
 
     Prefers the text of the first cell; falls back to all cell text joined
     with a pipe separator.  Returns None for non-tr elements.
@@ -269,8 +276,9 @@ def narrative_row_key(elem: etree._Element) -> tuple | None:
 # Stable identity keys (used for element matching across versions)
 # ---------------------------------------------------------------------------
 
-def stable_key(elem: etree._Element) -> tuple | None:
-    """Derive the most specific stable identity key available for elem.
+def stable_key(elem: etree._Element) -> Optional[tuple]:
+    """
+    Derive the most specific stable identity key available for elem.
 
     The key is used to match elements across before/after versions.  Keys are
     tried from most to least specific; the first match wins.
@@ -330,7 +338,7 @@ def stable_key(elem: etree._Element) -> tuple | None:
 # Clinical statement discriminators
 # ---------------------------------------------------------------------------
 
-def _statement_id_pair(elem: etree._Element) -> tuple[str, str] | None:
+def _statement_id_pair(elem: etree._Element) -> Optional[Tuple[str, str]]:
     """Return (root, extension) from the clinical statement's <id>, or None."""
     stmt = _get_statement(elem)
     if stmt is not None:
@@ -340,7 +348,7 @@ def _statement_id_pair(elem: etree._Element) -> tuple[str, str] | None:
     return _attr_pair(_xpath_node(elem, "./hl7:id"), "root", "extension")
 
 
-def _statement_code_pair(elem: etree._Element) -> tuple[str, str] | None:
+def _statement_code_pair(elem: etree._Element) -> Optional[Tuple[str, str]]:
     """Return (code, codeSystem) from the clinical statement's <code>, or None."""
     stmt = _get_statement(elem)
     if stmt is not None:
@@ -350,14 +358,15 @@ def _statement_code_pair(elem: etree._Element) -> tuple[str, str] | None:
     return _attr_pair(_xpath_node(elem, "./hl7:code"), "code", "codeSystem")
 
 
-def _observation_value_discriminator(elem: etree._Element) -> tuple | None:
-    """Return a discriminator tuple derived from an observation's <value> element.
+def _observation_value_discriminator(elem: etree._Element) -> Optional[tuple]:
+    """
+    Return a discriminator tuple derived from an observation's <value> element.
     Tries coded value, numeric value, then text content — returns None if none found.
     """
     stmt = _get_statement(elem)
     obs  = stmt if (stmt is not None and localname(stmt) == "observation") else None
 
-    def _from_node(node: etree._Element) -> tuple | None:
+    def _from_node(node: etree._Element) -> Optional[tuple]:
         v = _xpath_node(node, "./hl7:value")
         if v is None:
             return None
@@ -379,8 +388,9 @@ def _observation_value_discriminator(elem: etree._Element) -> tuple | None:
     return _from_node(elem)
 
 
-def _effective_time_discriminator(node: etree._Element) -> tuple | None:
-    """Return a discriminator tuple from a node's <effectiveTime>, trying each
+def _effective_time_discriminator(node: etree._Element) -> Optional[tuple]:
+    """
+    Return a discriminator tuple from a node's <effectiveTime>, trying each
     representation in order: point value, low/high interval, center, period.
     Returns None if no effectiveTime is found.
     """
@@ -405,8 +415,9 @@ def _effective_time_discriminator(node: etree._Element) -> tuple | None:
     return None
 
 
-def _statement_effective_time(elem: etree._Element) -> tuple | None:
-    """Return an effectiveTime discriminator from the nested clinical statement
+def _statement_effective_time(elem: etree._Element) -> Optional[tuple]:
+    """
+    Return an effectiveTime discriminator from the nested clinical statement
     if present, otherwise from elem itself.
     """
     stmt = _get_statement(elem)
@@ -418,7 +429,8 @@ def _statement_effective_time(elem: etree._Element) -> tuple | None:
 
 
 def secondary_discriminator(elem: etree._Element) -> tuple:
-    """Return the best available secondary discriminator for elem.
+    """
+    Return the best available secondary discriminator for elem.
 
     Used after primary bucket matching when a bucket contains multiple elements
     that share the same templateId root.  Tried in priority order:
@@ -458,7 +470,8 @@ def secondary_discriminator(elem: etree._Element) -> tuple:
 # ---------------------------------------------------------------------------
 
 def _organizer_context(elem: etree._Element) -> tuple:
-    """Walk up the ancestor chain to find the nearest enclosing <organizer> and
+    """
+    Walk up the ancestor chain to find the nearest enclosing <organizer> and
     return a signature tuple for it.  Used so that observations nested inside
     different organizers (lab panels) are not incorrectly paired across panels.
     """
@@ -476,8 +489,9 @@ def _organizer_context(elem: etree._Element) -> tuple:
     return ("organizer.none", "")
 
 
-def soft_context_key(elem: etree._Element) -> tuple | None:
-    """Return a soft context key used by prefer-updates pairing.
+def soft_context_key(elem: etree._Element) -> Optional[tuple]:
+    """
+    Return a soft context key used by prefer-updates pairing.
 
     When multiple elements share the same templateId, this key tries to pair
     them as updates (same logical entity, changed content) rather than as
@@ -501,33 +515,35 @@ def soft_context_key(elem: etree._Element) -> tuple | None:
 # Child grouping and matching
 # ---------------------------------------------------------------------------
 
-def build_child_groups(parent: etree._Element) -> dict[str, list[etree._Element]]:
-    """Group element children of parent by their Clark-notation tag name.
+def build_child_groups(parent: etree._Element) -> Dict[str, List[etree._Element]]:
+    """
+    Group element children of parent by their Clark-notation tag name.
     Comment and PI nodes are excluded.
     """
-    groups: dict[str, list[etree._Element]] = defaultdict(list)
+    groups: Dict[str, List[etree._Element]] = defaultdict(list)
     for child in parent:
         if isinstance(child.tag, str):
             groups[child.tag].append(child)
     return groups
 
 
-def _is_table_cell_list(lst: list[etree._Element]) -> bool:
+def _is_table_cell_list(lst: List[etree._Element]) -> bool:
     """Return True if every element in lst is a <td> or <th>."""
     return bool(lst) and all(localname(e) in ("td", "th") for e in lst)
 
 
 def _prefer_updates_pairing(
-        L1: list[etree._Element],
-        L2: list[etree._Element],
-) -> tuple[list[tuple], list[etree._Element], list[etree._Element]]:
-    """Attempt to pair elements from L1 and L2 by their soft context key.
+        L1: List[etree._Element],
+        L2: List[etree._Element],
+) -> Tuple[List[Tuple], List[etree._Element], List[etree._Element]]:
+    """
+    Attempt to pair elements from L1 and L2 by their soft context key.
 
     Returns (matched_pairs, unmatched_from_L1, unmatched_from_L2).
     Elements whose soft context key is None are left unmatched.
     """
-    buckets1: dict = defaultdict(list)
-    buckets2: dict = defaultdict(list)
+    buckets1: Dict = defaultdict(list)
+    buckets2: Dict = defaultdict(list)
     for e in L1:
         buckets1[soft_context_key(e)].append(e)
     for e in L2:
@@ -553,10 +569,11 @@ def _prefer_updates_pairing(
 
 
 def match_children_ignore_order(
-        list1: list[etree._Element],
-        list2: list[etree._Element],
+        list1: List[etree._Element],
+        list2: List[etree._Element],
 ):
-    """Yield (e1, e2) pairs matching elements from list1 against list2.
+    """
+    Yield (e1, e2) pairs matching elements from list1 against list2.
     Either side of a pair may be None, indicating an addition (None, e2)
     or deletion (e1, None).
 
@@ -596,7 +613,8 @@ def match_children_ignore_order(
 
     # --- Strategy 3: bucket then discriminate ---
     def primary_bucket_key(e: etree._Element) -> tuple:
-        """Coarse grouping key so that elements of the same general type are
+        """
+        Coarse grouping key so that elements of the same general type are
         compared against each other before falling back to position.
         """
         tk = narrative_table_key(e)
@@ -613,8 +631,8 @@ def match_children_ignore_order(
             return ("stable", sk)
         return ("tag", e.tag)
 
-    b1: dict = defaultdict(list)
-    b2: dict = defaultdict(list)
+    b1: Dict = defaultdict(list)
+    b2: Dict = defaultdict(list)
     for e in list1:
         b1[primary_bucket_key(e)].append(e)
     for e in list2:
@@ -658,8 +676,8 @@ def match_children_ignore_order(
                 continue
 
         # 3b. Secondary discriminator matching within the remaining bucket
-        d1: dict = defaultdict(list)
-        d2: dict = defaultdict(list)
+        d1: Dict = defaultdict(list)
+        d2: Dict = defaultdict(list)
         for e in L1:
             d1[secondary_discriminator(e)].append(e)
         for e in L2:
@@ -696,9 +714,10 @@ def copy_changed_values(
         out_elem: etree._Element,
         src_elem: etree._Element,
         changed_text: bool,
-        changed_attrs: set[str],
+        changed_attrs: Set[str],
 ):
-    """Copy only the changed text and attribute values from src_elem into out_elem.
+    """
+    Copy only the changed text and attribute values from src_elem into out_elem.
     Unchanged attributes are omitted; tail is always cleared.
     """
     out_elem.text = src_elem.text if changed_text else None
@@ -714,12 +733,13 @@ def copy_changed_values(
 # ---------------------------------------------------------------------------
 
 def diff_nodes(
-        e1: etree._Element | None,
-        e2: etree._Element | None,
+        e1: Optional[etree._Element],
+        e2: Optional[etree._Element],
         is_root: bool = False,
         root_nsmap=None,
-) -> tuple[etree._Element | None, etree._Element | None]:
-    """Recursively diff two elements and return a (before_out, after_out) pair
+) -> Tuple[Optional[etree._Element], Optional[etree._Element]]:
+    """
+    Recursively diff two elements and return a (before_out, after_out) pair
     containing only the portions that changed.
 
     Returns (None, None) when the subtrees are identical.
@@ -806,8 +826,9 @@ def _self_changed(n1: etree._Element, n2: etree._Element) -> bool:
 def collect_changes_and_markers(
         before_root: etree._Element,
         after_root: etree._Element,
-) -> tuple[list[ChangeWrap], list[DeleteAnchor]]:
-    """Walk the before/after tree pair and collect:
+) -> Tuple[List[ChangeWrap], List[DeleteAnchor]]:
+    """
+    Walk the before/after tree pair and collect:
       - added_after   : elements present only in the after tree
       - updated_pairs : elements present in both trees but with changed content,
                         mapping after_node → before_node
@@ -819,11 +840,11 @@ def collect_changes_and_markers(
     Returns (wraps, deduped_deletes) where wraps is a flat list of
     (type, after_node, before_node_or_None) tuples.
     """
-    added_after:   set[etree._Element]                   = set()
-    updated_pairs: dict[etree._Element, etree._Element]  = {}
-    deletes:       list[DeleteAnchor]                    = []
+    added_after:   Set[etree._Element]                   = set()
+    updated_pairs: Dict[etree._Element, etree._Element]  = {}
+    deletes:       List[DeleteAnchor]                    = []
 
-    def rec(n1: etree._Element | None, n2: etree._Element | None):
+    def rec(n1: Optional[etree._Element], n2: Optional[etree._Element]):
         if n1 is None and n2 is None:
             return
 
@@ -871,8 +892,9 @@ def collect_changes_and_markers(
     for node in list(added_after):
         updated_pairs.pop(node, None)
 
-    def prune_to_outermost(nodes: set[etree._Element]) -> set[etree._Element]:
-        """Remove any node whose ancestor is also in the set, keeping only the
+    def prune_to_outermost(nodes: Set[etree._Element]) -> Set[etree._Element]:
+        """
+        Remove any node whose ancestor is also in the set, keeping only the
         outermost (highest-level) changed nodes to avoid redundant wrapping.
         """
         result = set(nodes)
@@ -888,13 +910,13 @@ def collect_changes_and_markers(
     updated_after = prune_to_outermost(set(updated_pairs))
     updated_pairs = {a: b for a, b in updated_pairs.items() if a in updated_after}
 
-    wraps: list[ChangeWrap] = (
+    wraps: List[ChangeWrap] = (
             [("added",   a, None)                for a in added_after]
             + [("updated", a, updated_pairs.get(a)) for a in updated_after]
     )
 
-    seen: set[tuple] = set()
-    deduped_deletes: list[DeleteAnchor] = []
+    seen: Set[tuple] = set()
+    deduped_deletes: List[DeleteAnchor] = []
     for parent_after, ref_after, where, deleted_before in deletes:
         key = (
             id(parent_after),
@@ -913,8 +935,9 @@ def collect_changes_and_markers(
 # Index-path utilities
 # ---------------------------------------------------------------------------
 
-def index_path(node: etree._Element) -> tuple[int, ...]:
-    """Return the sequence of child indices from the document root down to node.
+def index_path(node: etree._Element) -> Tuple[int, ...]:
+    """
+    Return the sequence of child indices from the document root down to node.
     Used to relocate a node in a separately parsed tree with identical structure.
     """
     path = []
@@ -926,7 +949,7 @@ def index_path(node: etree._Element) -> tuple[int, ...]:
     return tuple(reversed(path))
 
 
-def node_by_index_path(root: etree._Element, path: tuple[int, ...]) -> etree._Element:
+def node_by_index_path(root: etree._Element, path: Tuple[int, ...]) -> etree._Element:
     """Walk root's children by the index sequence in path and return the result."""
     cur = root
     for idx in path:
@@ -939,11 +962,11 @@ def node_by_index_path(root: etree._Element, path: tuple[int, ...]) -> etree._El
 # ---------------------------------------------------------------------------
 
 def build_markers(
-        wraps: list[ChangeWrap],
-        deletes: list[DeleteAnchor],
-) -> list[Marker]:
+        wraps: List[ChangeWrap],
+        deletes: List[DeleteAnchor],
+) -> List[Marker]:
     """Convert collected change records into raw marker tuples."""
-    markers: list[Marker] = []
+    markers: List[Marker] = []
     for typ, after_node, _ in wraps:
         markers.append(("wrap", typ, after_node))
     for parent_after, ref_after, where, _ in deletes:
@@ -952,17 +975,18 @@ def build_markers(
 
 
 def remap_markers_to_fresh_tree(
-        markers: list[Marker],
+        markers: List[Marker],
         fresh_root: etree._Element,
-) -> list[Marker]:
-    """Translate marker node references from the original after-parse into the
+) -> List[Marker]:
+    """
+    Translate marker node references from the original after-parse into the
     equivalent nodes in a freshly parsed copy of the same document.
 
     This is necessary because placeholder insertion mutates the tree, which
     would corrupt index-based lookups if we used the original parse.
     Markers that cannot be remapped are silently dropped.
     """
-    remapped: list[Marker] = []
+    remapped: List[Marker] = []
     for m in markers:
         if m[0] == "wrap":
             _, typ, el = m
@@ -998,9 +1022,10 @@ def _is_ph_comment(node: Any, kind: str) -> bool:
 
 def _insert_placeholder_comments(
         after_root: etree._Element,
-        markers: list[Marker],
+        markers: List[Marker],
 ) -> None:
-    """Insert placeholder XML comments into after_root for each marker.
+    """
+    Insert placeholder XML comments into after_root for each marker.
 
     Wrap markers produce a start comment before the element and an end comment
     after it.  Delete markers produce a single comment at the position where the
@@ -1056,10 +1081,11 @@ def _insert_placeholder_comments(
 
 
 def _renumber_comments_in_document_order(after_root: etree._Element) -> None:
-    """Replace numeric UIDs in placeholder comments with human-readable ordinals
+    """
+    Replace numeric UIDs in placeholder comments with human-readable ordinals
     in document order.
     """
-    uid_order: list[int] = []
+    uid_order: List[int] = []
     for _, node in etree.iterwalk(after_root, events=("comment",)):
         txt   = node.text or ""
         parts = txt.split("|")
@@ -1102,7 +1128,7 @@ def _renumber_comments_in_document_order(after_root: etree._Element) -> None:
             node.text = f" Change {pos} of {total}: deleted "
 
 
-def apply_markers(after_root: etree._Element, markers: list[Marker]) -> None:
+def apply_markers(after_root: etree._Element, markers: List[Marker]) -> None:
     """Insert change marker comments into after_root and renumber them."""
     _insert_placeholder_comments(after_root, markers)
     _renumber_comments_in_document_order(after_root)
@@ -1112,7 +1138,7 @@ def apply_markers(after_root: etree._Element, markers: list[Marker]) -> None:
 # Human-readable xmlPath generation
 # ---------------------------------------------------------------------------
 
-def _stable_key_to_label(sk: tuple | None) -> str | None:
+def _stable_key_to_label(sk: Optional[tuple]) -> Optional[str]:
     """Convert a stable_key tuple into a concise human-readable bracket label."""
     if sk is None:
         return None
@@ -1150,7 +1176,8 @@ def stable_xml_path(
         elem: etree._Element,
         anchor: str = "ClinicalDocument",
 ) -> str:
-    """Return a stable, human-readable path string for elem.
+    """
+    Return a stable, human-readable path string for elem.
 
     Uses meaningful bracket labels derived from stable_key / narrative keys
     where available; falls back to positional [:N] notation otherwise.
@@ -1199,7 +1226,8 @@ def stable_xml_path(
 # ---------------------------------------------------------------------------
 
 def _xpath_literal(s: str) -> str:
-    """Wrap s in XPath-safe quotes.  Falls back to concat() when s contains both
+    """
+    Wrap s in XPath-safe quotes.  Falls back to concat() when s contains both
     single and double quotes.
     """
     if "'" not in s:
@@ -1229,11 +1257,12 @@ def _position_among_siblings(node: etree._Element) -> int:
         return 1
 
 
-def _effective_time_predicates(node: etree._Element) -> dict[str, str]:
-    """Return a dict of available effectiveTime component values for node.
+def _effective_time_predicates(node: etree._Element) -> Dict[str, str]:
+    """
+    Return a dict of available effectiveTime component values for node.
     Keys: "value", "low", "high", "center", "period_value", "period_unit".
     """
-    parts: dict[str, str] = {}
+    parts: Dict[str, str] = {}
 
     v = _xpath_attr(node, "./hl7:effectiveTime/@value")
     if v:
@@ -1265,13 +1294,14 @@ def xpath_with_predicates(
         elem: etree._Element,
         anchor: str = "ClinicalDocument",
 ) -> str:
-    """Return a machine-readable absolute XPath for elem using hl7: namespace prefix.
+    """
+    Return a machine-readable absolute XPath for elem using hl7: namespace prefix.
 
     Stable predicates (id, templateId, code, effectiveTime) are used where
     available; positional [N] predicates are used as a fallback.
     Stops ascending at the element whose local name matches `anchor`.
     """
-    steps: list[str] = []
+    steps: List[str] = []
     cur   = elem
 
     while cur is not None:
@@ -1282,7 +1312,7 @@ def xpath_with_predicates(
         ln     = localname(cur)
         qn     = etree.QName(cur.tag)
         tag_step = _pfx(ln) if qn.namespace == HL7_NS else ln
-        preds: list[str] = []
+        preds: List[str] = []
 
         if ln == "table":
             tk = narrative_table_key(cur)
@@ -1398,12 +1428,13 @@ def xpath_with_predicates(
 # Self-contained XML snippet serialization
 # ---------------------------------------------------------------------------
 
-def _used_namespaces(elem: etree._Element) -> set[str]:
-    """Return the set of namespace URIs actually referenced within elem's subtree —
+def _used_namespaces(elem: etree._Element) -> Set[str]:
+    """
+    Return the set of namespace URIs actually referenced within elem's subtree —
     either as element namespaces or as attribute namespaces (xsi:type, sdtc:valueSet, …).
     Only referenced namespaces need to appear in the snippet's xmlns declarations.
     """
-    used: set[str] = set()
+    used: Set[str] = set()
     for node in elem.iter():
         if not isinstance(node.tag, str):
             continue
@@ -1417,7 +1448,8 @@ def _used_namespaces(elem: etree._Element) -> set[str]:
 
 
 def _snippet_nsmap(elem: etree._Element) -> dict:
-    """Build a minimal namespace map for a self-contained XML snippet.
+    """
+    Build a minimal namespace map for a self-contained XML snippet.
 
     Handles the common CDA pattern of declaring urn:hl7-org:v3 twice —
     once as the default namespace (xmlns=) and once as a named prefix
@@ -1447,7 +1479,8 @@ def _snippet_nsmap(elem: etree._Element) -> dict:
 
 
 def xml_string(elem: etree._Element) -> str:
-    """Serialize elem to a self-contained, namespace-correct XML string.
+    """
+    Serialize elem to a self-contained, namespace-correct XML string.
 
     Elements extracted from within a CDA document inherit their namespace
     declarations from ancestor elements, so a plain etree.tostring() produces
@@ -1475,7 +1508,7 @@ def xml_string(elem: etree._Element) -> str:
 # JSON output
 # ---------------------------------------------------------------------------
 
-def get_doc_metadata(root: etree._Element) -> tuple[str, str, str]:
+def get_doc_metadata(root: etree._Element) -> Tuple[str, str, str]:
     """Extract setId, clinicalDocumentId, and versionNumber from the document root."""
     set_id  = root.xpath("string(hl7:setId/@root)",          namespaces=NS) or ""
     doc_id  = root.xpath("string(hl7:id/@root)",             namespaces=NS) or ""
@@ -1486,8 +1519,8 @@ def get_doc_metadata(root: etree._Element) -> tuple[str, str, str]:
 def write_changes_json(
         out_path: str,
         after_root: etree._Element,
-        wraps: list[ChangeWrap],
-        deletes: list[DeleteAnchor],
+        wraps: List[ChangeWrap],
+        deletes: List[DeleteAnchor],
         did_change: bool,
 ) -> None:
     """Write the changes summary to a JSON file at out_path."""
