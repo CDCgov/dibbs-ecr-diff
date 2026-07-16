@@ -5,6 +5,9 @@ services:
       dockerfile: ./docker/lambda.Dockerfile
     ports:
       - "${LAMBDA_HOST_PORT:-9000}:8080"
+    volumes:
+      - ./packages/core/src/core:/var/task/core:ro
+      - ./packages/lambda/src/lambda:/var/task/app:ro
     environment:
       - VERSION=local
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
@@ -16,22 +19,18 @@ services:
     restart: unless-stopped
     develop:
       watch:
-        # rebuild image when there are changes to core or lambda packages
-        - action: rebuild
-          path: ./packages/core
-          ignore:
-            - test
-        - action: rebuild
-          path: ./packages/lambda
-          ignore:
-            - test
+        # restart lambda to reload changes from the mounted source packages
+        - action: restart
+          path: ./packages/core/src/core
+        - action: restart
+          path: ./packages/lambda/src/lambda
         # rebuild the image if dependencies change by checking uv.lock
         - action: rebuild
           path: ./uv.lock
 
   localstack:
-    image: docker.io/localstack/localstack:community-archive
-    # image: docker.io/floci/floci:latest-compat
+    # image: docker.io/localstack/localstack:community-archive
+    image: docker.io/floci/floci:latest-compat
     ports:
       - "${LOCALSTACK_HOST_PORT:-4566}:4566"
     environment:
@@ -41,11 +40,12 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
     volumes:
-      - localstack-data:/var/lib/localstack
-      # - localstack-data:/app/data
-      - ./docker/s3-init.sh:/etc/localstack/init/ready.d/10-s3-init.sh
-      - ./docker/dynamodb-init.sh:/etc/localstack/init/ready.d/20-dynamodb-init.sh
-      - /var/run/docker.sock:/var/run/docker.sock
+      # - localstack-data:/var/lib/localstack
+      - localstack-data:/app/data
+      # - ./docker/s3-init.sh:/etc/localstack/init/ready.d/10-s3-init.sh
+      - ./docker/localstack-init.py:/etc/localstack/init/ready.d/10-localstack-init.py
+      # - ./docker/dynamodb-init.sh:/etc/localstack/init/ready.d/20-dynamodb-init.sh
+      # - /var/run/docker.sock:/var/run/docker.sock
 
   queue-poller:
     image: ghcr.io/astral-sh/uv:python3.14-alpine
