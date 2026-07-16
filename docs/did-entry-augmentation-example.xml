@@ -1,0 +1,39 @@
+<component>
+    <observation classCode="OBS" moodCode="EVN">
+        <templateId root="2.16.840.1.113883.10.20.22.4.2" />
+        <templateId extension="2015-08-01" root="2.16.840.1.113883.10.20.22.4.2" />
+        <templateId extension="2016-12-01" root="2.16.840.1.113883.10.20.15.2.3.2" />
+        <id root="9890e2c3-019a-4168-8403-a0a069994440" />
+        <code code="94310-0" codeSystem="2.16.840.1.113883.6.1"
+              codeSystemName="LOINC"
+              displayName="SARS-like Coronavirus N gene [Presence] in Unspecified specimen by NAA with probe detection"
+              sdtc:valueSet="2.16.840.1.114222.4.11.7508"
+              sdtc:valueSetVersion="20200429" xsi:type="CD" />
+        <statusCode code="completed" />
+        <effectiveTime value="20250205" />
+        <value code="260373001" codeSystem="2.16.840.1.113883.6.96"
+               codeSystemName="SNOMED-CT" displayName="Detected (qualifier value)"
+               xsi:type="CD" />
+        <author>
+            <!-- DATA AUGMENTATION: functionCode specifies type of change
+                 "added" which signifies that the containing element has been
+                 added since the previous version of the document -->
+            <functionCode code="added" codeSystem="2.16.840.1.113883.10.20.15.2.7.1"
+                          codeSystemName="eCRDataAugmentation" />
+            <!-- DATA AUGMENTATION: <time of data augmentation operation> -->
+            <time value="20260507103000-0500" />
+            <assignedAuthor>
+                <!-- DATA AUGMENTATION: set to nullFlavor 'NA' -->
+                <id nullFlavor="NA" />
+                <!-- DATA AUGMENTATION: set to nullFlavor 'NA' -->
+                <addr nullFlavor="NA" />
+                <!-- DATA AUGMENTATION: set to nullFlavor 'NA' -->
+                <telecom nullFlavor="NA" />
+                <!-- DATA AUGMENTATION: set to 'Data Augmentation Tool' -->
+                <assignedAuthoringDevice>
+                    <manufacturerModelName displayName="Data Augmentation Tool" />
+                </assignedAuthoringDevice>
+            </assignedAuthor>
+        </author>
+    </observation>
+</component>
