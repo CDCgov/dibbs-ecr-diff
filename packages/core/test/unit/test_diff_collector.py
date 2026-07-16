@@ -13,7 +13,7 @@ from core.cda.tags import (
     TEMPLATE_ID_TAG,
 )
 from core.diff_collector import (
-    _fingerprint_excluding_version_metadata,
+    _equivalent_excluding_version_metadata,
     collect_additions_updates_deletes,
 )
 from helpers import HL7_NS, elem
@@ -373,9 +373,7 @@ def test_fingerprint_excluding_version_metadata_ignores_document_version_metadat
         """
     )
 
-    assert _fingerprint_excluding_version_metadata(
-        before_root
-    ) == _fingerprint_excluding_version_metadata(after_root)
+    assert _equivalent_excluding_version_metadata(before_root, after_root)
 
 
 def test_fingerprint_excluding_version_metadata_includes_nested_observation_id():
@@ -408,9 +406,7 @@ def test_fingerprint_excluding_version_metadata_includes_nested_observation_id()
         """
     )
 
-    assert _fingerprint_excluding_version_metadata(
-        before_root
-    ) != _fingerprint_excluding_version_metadata(after_root)
+    assert _equivalent_excluding_version_metadata(before_root, after_root)
 
 
 def test_clinical_statement_effective_time_is_not_ignored_by_diff():

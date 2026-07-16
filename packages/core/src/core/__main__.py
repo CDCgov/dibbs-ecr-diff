@@ -11,10 +11,7 @@ import argparse
 
 from lxml import etree
 
-from core.diff_collector import (
-    _fingerprint_excluding_version_metadata,
-    collect_additions_updates_deletes,
-)
+from core.diff_collector import collect_additions_updates_deletes
 from core.json_output import write_changes_json
 
 
@@ -47,20 +44,6 @@ def main() -> None:
     after_tree = etree.parse(args.file2, xml_parser)
     before_root = before_tree.getroot()
     after_root = after_tree.getroot()
-
-    if _fingerprint_excluding_version_metadata(
-        before_root
-    ) == _fingerprint_excluding_version_metadata(after_root):
-        write_changes_json(
-            args.output,
-            after_root,
-            added=[],
-            updated=[],
-            deleted=[],
-            did_change=False,
-        )
-        print(f"No changes detected. Wrote:\n  {args.output}")
-        return
 
     added, updated, deleted = collect_additions_updates_deletes(before_root, after_root)
     did_change = bool(added or updated or deleted)
