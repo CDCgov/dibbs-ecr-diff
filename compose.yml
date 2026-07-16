@@ -52,7 +52,9 @@ services:
     command: uv run /app/local-sqs-poller.py
     volumes:
       - ./docker/local-sqs-poller.py:/app/local-sqs-poller.py:ro
+      - queue-poller-cache:/root/.cache/uv
     environment:
+      - UV_CACHE_DIR=/root/.cache/uv
       - AWS_ENDPOINT_URL=http://localstack:4566
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
@@ -66,3 +68,4 @@ services:
 
 volumes:
   localstack-data:
+  queue-poller-cache:
