@@ -1,0 +1,220 @@
+const fs = require("fs");
+
+/**
+ * Parse Trivy scan results and count vulnerabilities
+ */
+function parseScanResults(images) {
+  let totalCritical = 0;
+  let totalHigh = 0;
+  let totalMedium = 0;
+  let totalLow = 0;
+  const imageResults = [];
+
+  for (const image of images) {
+    try {
+      const results = JSON.parse(
+        fs.readFileSync(`trivy-${image}-results.json`, "utf8"),
+      );
+
+      let imageCritical = 0,
+        imageHigh = 0,
+        imageMedium = 0,
+        imageLow = 0;
+
+      if (results.Results) {
+        for (const result of results.Results) {
+          if (result.Vulnerabilities) {
+            for (const vuln of result.Vulnerabilities) {
+              switch (vuln.Severity) {
+                case "CRITICAL":
+                  imageCritical++;
+                  break;
+                case "HIGH":
+                  imageHigh++;
+                  break;
+                case "MEDIUM":
+                  imageMedium++;
+                  break;
+                case "LOW":
+                  imageLow++;
+                  break;
+              }
+            }
+          }
+        }
+      }
+
+      totalCritical += imageCritical;
+      totalHigh += imageHigh;
+      totalMedium += imageMedium;
+      totalLow += imageLow;
+
+      imageResults.push({
+        name: image,
+        critical: imageCritical,
+        high: imageHigh,
+        medium: imageMedium,
+        low: imageLow,
+        total: imageCritical + imageHigh + imageMedium + imageLow,
+        vulnerabilities:
+          results.Results?.flatMap((r) => r.Vulnerabilities ?? []) ?? [],
+      });
+    } catch (error) {
+      console.error(`Error parsing ${image}:`, error);
+      imageResults.push({
+        name: image,
+        error: true,
+        errorMessage: error.message,
+      });
+    }
+  }
+
+  return {
+    totalCritical,
+    totalHigh,
+    totalMedium,
+    totalLow,
+    totalVulns: totalCritical + totalHigh + totalMedium + totalLow,
+    imageResults,
+  };
+}
+
+/**
+ * Format results as GitHub markdown comment
+ */
+function formatGitHubComment(scanResults, repoOwner, repoName) {
+  const {
+    totalCritical,
+    totalHigh,
+    totalMedium,
+    totalLow,
+    totalVulns,
+    imageResults,
+  } = scanResults;
+
+  let message = `## 🔒 Security Scan Results\n\n`;
+  const errors = imageResults.filter((result) => result.error);
+
+  if (errors.length) {
+    message += `### ⚠ Scan incomplete: failed to parse ${errors.length} Trivy result(s).\n\n`
+  }
+
+  // Summary at the top
+  if (totalVulns > 0) {
+    message += `### ⚠️ Found ${totalVulns} vulnerabilities\n\n`;
+    message += `| Severity | Total |\n|----------|-------|\n`;
+    if (totalCritical > 0) message += `| 🔴 Critical | ${totalCritical} |\n`;
+    if (totalHigh > 0) message += `| 🟠 High | ${totalHigh} |\n`;
+    if (totalMedium > 0) message += `| 🟡 Medium | ${totalMedium} |\n`;
+    if (totalLow > 0) message += `| ⚪ Low | ${totalLow} |\n`;
+    message += `\n`;
+  } else if (!errors.length) {
+    message += `### ✅ No vulnerabilities found!\n\n`;
+  }
+
+  // Per-image breakdown
+  for (const result of imageResults) {
+    message += `### 📦 ${result.name}\n\n`;
+
+    if (result.error) {
+      message += `⚠️ Could not parse results for ${result.name}\n\n`;
+    } else if (result.total === 0) {
+      message += `✅ **No vulnerabilities found**\n\n`;
+    } else {
+      message += `| Severity | Count |\n|----------|-------|\n`;
+      if (result.critical > 0)
+        message += `| 🔴 Critical | ${result.critical} |\n`;
+      if (result.high > 0) message += `| 🟠 High | ${result.high} |\n`;
+      if (result.medium > 0) message += `| 🟡 Medium | ${result.medium} |\n`;
+      if (result.low > 0) message += `| ⚪ Low | ${result.low} |\n`;
+      message += `\n`;
+    }
+  }
+
+  message += `\n---\n`;
+  message += `**View detailed results**: [Security tab](https://github.com/${repoOwner}/${repoName}/security/code-scanning)\n`;
+  message += `*Last updated: ${new Date()
+    .toISOString()
+    .replace("T", " ")
+    .replace(/\.\d{3}Z$/, " UTC")}*`;
+
+  return message;
+}
+
+/**
+ * Post or update PR comment
+ */
+async function postGitHubComment(github, context, message) {
+  const prNumber = context.payload.pull_request?.number;
+
+  if (!prNumber) {
+    console.log("Not a PR, skipping GitHub comment");
+    return;
+  }
+
+  const comments = await github.rest.issues.listComments({
+    issue_number: prNumber,
+    owner: context.repo.owner,
+    repo: context.repo.repo,
+  });
+
+  const botComment = comments.data.find(
+    (comment) =>
+      comment.user.login === "github-actions[bot]" &&
+      comment.body.includes("Security Scan Results"),
+  );
+
+  if (botComment) {
+    await github.rest.issues.updateComment({
+      comment_id: botComment.id,
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      body: message,
+    });
+    console.log("Updated existing security scan comment");
+  } else {
+    await github.rest.issues.createComment({
+      issue_number: prNumber,
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      body: message,
+    });
+    console.log("Created new security scan comment");
+  }
+}
+
+/**
+ * For PR scans - posts comment to PR
+ */
+async function generatePRSummary(github, context, core, images = [], isLocalActRun = false) {
+  if (!images.length) return; // no images to generate results for
+
+  // Parse all scan results
+  const scanResults = parseScanResults(images);
+
+  const message = formatGitHubComment(
+    scanResults,
+    context.repo.owner,
+    context.repo.repo,
+  );
+
+  if (isLocalActRun) {
+    // log the message
+    core.info(message);
+    return;
+  }
+
+  // Warn if critical or high vulnerabilities found
+  if (scanResults.totalCritical > 0 || scanResults.totalHigh > 0) {
+    core.warning(
+      `Found ${scanResults.totalCritical} critical and ${scanResults.totalHigh} high severity vulnerabilities`,
+    );
+  }
+
+  // Post GitHub comment
+  await postGitHubComment(github, context, message);
+}
+
+module.exports = {
+  generatePRSummary
+};
