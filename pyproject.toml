@@ -43,6 +43,9 @@ root = [
     "packages/lambda/test"
 ]
 
+[tool.ruff]
+exclude = ["prototype"]
+
 [tool.ruff.lint]
 # rule selection with comments for clarity
 extend-select = [
@@ -94,6 +97,7 @@ ignore = [
     "D100",   # undocumented-public-module
     "E501",   # line-too-long - Handled by formatter
     "RET504", # unnecessary-assign
+    "D212",   # multi-line-summary-first-line
 ]
 
 # file-specific rule exclusions

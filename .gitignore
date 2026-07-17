@@ -45,6 +45,8 @@ coverage.xml
 .vscode/*.code-workspace
 .exrc
 .idea
+.gram
+.zed
 
 # macOS
 **/.DS_Store
