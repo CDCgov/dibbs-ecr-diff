@@ -72,7 +72,7 @@ sqs.set_queue_attributes(
     Attributes={"Policy": json.dumps(queue_policy)},
 )
 
-# set configuration that specifies: when s3 objects are created, send to SQS
+# set configuration that specifies: when .json files are PUT in DIDInput/, send to SQS
 # https://docs.aws.amazon.com/AmazonS3/latest/API/API_QueueConfiguration.html
 s3.put_bucket_notification_configuration(
     Bucket=INPUT_BUCKET,
@@ -81,14 +81,19 @@ s3.put_bucket_notification_configuration(
             {
                 "Id": "SendObjectCreatedEventsToSqs",
                 "QueueArn": queue_arn,
-                "Events": ["s3:ObjectCreated:*"],
+                "Events": ["s3:ObjectCreated:Put"],
+                "Filter": {
+                    "Key": {
+                        "FilterRules": [
+                            {"Name": "prefix", "Value": "DIDInput/"},
+                            {"Name": "suffix", "Value": ".json"},
+                        ]
+                    }
+                },
             }
         ]
     },
 )
-
-# TODO: will APHL use EventBridge? will the flow be s3 -> eventbridge -> sqs?
-# or directly s3 -> sqs?
 
 # create `did-eicr-record` table
 try:
