@@ -87,6 +87,9 @@ s3.put_bucket_notification_configuration(
     },
 )
 
+# TODO: will APHL use EventBridge? will the flow be s3 -> eventbridge -> sqs?
+# or directly s3 -> sqs?
+
 # create `did-eicr-record` table
 try:
     dynamodb.describe_table(TableName=TABLE_NAME)
