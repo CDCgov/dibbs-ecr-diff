@@ -3,10 +3,15 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from uuid import UUID
 
 from lxml import etree
 
-from .constants import NAMESPACES
+from .constants import (
+    DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
+    DEFAULT_ACTIONABLE_RULE_ID,
+    NAMESPACES,
+)
 from .diff_collector import collect_additions_updates_deletes
 from .models import (
     Change,
@@ -18,6 +23,7 @@ from .models import (
     Document,
     RuleConfig,
 )
+from .paths import xpath_with_predicates
 from .performance import measure_time
 
 
@@ -29,6 +35,8 @@ class WatchedNode:
     tag: str
     xpath: str
     rule_name: str
+    rule_id: UUID
+    origin_node: etree._Element
     origin_node: etree._Element | None = None
 
     @property
@@ -59,7 +67,11 @@ def build_cache(elem: etree._ElementTree, rules: list[RuleConfig]) -> NodeCache:
 
                 for val in vals:
                     nodes[val] = WatchedNode(
-                        node=val, tag=str(val.tag), xpath=xpath, rule_name=rule.name
+                        node=val,
+                        tag=str(val.tag),
+                        xpath=xpath,
+                        rule_name=rule.name,
+                        rule_id=rule.id,
                     )
     return nodes
 
@@ -119,9 +131,10 @@ def _process_additions(
                 changes.append(
                     Change(
                         changeType=ChangeType.ADDED,
-                        xpath=match.xpath,
+                        xpath=xpath_with_predicates(after),
                         xPathDocumentId=current_document.documentId,
                         isActionable=True,
+                        actionabilityRuleId=match.rule_id,
                         actionabilityRuleDisplayName=match.rule_name,
                     )
                 )
@@ -131,9 +144,11 @@ def _process_additions(
             changes.append(
                 Change(
                     changeType=ChangeType.ADDED,
-                    xpath=after.getroottree().getpath(after),
+                    xpath=xpath_with_predicates(after),
                     xPathDocumentId=current_document.documentId,
                     isActionable=True,
+                    actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
+                    actionabilityRuleDisplayName=(DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME),
                 )
             )
     return changes
@@ -161,9 +176,10 @@ def _process_updates(
                 changes.append(
                     Change(
                         changeType=ChangeType.UPDATED,
-                        xpath=match.xpath,
+                        xpath=xpath_with_predicates(after),
                         xPathDocumentId=current_document.documentId,
                         isActionable=True,
+                        actionabilityRuleId=match.rule_id,
                         actionabilityRuleDisplayName=match.rule_name,
                     )
                 )
@@ -175,9 +191,11 @@ def _process_updates(
             changes.append(
                 Change(
                     changeType=ChangeType.UPDATED,
-                    xpath=after.getroottree().getpath(after),
+                    xpath=xpath_with_predicates(after),
                     xPathDocumentId=current_document.documentId,
                     isActionable=True,
+                    actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
+                    actionabilityRuleDisplayName=(DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME),
                 )
             )
     return changes
@@ -203,9 +221,10 @@ def _process_deletions(
                 changes.append(
                     Change(
                         changeType=ChangeType.DELETED,
-                        xpath=match.xpath,
+                        xpath=xpath_with_predicates(before),
                         xPathDocumentId=previous_document.documentId,
                         isActionable=True,
+                        actionabilityRuleId=match.rule_id,
                         actionabilityRuleDisplayName=match.rule_name,
                     )
                 )
@@ -215,9 +234,11 @@ def _process_deletions(
             changes.append(
                 Change(
                     changeType=ChangeType.DELETED,
-                    xpath=before.getroottree().getpath(before),
+                    xpath=xpath_with_predicates(before),
                     xPathDocumentId=previous_document.documentId,
                     isActionable=True,
+                    actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
+                    actionabilityRuleDisplayName=(DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME),
                 )
             )
     return changes

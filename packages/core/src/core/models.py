@@ -38,7 +38,7 @@ class Change(BaseModel):
     isActionable: bool = (
         True  # TODO: Replace placeholders once configurations implemented
     )
-    actionabilityRuleId: str = "00000000-0000-0000-0000-000000000000"
+    actionabilityRuleId: UUID
     actionabilityRuleDisplayName: str = "placeholder"
 
 

@@ -48,6 +48,11 @@ APHL uses the diff to decide whether to send the new eICR to the receiving juris
 | `actionabilityRuleId` | string | Yes | UUID of the rule or default behavior that determined `isActionable`. Default behaviors (watch-all, ignore-all) also have reserved UUIDs. |
 | `actionabilityRuleDisplayName` | string | Optional | Human-readable name of the rule or default behavior. |
 
+The reserved rule UUID for the default behavior that makes unmatched changes
+actionable under an `IGNORE_LIST` configuration is
+`b3bdf60f-e22a-4467-8e1d-c8d4df7c8df0` (display name:
+`Default: actionable when no ignore rule matches`).
+
 #### XPath Document Id
 
 - For `added` and `updated` changes, `xPath` resolves against the current document. `xPathDocumentId` equals the value of `currentDocument.documentId`.
