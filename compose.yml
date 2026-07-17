@@ -48,7 +48,7 @@ services:
       # - /var/run/docker.sock:/var/run/docker.sock
 
   queue-poller:
-    image: ghcr.io/astral-sh/uv:python3.14-alpine
+    image: ghcr.io/astral-sh/uv:0.11-python3.14-alpine
     command: uv run /app/local-sqs-poller.py
     volumes:
       - ./docker/local-sqs-poller.py:/app/local-sqs-poller.py:ro

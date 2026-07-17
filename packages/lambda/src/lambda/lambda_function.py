@@ -5,6 +5,7 @@ from aws_lambda_powertools.utilities.typing import LambdaContext
 # https://docs.aws.amazon.com/powertools/python/latest/utilities/data_classes/
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
     """Main Lambda handler function."""
+    print(event)
     try:
         return {
             "statusCode": 200,
