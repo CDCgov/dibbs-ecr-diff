@@ -1,6 +1,7 @@
 services:
   structurizr:
     image: structurizr/structurizr:latest
+    user: "${STRUCTURIZR_UID:-1000}:${STRUCTURIZR_GID:-1000}"
     volumes:
       -  ./:/usr/local/structurizr
     ports:

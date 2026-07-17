@@ -1,0 +1,26 @@
+# Git and tooling
+.git
+.github
+.justscripts
+.vscode
+
+# Local environment and secrets
+.venv
+.env
+.env.*
+
+# Python caches and output
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.ruff_cache
+*.egg-info
+build
+dist
+.coverage
+coverage.xml
+
+# Not used by this image
+docs
+prototype
+packages/cli
