@@ -36,7 +36,6 @@ class WatchedNode:
     xpath: str
     rule_name: str
     rule_id: UUID
-    origin_node: etree._Element
     origin_node: etree._Element | None = None
 
     @property
@@ -76,7 +75,7 @@ def build_cache(elem: etree._ElementTree, rules: list[RuleConfig]) -> NodeCache:
     return nodes
 
 
-def matching_nodes(
+def nodes_in_cache(
     origin_node: etree._Element, nodes: Iterable[etree._Element], cache: NodeCache
 ) -> list[WatchedNode]:
     """Generic method for collecting all matched nodes from a cache."""
@@ -88,18 +87,17 @@ def matching_nodes(
             if cached.node is not origin_node:
                 cached.origin_node = origin_node
             matches.append(cached)
-
     return matches
 
 
-def matching_ancestry(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
+def cached_ancestry(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
     """Collect node and all ancestor matches."""
-    return matching_nodes(node, node.iterancestors(), cache)
+    return nodes_in_cache(node, node.iterancestors(), cache)
 
 
-def matching_subtree(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
+def cached_subtree(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
     """Collect node and all descendant matches."""
-    return matching_nodes(node, node.iterdescendants(), cache)
+    return nodes_in_cache(node, node.iterdescendants(), cache)
 
 
 def _get_document_metadata(root: etree._Element) -> Document:
@@ -127,7 +125,7 @@ def _process_additions(
     changes: list[Change] = []
     for after in added:
         if mode == DiffMode.WATCH_LIST:
-            for match in matching_subtree(after, right_cache):
+            for match in cached_subtree(after, right_cache):
                 changes.append(
                     Change(
                         changeType=ChangeType.ADDED,
@@ -139,7 +137,7 @@ def _process_additions(
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
-            if matching_ancestry(after, right_cache):
+            if cached_ancestry(after, right_cache):
                 continue
             changes.append(
                 Change(
@@ -172,7 +170,7 @@ def _process_updates(
     changes: list[Change] = []
     for before, after in updated:
         if mode == DiffMode.WATCH_LIST:
-            for match in matching_ancestry(after, right_cache):
+            for match in cached_ancestry(after, right_cache):
                 changes.append(
                     Change(
                         changeType=ChangeType.UPDATED,
@@ -184,7 +182,7 @@ def _process_updates(
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
-            if matching_ancestry(before, left_cache) or matching_ancestry(
+            if cached_ancestry(before, left_cache) or cached_ancestry(
                 after, right_cache
             ):
                 continue
@@ -217,7 +215,7 @@ def _process_deletions(
     changes: list[Change] = []
     for before in deleted:
         if mode == DiffMode.WATCH_LIST:
-            for match in matching_subtree(before, left_cache):
+            for match in cached_subtree(before, left_cache):
                 changes.append(
                     Change(
                         changeType=ChangeType.DELETED,
@@ -229,7 +227,7 @@ def _process_deletions(
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
-            if matching_ancestry(before, left_cache):
+            if cached_ancestry(before, left_cache):
                 continue
             changes.append(
                 Change(
