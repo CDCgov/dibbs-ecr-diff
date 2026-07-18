@@ -96,6 +96,7 @@ s3.put_bucket_notification_configuration(
 )
 
 # create `did-eicr-record` table
+# try describe_table to check if it exists, on error (it doesn't exist), create the table
 try:
     dynamodb.describe_table(TableName=TABLE_NAME)
 except dynamodb.exceptions.ResourceNotFoundException:

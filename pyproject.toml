@@ -26,7 +26,7 @@ core = { workspace = true }
 include = [
     "packages/cli/src",
     "packages/core/src",
-    "packages/lambda/src"
+    "packages/diff_lambda/src"
 ]
 
 [tool.ty.environment]
@@ -35,12 +35,12 @@ root = [
     # src directories
     "packages/cli/src",
     "packages/core/src",
-    "packages/lambda/src",
+    "packages/diff_lambda/src",
 
     # test directories
     "packages/cli/test",
     "packages/core/test",
-    "packages/lambda/test"
+    "packages/diff_lambda/test"
 ]
 
 [tool.ruff.lint]

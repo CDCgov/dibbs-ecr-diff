@@ -1,0 +1,35 @@
+Example 1:
+{
+    "Files" : [
+        {
+            "eicr": "RefinerOutputV2/{persistence_id}/SDDH/COVID19/refined_eICR.xml",
+            "rr": "RefinerOutputV2/{persistence_id}/SDDH/COVID19/refined_RR.xml",
+            "setid":"xyz",
+            "version":123
+        },
+        {
+            "eicr": "RefinerOutputV2/{persistence_id}/SDDH/COVID19/refined_eICR.xml",
+            "rr": "RefinerOutputV2/{persistence_id}/SDDH/COVID19/refined_RR.xml",
+            "setid":"xyz",
+            "version":123
+        }
+    ]
+}
+
+Example 2:
+{
+    "Files" : [
+        {
+            "eicr": "eICRMessageV2/{persistence_id}/SDDH/COVID19/refined_eICR.xml",
+            "rr": "eICRMessageV2/{persistence_id}/SDDH/COVID19/refined_RR.xml",
+            "setid":"xyz",
+            "version":123
+        },
+        {
+            "eicr": "eICRMessageV2/{persistence_id}/SDDH/COVID19/refined_eICR.xml",
+            "rr": "eICRMessageV2/{persistence_id}/SDDH/COVID19/refined_RR.xml",
+            "setid":"xyz",
+            "version":123
+        }
+    ]
+}

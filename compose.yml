@@ -1,5 +1,5 @@
 services:
-  lambda:
+  diff_lambda:
     build:
       context: .
       dockerfile: ./docker/lambda.Dockerfile
@@ -7,7 +7,7 @@ services:
       - "${LAMBDA_HOST_PORT:-9000}:8080"
     volumes:
       - ./packages/core/src/core:/var/task/core:ro
-      - ./packages/lambda/src/lambda:/var/task/app:ro
+      - ./packages/diff_lambda/src/diff_lambda:/var/task/app:ro
     environment:
       - VERSION=local
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
@@ -23,7 +23,7 @@ services:
         - action: restart
           path: ./packages/core/src/core
         - action: restart
-          path: ./packages/lambda/src/lambda
+          path: ./packages/diff_lambda/src/diff_lambda
         # rebuild the image if dependencies change by checking uv.lock
         - action: rebuild
           path: ./uv.lock
@@ -60,10 +60,10 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
       - QUEUE_URL=http://localstack:4566/000000000000/did-eicr-events
-      - LAMBDA_URL=http://lambda:8080/2015-03-31/functions/function/invocations
+      - LAMBDA_URL=http://diff_lambda:8080/2015-03-31/functions/function/invocations
     depends_on:
       - localstack
-      - lambda
+      - diff_lambda
     restart: unless-stopped
 
 volumes:
