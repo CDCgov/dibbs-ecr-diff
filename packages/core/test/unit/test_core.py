@@ -40,7 +40,7 @@ def assert_change(
 ) -> None:
     assert change.changeType == change_type
     assert change.xpath == xpath_with_predicates(node)
-    assert change.xPathDocumentId == document_id
+    assert change.xpathDocumentId == document_id
     assert change.isActionable is True
     assert change.actionabilityRuleId == rule_id
     assert change.actionabilityRuleDisplayName == rule_name

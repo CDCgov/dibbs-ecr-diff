@@ -34,7 +34,7 @@ class Change(BaseModel):
 
     changeType: ChangeType
     xpath: str
-    xPathDocumentId: str
+    xpathDocumentId: str
     isActionable: bool = (
         True  # TODO: Replace placeholders once configurations implemented
     )

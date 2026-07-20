@@ -120,7 +120,7 @@ def _process_additions(
     In WATCH_LIST mode, emits one change per rule match found within each
     added node's subtree. In IGNORE_LIST mode, emits one change per added
     node, skipping any node under an ignored ancestor. Added nodes live in
-    the new tree, so xPathDocumentId is taken from ``current_document``.
+    the new tree, so xpathDocumentId is taken from ``current_document``.
     """
     changes: list[Change] = []
     for after in added:
@@ -130,7 +130,7 @@ def _process_additions(
                     Change(
                         changeType=ChangeType.ADDED,
                         xpath=xpath_with_predicates(after),
-                        xPathDocumentId=current_document.documentId,
+                        xpathDocumentId=current_document.documentId,
                         isActionable=True,
                         actionabilityRuleId=match.rule_id,
                         actionabilityRuleDisplayName=match.rule_name,
@@ -143,7 +143,7 @@ def _process_additions(
                 Change(
                     changeType=ChangeType.ADDED,
                     xpath=xpath_with_predicates(after),
-                    xPathDocumentId=current_document.documentId,
+                    xpathDocumentId=current_document.documentId,
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
                     actionabilityRuleDisplayName=(DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME),
@@ -164,7 +164,7 @@ def _process_updates(
     Each item in ``updated`` is a (before, after) pair. In WATCH_LIST mode,
     emits one change per rule match in the updated node's ancestry. In
     IGNORE_LIST mode, emits one change per updated node, skipping nodes that
-    are ignored in either the old or new tree. xPathDocumentId is taken from
+    are ignored in either the old or new tree. xpathDocumentId is taken from
     ``current_document``.
     """
     changes: list[Change] = []
@@ -175,7 +175,7 @@ def _process_updates(
                     Change(
                         changeType=ChangeType.UPDATED,
                         xpath=xpath_with_predicates(after),
-                        xPathDocumentId=current_document.documentId,
+                        xpathDocumentId=current_document.documentId,
                         isActionable=True,
                         actionabilityRuleId=match.rule_id,
                         actionabilityRuleDisplayName=match.rule_name,
@@ -190,7 +190,7 @@ def _process_updates(
                 Change(
                     changeType=ChangeType.UPDATED,
                     xpath=xpath_with_predicates(after),
-                    xPathDocumentId=current_document.documentId,
+                    xpathDocumentId=current_document.documentId,
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
                     actionabilityRuleDisplayName=(DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME),
@@ -210,7 +210,7 @@ def _process_deletions(
     In WATCH_LIST mode, emits one change per rule match found within each
     deleted node's subtree. In IGNORE_LIST mode, emits one change per deleted
     node, skipping any node under an ignored ancestor. Deleted nodes live in
-    the old tree, so xPathDocumentId is taken from ``previous_document``.
+    the old tree, so xpathDocumentId is taken from ``previous_document``.
     """
     changes: list[Change] = []
     for before in deleted:
@@ -220,7 +220,7 @@ def _process_deletions(
                     Change(
                         changeType=ChangeType.DELETED,
                         xpath=xpath_with_predicates(before),
-                        xPathDocumentId=previous_document.documentId,
+                        xpathDocumentId=previous_document.documentId,
                         isActionable=True,
                         actionabilityRuleId=match.rule_id,
                         actionabilityRuleDisplayName=match.rule_name,
@@ -233,7 +233,7 @@ def _process_deletions(
                 Change(
                     changeType=ChangeType.DELETED,
                     xpath=xpath_with_predicates(before),
-                    xPathDocumentId=previous_document.documentId,
+                    xpathDocumentId=previous_document.documentId,
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
                     actionabilityRuleDisplayName=(DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME),

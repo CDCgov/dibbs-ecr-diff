@@ -84,7 +84,7 @@ actionable under an `IGNORE_LIST` configuration is
     {
       "changeType": "updated",
       "xpath": "/ClinicalDocument/recordTarget/patientRole/patient/birthTime/@value",
-      "xPathDocumentId": "db734647-fc99-424c-a864-7e3cda82e704",
+      "xpathDocumentId": "db734647-fc99-424c-a864-7e3cda82e704",
       "isActionable": true,
       "actionabilityRuleId": "8b1f4a2e-3c5d-4e6f-9a7b-1c2d3e4f5a6b",
       "actionabilityRuleDisplayName": "Patient date of birth changed"
