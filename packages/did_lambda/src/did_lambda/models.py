@@ -3,16 +3,16 @@
 from pydantic import BaseModel, Field
 
 
-class ManifestFile(BaseModel):
-    """An eICR and its optional reportability response."""
+class ManifestRecord(BaseModel):
+    """An eICR and its reportability response."""
 
     eicr: str
     rr: str | None = None
-    setid: str
-    version: int
+    setId: str
+    versionNumber: int
 
 
 class Manifest(BaseModel):
     """A manifest containing files to process."""
 
-    files: list[ManifestFile] = Field(alias="Files")
+    files: list[ManifestRecord] = Field(alias="Files")

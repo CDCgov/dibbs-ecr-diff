@@ -92,7 +92,7 @@ uv add --dev pytest
 Dependencies can be added to workspace packages by specifying the package using `--package <name>`:
 
 ```bash
-uv add --package diff_lambda aws-lambda-powertools
+uv add --package did_lambda aws-lambda-powertools
 ```
 
 ## Architecture
@@ -121,7 +121,7 @@ This project is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/wor
 │   ├── core                  # Core Difference in Docs logic and shared modules
 │   │   ├── pyproject.toml
 │   │   └── src/
-│   └── diff_lambda                # AWS Lambda package
+│   └── did_lambda                # AWS Lambda package
 │       ├── pyproject.toml
 │       └── src/
 ├── pyproject.toml            # Workspace config (dependencies, linter rules, metadata)

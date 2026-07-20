@@ -11,7 +11,7 @@ COPY uv.lock pyproject.toml ./
 # Install third-party dependencies for `core` and `lambda` packages
 RUN uv export \
     --no-emit-workspace \
-    --package diff_lambda \
+    --package did_lambda \
     --package core \
     --frozen \
     --no-dev \
@@ -34,7 +34,7 @@ COPY --from=builder ${LAMBDA_TASK_ROOT} ${LAMBDA_TASK_ROOT}
 COPY ./packages/core/src/core ${LAMBDA_TASK_ROOT}/core
 
 # copy main lambda app
-COPY ./packages/diff_lambda/src/diff_lambda ${LAMBDA_TASK_ROOT}/app
+COPY ./packages/did_lambda/src/did_lambda ${LAMBDA_TASK_ROOT}/app
 
 # used to satisfy scans since AWS Lambda will already run function as its own non-root user at runtime
 USER 1001:1001

@@ -1,5 +1,5 @@
 services:
-  diff_lambda:
+  did_lambda:
     build:
       context: .
       dockerfile: ./docker/lambda.Dockerfile
@@ -7,7 +7,7 @@ services:
       - "${LAMBDA_HOST_PORT:-9000}:8080"
     volumes:
       - ./packages/core/src/core:/var/task/core:ro
-      - ./packages/diff_lambda/src/diff_lambda:/var/task/app:ro
+      - ./packages/did_lambda/src/did_lambda:/var/task/app:ro
     environment:
       - VERSION=local
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
@@ -23,36 +23,33 @@ services:
         - action: restart
           path: ./packages/core/src/core
         - action: restart
-          path: ./packages/diff_lambda/src/diff_lambda
+          path: ./packages/did_lambda/src/did_lambda
         # rebuild the image if dependencies change by checking uv.lock
         - action: rebuild
           path: ./uv.lock
 
   localstack:
-    # image: docker.io/localstack/localstack:community-archive
-    image: docker.io/floci/floci:latest-compat
+    image: docker.io/localstack/localstack:community-archive
     ports:
       - "${LOCALSTACK_HOST_PORT:-4566}:4566"
     environment:
       - SERVICES=s3,dynamodb,sqs
       - PERSISTENCE=1
+      - AWS_ENDPOINT_URL=http://localstack:4566
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
+      - LS_LOG=warn
     volumes:
-      # - localstack-data:/var/lib/localstack
-      - localstack-data:/app/data
-      # - ./docker/s3-init.sh:/etc/localstack/init/ready.d/10-s3-init.sh
+      - localstack-data:/var/lib/localstack
       - ./docker/localstack-init.py:/etc/localstack/init/ready.d/10-localstack-init.py
-      # - ./docker/dynamodb-init.sh:/etc/localstack/init/ready.d/20-dynamodb-init.sh
-      # - /var/run/docker.sock:/var/run/docker.sock
 
-  queue-poller:
+  sqs-poller:
     image: ghcr.io/astral-sh/uv:0.11-python3.14-alpine
     command: uv run /app/local-sqs-poller.py
     volumes:
-      - ./docker/local-sqs-poller.py:/app/local-sqs-poller.py:ro
-      - queue-poller-cache:/root/.cache/uv
+      - ./docker/sqs-poller.py:/app/local-sqs-poller.py:ro
+      - sqs-poller-cache:/root/.cache/uv
     environment:
       - UV_CACHE_DIR=/root/.cache/uv
       - AWS_ENDPOINT_URL=http://localstack:4566
@@ -60,12 +57,40 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
       - QUEUE_URL=http://localstack:4566/000000000000/did-eicr-events
-      - LAMBDA_URL=http://diff_lambda:8080/2015-03-31/functions/function/invocations
+      - LAMBDA_URL=http://did_lambda:8080/2015-03-31/functions/function/invocations
     depends_on:
       - localstack
-      - diff_lambda
+      - did_lambda
     restart: unless-stopped
+
+  uploader:
+    image: docker.io/lipanski/docker-static-website:2.6.0
+    init: true
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./docker/uploader.html:/home/static/index.html:ro
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  stackport:
+    image: davireis/stackport:0.3.6
+    ports:
+      - "8080:8080"
+    environment:
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
+      - STACKPORT_SERVICES=s3,dynamodb,sqs
+      - STACKPORT_PROBE_WORKERS=3
+      - STACKPORT_ALLOW_WRITES=true
+    restart: unless-stopped
+    depends_on:
+      localstack:
+        condition: service_healthy
 
 volumes:
   localstack-data:
-  queue-poller-cache:
+  sqs-poller-cache:

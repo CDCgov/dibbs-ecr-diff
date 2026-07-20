@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# this script is run as a LocalStack init hook (specified in compose.yml)
+# this script is run as a localstack init hook (specified in compose.yml)
 # see: https://docs.localstack.cloud/aws/customization/advanced/initialization-hooks/
 
 import json
@@ -8,16 +8,16 @@ import os
 
 import boto3
 
+AWS_ENDPOINT_URL = os.getenv("AWS_ENDPOINT_URL", "http://localstack:4566")
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "test")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "test")
+AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+
 INPUT_BUCKET = "did-eicr-bucket"
 DIFF_BUCKET = "did-diff-bucket"
 
 QUEUE_NAME = "did-eicr-events"
 TABLE_NAME = "did-eicr-record"
-
-AWS_ENDPOINT_URL = os.getenv("AWS_ENDPOINT_URL")
-AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION")
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 
 client_options = {
     "endpoint_url": AWS_ENDPOINT_URL,
@@ -37,6 +37,23 @@ existing_buckets = {bucket["Name"] for bucket in s3.list_buckets()["Buckets"]}
 for bucket in (INPUT_BUCKET, DIFF_BUCKET):
     if bucket not in existing_buckets:
         s3.create_bucket(Bucket=bucket)
+
+# enable cors on the input bucket to allow a local client to upload
+# https://docs.localstack.cloud/aws/services/s3/#configuring-cross-origin-resource-sharing-on-s3
+# https://docs.aws.amazon.com/boto3/latest/reference/services/s3/client/put_bucket_cors.html
+s3.put_bucket_cors(
+    Bucket=INPUT_BUCKET,
+    CORSConfiguration={
+        "CORSRules": [
+            {
+                "AllowedHeaders": ["*"],
+                "AllowedMethods": ["GET", "POST", "PUT"],
+                "AllowedOrigins": ["http://localhost:3000"],
+                "ExposeHeaders": ["ETag"],
+            }
+        ]
+    },
+)
 
 # create SQS queue for "did-eicr-bucket"
 # https://docs.aws.amazon.com/boto3/latest/guide/sqs.html#creating-a-queue
@@ -73,7 +90,7 @@ sqs.set_queue_attributes(
 )
 
 # set configuration that specifies: when .json files are PUT in DIDInput/, send to SQS
-# https://docs.aws.amazon.com/AmazonS3/latest/API/API_QueueConfiguration.html
+# see: https://docs.aws.amazon.com/AmazonS3/latest/API/API_QueueConfiguration.html
 s3.put_bucket_notification_configuration(
     Bucket=INPUT_BUCKET,
     NotificationConfiguration={
@@ -96,10 +113,11 @@ s3.put_bucket_notification_configuration(
 )
 
 # create `did-eicr-record` table
-# try describe_table to check if it exists, on error (it doesn't exist), create the table
+# see: docs/Storage-Architecture.md
 try:
     dynamodb.describe_table(TableName=TABLE_NAME)
 except dynamodb.exceptions.ResourceNotFoundException:
+    # if doesn't exist, create the table
     dynamodb.create_table(
         TableName=TABLE_NAME,
         AttributeDefinitions=[
@@ -111,7 +129,6 @@ except dynamodb.exceptions.ResourceNotFoundException:
             {"AttributeName": "versionNumber", "KeyType": "RANGE"},
         ],
         # set to PAY_PER_REQUEST to avoid setting read/write capacity for local environment/testing
-        # see: https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_BillingModeSummary.html
         BillingMode="PAY_PER_REQUEST",
     )
 

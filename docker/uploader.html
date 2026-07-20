@@ -21,11 +21,6 @@
     <h1>Difference in Docs input uploader</h1>
     <p>Upload eICRs and RRs to local S3.</p>
 
-    <details class="config">
-      <summary>S3 Config</summary>
-      <pre></pre>
-    </details>
-
     <div class="preact-app">
     </div>
   </main>
@@ -35,7 +30,7 @@
     import { PutObjectCommand, S3Client } from 'https://esm.sh/@aws-sdk/client-s3@3.1087.0?bundle';
 
     const S3_BUCKET = 'did-eicr-bucket';
-    const AWS_ENDPOINT_URL = 'http://localstack:4566';
+    const AWS_ENDPOINT_URL = 'http://localhost:4566';
     const AWS_ACCESS_KEY_ID = 'test'
     const AWS_SECRET_ACCESS_KEY = 'test';
     const AWS_DEFAULT_REGION = 'us-east-1';
@@ -73,6 +68,7 @@
         setUploading(false);
 
         if (error) {
+          console.error(error);
           setStatus({ error: true, message: error.message });
           return
         }
@@ -143,6 +139,11 @@
 
 
     function parseXML(text, filename) {
+      // TODO: this loads the entire document into memory
+      // native DOMParser doesn't support a streaming interface
+      // so look for an alternative that allows us to parse out the setId and version number from the doc
+      // some npm packages we can use here: `sax`, `saxes`
+      // prefer one that lets you use async iterables
       const parser = new DOMParser();
       const doc = parser.parseFromString(text, 'application/xml');
 
@@ -164,12 +165,12 @@
         .find((element) => element.localName === 'versionNumber')
         ?.getAttribute('value')?.trim();
 
-      const version = Number(versionValue);
+      const versionNumber = Number(versionValue);
 
-      if (!setId || isNaN(version))
+      if (!setId || isNaN(versionNumber))
         throw Error(`${filename} has invalid setId or versionNumber`)
 
-      return { setid: setId, version };
+      return { setId, versionNumber };
     }
 
     async function buildUpload(row, persistenceId) {
@@ -180,20 +181,20 @@
       if (!eicr) throw new Error('Each document needs an eICR XML file.');
 
       const eicrDoc = parseXML(await eicr.text(), eicr.name);
-      const metadata = getMetadata(eicrDoc, eicr.name);
       const eicrKey = `eICRMessageV2/${persistenceId}/${uploadPath}${eicr.name}`;
+      const metadata = getMetadata(eicrDoc, eicr.name);
 
-      const manifestFile = { eicr: eicrKey };
+      const manifestRecord = { eicr: eicrKey, ...metadata };
       const objects = [{ key: eicrKey, file: eicr }];
 
       if (rr) {
         parseXML(await rr.text(), rr.name);
         const rrKey = `RRMessageV2/${persistenceId}/${uploadPath}${rr.name}`;
-        manifestFile.rr = rrKey;
+        manifestRecord.rr = rrKey;
         objects.push({ key: rrKey, file: rr });
       }
 
-      return { manifestFile, objects, ...metadata };
+      return { manifestRecord, objects };
     }
 
     async function submitForm(ev) {
@@ -218,18 +219,17 @@
             new PutObjectCommand({
               Bucket: S3_BUCKET,
               Key: xml.key,
-              Body: new Uint8Array(await xml.file.arrayBuffer()),
+              Body: new Uint8Array(await xml.file.arrayBuffer()), // convert file contents into byte array
               ContentType: 'application/xml'
             })
           );
         }
 
-        return;
         // finally, upload manifest file
         const manifestKey = `DIDInput/${persistenceId}/manifest.json`;
 
         const manifest = {
-          Files: uploads.map((upload) => upload.manifestFile),
+          Files: uploads.map((upload) => upload.manifestRecord),
         };
 
         await s3.send(new PutObjectCommand({
