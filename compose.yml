@@ -67,7 +67,7 @@ services:
     image: docker.io/lipanski/docker-static-website:2.6.0
     init: true
     ports:
-      - "3000:3000"
+      - "8081:3000"
     volumes:
       - ./docker/uploader.html:/home/static/index.html:ro
     depends_on:
