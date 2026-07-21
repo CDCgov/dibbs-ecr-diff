@@ -15,6 +15,7 @@ AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
 
 INPUT_BUCKET = "did-eicr-bucket"
 DIFF_BUCKET = "did-diff-bucket"
+MANIFEST_PATH = "DIDInput"
 
 QUEUE_NAME = "did-eicr-events"
 TABLE_NAME = "did-eicr-record"
@@ -55,7 +56,7 @@ s3.put_bucket_cors(
     },
 )
 
-# create SQS queue for "did-eicr-bucket"
+# create SQS queue for the eICR S3 bucket
 # https://docs.aws.amazon.com/boto3/latest/guide/sqs.html#creating-a-queue
 queue_url = sqs.create_queue(QueueName=QUEUE_NAME)["QueueUrl"]
 queue_arn = sqs.get_queue_attributes(
@@ -63,7 +64,7 @@ queue_arn = sqs.get_queue_attributes(
     AttributeNames=["QueueArn"],
 )["Attributes"]["QueueArn"]
 
-# set up queue to allow `did-eicr-bucket` to send messages
+# set up queue to allow the eICR S3 bucket to send messages
 queue_policy = {
     "Version": "2012-10-17",
     "Id": "S3NotificationQueuePolicy",
@@ -89,7 +90,7 @@ sqs.set_queue_attributes(
     Attributes={"Policy": json.dumps(queue_policy)},
 )
 
-# set configuration that specifies: when .json files are PUT in DIDInput/, send to SQS
+# set configuration that specifies: when .json files are PUT in the manifest path, send to SQS
 # see: https://docs.aws.amazon.com/AmazonS3/latest/API/API_QueueConfiguration.html
 s3.put_bucket_notification_configuration(
     Bucket=INPUT_BUCKET,
@@ -102,7 +103,7 @@ s3.put_bucket_notification_configuration(
                 "Filter": {
                     "Key": {
                         "FilterRules": [
-                            {"Name": "prefix", "Value": "DIDInput/"},
+                            {"Name": "prefix", "Value": f"{MANIFEST_PATH}/"},
                             {"Name": "suffix", "Value": ".json"},
                         ]
                     }
@@ -112,7 +113,7 @@ s3.put_bucket_notification_configuration(
     },
 )
 
-# create `did-eicr-record` table
+# create DynamoDB table
 # see: docs/Storage-Architecture.md
 try:
     dynamodb.describe_table(TableName=TABLE_NAME)
