@@ -47,7 +47,7 @@ just diff
 
 ### Local AWS pipeline
 
-Start the local S3, SQS, EventBridge, Lambda, and uploader services:
+Start the local S3, SQS, EventBridge, DynamoDB, Lambda, and uploader services:
 
 ```bash
 docker compose --env-file .env.local up --build --watch
