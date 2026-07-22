@@ -45,6 +45,25 @@ To access the CLI, run:
 just diff
 ```
 
+### Local AWS pipeline
+
+Start the local S3, SQS, Lambda, and uploader services:
+
+```bash
+docker compose --env-file .env.local up --build --watch
+```
+
+Open http://localhost:8081 and upload an eICR and RR. The uploader:
+
+1. Stores the documents under `eICRMessageV2/{YYYY}/{MM}/{DD}/{uuid}` and
+   `RRMessageV2/{YYYY}/{MM}/{DD}/{uuid}`.
+2. Stores the manifest at `DIDInput/{YYYY}/{MM}/{DD}/{uuid}`.
+3. Triggers an S3 notification to SQS. The local poller converts it to the
+   production EventBridge event shape and invokes the Lambda.
+4. The Lambda reads and logs the manifest records.
+
+Stop the services with `docker compose down`.
+
 ### Type checking / Linting / Formatting
 
 Check types:

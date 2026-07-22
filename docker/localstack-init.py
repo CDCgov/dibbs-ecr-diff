@@ -13,11 +13,10 @@ AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "test")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "test")
 AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
 
-INPUT_BUCKET = "did-eicr-bucket"
-DIFF_BUCKET = "did-diff-bucket"
-MANIFEST_PATH = "DIDInput"
+INPUT_BUCKET = "ecr-dev-data-repository"
+DID_INPUT_PREFIX = "DIDInput/"
 
-QUEUE_NAME = "did-eicr-events"
+QUEUE_NAME = "ecr-dev-did-input"
 TABLE_NAME = "did-eicr-record"
 
 client_options = {
@@ -31,30 +30,12 @@ s3 = boto3.client("s3", **client_options)
 sqs = boto3.client("sqs", **client_options)
 dynamodb = boto3.client("dynamodb", **client_options)
 
-# create S3 buckets
+# create S3 bucket
 # https://docs.aws.amazon.com/boto3/latest/guide/s3-example-creating-buckets.html
 existing_buckets = {bucket["Name"] for bucket in s3.list_buckets()["Buckets"]}
 
-for bucket in (INPUT_BUCKET, DIFF_BUCKET):
-    if bucket not in existing_buckets:
-        s3.create_bucket(Bucket=bucket)
-
-# enable cors on the input bucket to allow a local client to upload
-# https://docs.localstack.cloud/aws/services/s3/#configuring-cross-origin-resource-sharing-on-s3
-# https://docs.aws.amazon.com/boto3/latest/reference/services/s3/client/put_bucket_cors.html
-s3.put_bucket_cors(
-    Bucket=INPUT_BUCKET,
-    CORSConfiguration={
-        "CORSRules": [
-            {
-                "AllowedHeaders": ["*"],
-                "AllowedMethods": ["GET", "POST", "PUT"],
-                "AllowedOrigins": ["http://localhost:3000"],
-                "ExposeHeaders": ["ETag"],
-            }
-        ]
-    },
-)
+if INPUT_BUCKET not in existing_buckets:
+    s3.create_bucket(Bucket=INPUT_BUCKET)
 
 # create SQS queue for the eICR S3 bucket
 # https://docs.aws.amazon.com/boto3/latest/guide/sqs.html#creating-a-queue
@@ -90,7 +71,7 @@ sqs.set_queue_attributes(
     Attributes={"Policy": json.dumps(queue_policy)},
 )
 
-# set configuration that specifies: when .json files are PUT in the manifest path, send to SQS
+# when an object is PUT in the manifest path, send a notification to SQS
 # see: https://docs.aws.amazon.com/AmazonS3/latest/API/API_QueueConfiguration.html
 s3.put_bucket_notification_configuration(
     Bucket=INPUT_BUCKET,
@@ -103,8 +84,7 @@ s3.put_bucket_notification_configuration(
                 "Filter": {
                     "Key": {
                         "FilterRules": [
-                            {"Name": "prefix", "Value": f"{MANIFEST_PATH}/"},
-                            {"Name": "suffix", "Value": ".json"},
+                            {"Name": "prefix", "Value": DID_INPUT_PREFIX},
                         ]
                     }
                 },

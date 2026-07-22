@@ -7,5 +7,9 @@ dependencies = [
     "boto3>=1.43.51",
     "core",
     "pydantic>=2.13.4",
-    "types-boto3[essential]>=1.43.52",
+]
+
+[dependency-groups]
+dev = [
+    "types-boto3[essential]>=1.43.53",
 ]

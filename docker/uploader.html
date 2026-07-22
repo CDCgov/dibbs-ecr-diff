@@ -25,7 +25,10 @@
     import { html, render, useRef, useState } from 'https://esm.sh/htm@3/preact/standalone';
     import { PutObjectCommand, S3Client } from 'https://esm.sh/@aws-sdk/client-s3@3.1087.0?bundle';
 
-    const S3_BUCKET = 'did-eicr-bucket';
+    const S3_BUCKET = 'ecr-dev-data-repository';
+    const DID_INPUT_PREFIX = 'DIDInput/';
+    const REFINER_INPUT_PREFIX = 'RefinerOutputV2/';
+
     const AWS_ENDPOINT_URL = 'http://localhost:4566';
     const AWS_ACCESS_KEY_ID = 'test'
     const AWS_SECRET_ACCESS_KEY = 'test';
@@ -155,7 +158,7 @@
 
       const setId = children
         .find((element) => element.localName === 'setId')
-        ?.getAttribute('root')?.trim();
+        ?.getAttribute('extension')?.trim();
 
       const versionValue = children
         .find((element) => element.localName === 'versionNumber')
@@ -177,7 +180,7 @@
       if (!eicr) throw new Error('Each document needs an eICR XML file.');
 
       const eicrDoc = parseXML(await eicr.text(), eicr.name);
-      const eicrKey = `eICRMessageV2/${persistenceId}/${uploadPath}${eicr.name}`;
+      const eicrKey = `${REFINER_INPUT_PREFIX}${persistenceId}/${uploadPath}${eicr.name}`;
       const metadata = getMetadata(eicrDoc, eicr.name);
 
       const manifestRecord = { eicr: eicrKey, ...metadata };
@@ -185,7 +188,7 @@
 
       if (rr) {
         parseXML(await rr.text(), rr.name);
-        const rrKey = `RRMessageV2/${persistenceId}/${uploadPath}${rr.name}`;
+        const rrKey = `${REFINER_INPUT_PREFIX}${persistenceId}/${uploadPath}${rr.name}`;
         manifestRecord.rr = rrKey;
         objects.push({ key: rrKey, file: rr });
       }
@@ -198,7 +201,8 @@
       const form = ev.currentTarget;
 
       try {
-        const persistenceId = crypto.randomUUID();
+        const datePath = new Date().toISOString().slice(0, 10).replaceAll('-', '/'); // ex: 2026/07/22
+        const persistenceId = `${datePath}/${crypto.randomUUID()}`;
         const uploads = [];
 
         for (const el of form.elements) {
@@ -222,7 +226,7 @@
         }
 
         // finally, upload manifest file
-        const manifestKey = `DIDInput/${persistenceId}/manifest.json`;
+        const manifestKey = `${DID_INPUT_PREFIX}${persistenceId}`;
 
         const manifest = {
           Files: uploads.map((upload) => upload.manifestRecord),
