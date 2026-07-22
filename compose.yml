@@ -33,7 +33,7 @@ services:
     ports:
       - "${LOCALSTACK_HOST_PORT:-4566}:4566"
     environment:
-      - SERVICES=s3,dynamodb,sqs
+      - SERVICES=s3,dynamodb,sqs,events
       - PERSISTENCE=1
       - AWS_ENDPOINT_URL=http://localstack:4566
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
@@ -83,7 +83,7 @@ services:
       - AWS_REGION=${AWS_DEFAULT_REGION:-us-east-1}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
-      - STACKPORT_SERVICES=s3,dynamodb,sqs
+      - STACKPORT_SERVICES=s3,dynamodb,sqs,events
       - STACKPORT_PROBE_WORKERS=3
       - STACKPORT_ALLOW_WRITES=true
     restart: unless-stopped

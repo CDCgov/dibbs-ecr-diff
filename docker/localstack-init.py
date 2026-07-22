@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-# this script is run as a localstack init hook (specified in compose.yml)
-# see: https://docs.localstack.cloud/aws/customization/advanced/initialization-hooks/
+# This script is run as a localstack init hook (specified in compose.yml)
+# This initializes localstack to resemble our Prod environment as closely as possible
+# https://docs.localstack.cloud/aws/customization/advanced/initialization-hooks/
 
 import json
 import os
@@ -16,6 +17,7 @@ AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
 INPUT_BUCKET = "ecr-dev-data-repository"
 DID_INPUT_PREFIX = "DIDInput/"
 
+EVENT_RULE_NAME = "ecr-dev-did-input-event"
 QUEUE_NAME = "ecr-dev-did-input"
 TABLE_NAME = "did-eicr-record"
 
@@ -28,6 +30,7 @@ client_options = {
 
 s3 = boto3.client("s3", **client_options)
 sqs = boto3.client("sqs", **client_options)
+event_bridge = boto3.client("events", **client_options)
 dynamodb = boto3.client("dynamodb", **client_options)
 
 # create S3 bucket
@@ -37,60 +40,60 @@ existing_buckets = {bucket["Name"] for bucket in s3.list_buckets()["Buckets"]}
 if INPUT_BUCKET not in existing_buckets:
     s3.create_bucket(Bucket=INPUT_BUCKET)
 
-# create SQS queue for the eICR S3 bucket
-# https://docs.aws.amazon.com/boto3/latest/guide/sqs.html#creating-a-queue
+# create SQS queue that receives events from EventBridge
 queue_url = sqs.create_queue(QueueName=QUEUE_NAME)["QueueUrl"]
 queue_arn = sqs.get_queue_attributes(
     QueueUrl=queue_url,
     AttributeNames=["QueueArn"],
 )["Attributes"]["QueueArn"]
 
-# set up queue to allow the eICR S3 bucket to send messages
+# create EventBridge rule that matches PUTs in the S3 bucket under DIDInput/.
+events_rule_arn = event_bridge.put_rule(
+    Name=EVENT_RULE_NAME,
+    EventPattern=json.dumps(
+        {
+            "source": ["aws.s3"],
+            "detail-type": ["Object Created"],
+            "detail": {
+                "bucket": {"name": [INPUT_BUCKET]},
+                "object": {"key": [{"prefix": DID_INPUT_PREFIX}]},
+                "reason": ["PutObject"],
+            },
+        }
+    ),
+)
+
+# allow our new EventBridge rule to place messages on the SQS queue
 queue_policy = {
     "Version": "2012-10-17",
     "Id": "S3NotificationQueuePolicy",
     "Statement": [
         {
-            "Sid": "AllowS3ToSendMessages",
+            "Sid": "AllowEventBridgeToSendMessages",
             "Effect": "Allow",
-            "Principal": {"Service": "s3.amazonaws.com"},
+            "Principal": {"Service": "events.amazonaws.com"},
             "Action": ["SQS:SendMessage"],
             "Resource": queue_arn,
-            "Condition": {
-                "ArnLike": {
-                    "aws:SourceArn": f"arn:aws:s3:::{INPUT_BUCKET}",
-                },
-                "StringEquals": {"aws:SourceAccount": "000000000000"},
-            },
+            "Condition": {"ArnEquals": {"aws:SourceArn": events_rule_arn}},
         }
     ],
 }
 
+# set the permission policy above on the SQS queue
 sqs.set_queue_attributes(
     QueueUrl=queue_url,
     Attributes={"Policy": json.dumps(queue_policy)},
 )
 
-# when an object is PUT in the manifest path, send a notification to SQS
-# see: https://docs.aws.amazon.com/AmazonS3/latest/API/API_QueueConfiguration.html
+# set the SQS queue as our EventBridge rule's target
+event_bridge.put_targets(
+    Rule=EVENT_RULE_NAME, Targets=[{"Id": "SendToEcrDevDIDInput", "Arn": queue_arn}]
+)
+
+# configure our s3 bucket to send bucket events to EventBridge
+# https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-event-notifications-eventbridge.html
 s3.put_bucket_notification_configuration(
-    Bucket=INPUT_BUCKET,
-    NotificationConfiguration={
-        "QueueConfigurations": [
-            {
-                "Id": "SendObjectCreatedEventsToSqs",
-                "QueueArn": queue_arn,
-                "Events": ["s3:ObjectCreated:Put"],
-                "Filter": {
-                    "Key": {
-                        "FilterRules": [
-                            {"Name": "prefix", "Value": DID_INPUT_PREFIX},
-                        ]
-                    }
-                },
-            }
-        ]
-    },
+    Bucket=INPUT_BUCKET, NotificationConfiguration={"EventBridgeConfiguration": {}}
 )
 
 # create DynamoDB table
