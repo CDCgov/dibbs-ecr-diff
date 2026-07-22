@@ -53,7 +53,9 @@ Start the local S3, SQS, EventBridge, Lambda, and uploader services:
 docker compose --env-file .env.local up --build --watch
 ```
 
-Open http://localhost:8081 and upload an eICR and RR. The uploader:
+View local AWS resources at `http://localhost:8080`.
+
+Open `http://localhost:8081` and upload an eICR and RR. The uploader:
 
 1. Stores the documents in local S3, and generates a manifest which is also stored in local S3.
 2. Triggers an S3 notification to EventBridge -> SQS.
