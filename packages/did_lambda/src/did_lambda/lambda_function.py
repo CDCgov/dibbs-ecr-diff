@@ -22,7 +22,7 @@ DID_OUTPUT_PREFIX = "DIDOutput/"
 DID_COMPLETE_PREFIX = "DIDComplete/"
 
 s3: "S3Client" = boto3.client("s3")
-logger = Logger()
+logger = Logger("did-lambda")
 
 
 class InfraError(Exception):
@@ -41,13 +41,15 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
 
         bucket = s3_event.detail.bucket.name
         input_key = unquote_plus(s3_event.detail.object.key)
-        persistence_id = persistence_id_from_key(input_key)
+        _persistence_id = persistence_id_from_key(input_key)
 
         manifest = get_manifest(bucket, input_key)
+        logger.info(manifest)
 
-        for entry in manifest.files:
-            logger.info(persistence_id)
-            logger.info(entry.eicr)
+        # TODO: do something with the files from the manifest
+        # for entry in manifest.files:
+        #     logger.info(persistence_id)
+        #     logger.info(entry.eicr)
 
     return {"statusCode": 200, "message": "OK"}
 
