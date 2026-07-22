@@ -47,7 +47,7 @@ just diff
 
 ### Local AWS pipeline
 
-Start the local S3, SQS, Lambda, and uploader services:
+Start the local S3, SQS, EventBridge, Lambda, and uploader services:
 
 ```bash
 docker compose --env-file .env.local up --build --watch
@@ -55,12 +55,9 @@ docker compose --env-file .env.local up --build --watch
 
 Open http://localhost:8081 and upload an eICR and RR. The uploader:
 
-1. Stores the documents under `eICRMessageV2/{YYYY}/{MM}/{DD}/{uuid}` and
-   `RRMessageV2/{YYYY}/{MM}/{DD}/{uuid}`.
-2. Stores the manifest at `DIDInput/{YYYY}/{MM}/{DD}/{uuid}`.
-3. Triggers an S3 notification to SQS. The local poller converts it to the
-   production EventBridge event shape and invokes the Lambda.
-4. The Lambda reads and logs the manifest records.
+1. Stores the documents in local S3, and generates a manifest which is also stored in local S3.
+2. Triggers an S3 notification to EventBridge -> SQS.
+3. `sqs-poller.py` checks SQS, and invokes the lambda on new messages.
 
 Stop the services with `docker compose down`.
 
