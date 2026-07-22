@@ -1,5 +1,5 @@
 <!-- 
-This is a single-file UI tool to let devs upload eICRs/RRs to our local environment S3 buckets.
+This is a single-file web app to let devs upload eICRs/RRs to our local environment S3 buckets.
 This should be run using Docker & our compose.yml file
 to allow the uploader to send requests to our local S3 without dealing with CORS-related restrictions
 -->
@@ -9,6 +9,7 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
   <title>Difference in Docs (Dev Uploader)</title>
   <style>
     body { font: 16px sans-serif; max-width: 48rem; margin: 2rem auto; padding: 0 1rem; }
@@ -22,7 +23,7 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
 </head>
 <body>
   <main>
-    <h1>Difference in Docs input uploader</h1>
+    <h1>Difference in Docs - Dev Input Uploader</h1>
     <p>Upload eICRs and RRs to local S3.</p>
     <div class="preact-app"></div>
   </main>
