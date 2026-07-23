@@ -75,7 +75,7 @@ services:
     restart: unless-stopped
 
   stackport:
-    image: davireis/stackport:0.3.6
+    image: docker.io/davireis/stackport:0.3.6
     ports:
       - "8080:8080"
     environment:
