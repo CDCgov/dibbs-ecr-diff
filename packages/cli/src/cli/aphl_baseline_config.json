@@ -20,7 +20,7 @@
       "xpaths": [
         "//hl7:patient/sdtc:deceasedInd",
         "//hl7:patient/hl7:birthTime",
-        "//hl7:patient/hl7:name"
+        "//hl7:patient/hl7:name/descendant-or-self::*"
       ]
     },
     {
