@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  pytest:
+  ty:
     runs-on: ubuntu-latest
 
     steps:
@@ -29,4 +29,4 @@ jobs:
       - name: Run ty typecheck
         shell: bash
         run: |
-          uv run ty
+          uv run ty check
