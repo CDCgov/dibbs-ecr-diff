@@ -31,7 +31,7 @@ class InfraError(Exception):
 
 @event_source(data_class=SQSEvent)
 def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
-    """Download manifests and the XML objects they reference."""
+    """Difference in Docs Lambda Handler."""
     raw_records = event.get("Records")
     if not isinstance(raw_records, list) or not raw_records:
         raise InfraError("SQS event has no Records")
