@@ -1,8 +1,8 @@
 name: Run linter & format check
 
 on:
-  workflow_call
-  workflow_dispatch
+  workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read
