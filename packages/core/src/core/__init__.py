@@ -97,12 +97,10 @@ def cached_subtree(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
 
 
 def unique_rule_matches(matches: Iterable[WatchedNode]) -> list[WatchedNode]:
-    """Return the first watched-node match for each rule.
+    """Return one match per rule for the current XML change.
 
-    Callers check the changed node first, followed by its ancestors for updates or
-    its descendants for additions and deletions. Keeping the first match therefore
-    prefers the changed node when selected while preventing a broad XPath from
-    emitting the same rule multiple times for one change.
+    A change can match the same rule through several related XML elements. Keep
+    the first match so the change is reported only once for that rule.
     """
     first_match_by_rule: dict[UUID, WatchedNode] = {}
 
