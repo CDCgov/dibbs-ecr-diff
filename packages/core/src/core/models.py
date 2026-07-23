@@ -37,11 +37,15 @@ class DiffOutput(BaseModel):
 
 class RuleConfig(BaseModel):
     id: UUID = Field(default_factory=uuid4)
-    name: str
+    displayName: str
+    changeTypes: set[ChangeType] = [] 
     xpaths: list[str] = Field(default_factory=list)
 
 
 class Configuration(BaseModel):
-    version: str
+    displayName: str
+    specVersion: str
+    id: UUID = Field(default_factory=uuid4)
+    createdAt: str
     mode: DiffMode
     rules: list[RuleConfig] = Field(default_factory=list)

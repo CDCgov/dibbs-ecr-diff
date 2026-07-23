@@ -1,15 +1,38 @@
 {
-  "version": "1.0.0",
-  "mode": "WATCH_LIST",
+  "specVersion": "1.0",
+  "id": "44d9a0b0-3c0c-4f49-bd11-6f219c7cfa9b",
+  "displayName": "Difference in Docs Example Config",
+  "mode": "IGNORE_LIST",
+  "createdAt": "2026-06-12T19:56:17Z",
   "rules": [
     {
       "id": "e654b542-c0bd-4166-8320-4e0a7651d612",
-      "name": "Example Rule",
+      "displayName": "Ignore Document Properties",
       "xpaths": [
-        "/hl7:ClinicalDocument/hl7:component/hl7:structuredBody/hl7:component/hl7:section/hl7:entry",
-        "/hl7:ClinicalDocument/hl7:component/hl7:structuredBody/hl7:component/hl7:section//hl7:effectiveTime",
-        "/hl7:ClinicalDocument/hl7:component/hl7:structuredBody/hl7:component/hl7:section//hl7:value"
-      ]
+        "/ClinicalDocument/realmCode",
+        "/ClinicalDocument/typeId",
+        "/ClinicalDocument/code",
+        "/ClinicalDocument/id",
+        "/ClinicalDocument/templateId"
+      ],
+      "changeTypes": ["UPDATED", "ADDED"]
+    },
+    {
+      "id": "d92c9890-4a85-4b21-a6dd-57864ae40ccc",
+      "displayName": "Date of Diagnosis",
+      "xpaths": [
+        "//encounter[templateId/@root=2.16.840.1.113883.10.20.22.4.49]/effectiveTime/low"
+      ],
+      "changeTypes": ["ADDED"]
+    },
+    {
+      "id": "1f989163-596d-4eae-b2f2-8b9f00ddb635",
+      "displayName": "Diagnoses",
+      "xpaths": [
+        "//encounter[templateId/@root=2.16.840.1.113883.10.20.22.4.49]/effectiveTime/low",
+        "//encounter[templateId/@root=2.16.840.1.113883.10.20.22.4.49]/entryRelationship/act[templateId/@root=2.16.840.1.113883.10.20.22.4.80]/entryRelationship/observation[templateId/@root=2.16.840.1.113883.10.20.22.4.4]/value"
+      ],
+      "changeTypes": ["UPDATED", "ADDED"]
     }
   ]
 }

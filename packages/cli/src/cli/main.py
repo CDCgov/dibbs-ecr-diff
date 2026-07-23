@@ -6,7 +6,7 @@ from pathlib import Path
 from core import diff_xml
 from core.models import Configuration, DiffingOptions
 
-DEFAULT_CONFIG_PATH = Path(__file__).parent / "cste_config.json"
+DEFAULT_CONFIG_PATH = Path(__file__).parent / "aphl_baseline_config.json"
 
 
 def main() -> None:

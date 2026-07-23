@@ -2,6 +2,7 @@
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from uuid import UUID
 
 from lxml import etree
 
@@ -28,6 +29,7 @@ class WatchedNode:
     node: etree._Element
     tag: str
     xpath: str
+    rule_id: UUID
     rule_name: str
     origin_node: etree._Element | None = None
 
@@ -53,13 +55,17 @@ def build_cache(elem: etree._ElementTree, rules: list[RuleConfig]) -> NodeCache:
     nodes: NodeCache = {}
 
     for rule in rules:
-        with measure_time(f"Execute {len(rule.xpaths)} xpaths for {rule.name}"):
+        with measure_time(f"Execute {len(rule.xpaths)} xpaths for {rule.displayName}"):
             for xpath in rule.xpaths:
                 vals = eval_xpath(elem, xpath)
 
                 for val in vals:
                     nodes[val] = WatchedNode(
-                        node=val, tag=str(val.tag), xpath=xpath, rule_name=rule.name
+                        node=val,
+                        tag=str(val.tag),
+                        xpath=xpath,
+                        rule_id=rule.id,
+                        rule_name=rule.displayName,
                     )
     return nodes
 
@@ -90,6 +96,23 @@ def cached_subtree(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
     return nodes_in_cache(node, node.iterdescendants(), cache)
 
 
+def unique_rule_matches(matches: Iterable[WatchedNode]) -> list[WatchedNode]:
+    """Return the first watched-node match for each rule.
+
+    Callers check the changed node first, followed by its ancestors for updates or
+    its descendants for additions and deletions. Keeping the first match therefore
+    prefers the changed node when selected while preventing a broad XPath from
+    emitting the same rule multiple times for one change.
+    """
+    first_match_by_rule: dict[UUID, WatchedNode] = {}
+
+    for match in matches:
+        if match.rule_id not in first_match_by_rule:
+            first_match_by_rule[match.rule_id] = match
+
+    return list(first_match_by_rule.values())
+
+
 def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
     """Returns a XML diff string."""
     diff_output = DiffOutput()
@@ -109,9 +132,11 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
         )
 
     with measure_time("Process additions"):
-        for after in added:
+        for added_element in added:
             if config.mode == DiffMode.WATCH_LIST:
-                for cached in cached_subtree(after, right_cache):
+                for cached in unique_rule_matches(
+                    cached_subtree(added_element, right_cache)
+                ):
                     diff_output.changes.append(
                         Change(
                             xpath=cached.xpath,
@@ -121,21 +146,23 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
                         )
                     )
             elif config.mode == DiffMode.IGNORE_LIST:
-                if cached_ancestry(after, right_cache):
+                if cached_ancestry(added_element, right_cache):
                     continue
 
                 diff_output.changes.append(
                     Change(
-                        xpath=after.getroottree().getpath(after),
+                        xpath=added_element.getroottree().getpath(added_element),
                         changeType=ChangeType.ADDED,
-                        xml=build_standalone_xml_string(after),
+                        xml=build_standalone_xml_string(added_element),
                     )
                 )
 
     with measure_time("Process updates"):
-        for [before, after] in updated:
+        for [before, added_element] in updated:
             if config.mode == DiffMode.WATCH_LIST:
-                for cached in cached_ancestry(after, right_cache):
+                for cached in unique_rule_matches(
+                    cached_ancestry(added_element, right_cache)
+                ):
                     diff_output.changes.append(
                         Change(
                             xpath=cached.xpath,
@@ -146,22 +173,24 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
                     )
             elif config.mode == DiffMode.IGNORE_LIST:
                 if cached_ancestry(before, left_cache) or cached_ancestry(
-                    after, right_cache
+                    added_element, right_cache
                 ):
                     continue
 
                 diff_output.changes.append(
                     Change(
-                        xpath=after.getroottree().getpath(after),
+                        xpath=added_element.getroottree().getpath(added_element),
                         changeType=ChangeType.UPDATED,
-                        xml=build_standalone_xml_string(after),
+                        xml=build_standalone_xml_string(added_element),
                     )
                 )
 
     with measure_time("Process deletions"):
         for before in deleted:
             if config.mode == DiffMode.WATCH_LIST:
-                for cached in cached_subtree(before, left_cache):
+                for cached in unique_rule_matches(
+                    cached_subtree(before, left_cache)
+                ):
                     diff_output.changes.append(
                         Change(
                             xpath=cached.xpath,
