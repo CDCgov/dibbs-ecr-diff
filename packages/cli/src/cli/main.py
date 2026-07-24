@@ -9,7 +9,7 @@ from core.models import Configuration, DiffingOptions
 from core.performance import measure_time
 from lxml import etree
 
-DEFAULT_CONFIG_PATH = Path(__file__).parent / "default_config.json"
+DEFAULT_CONFIG_PATH = Path(__file__).parent / "cste_config.json"
 
 
 def main() -> None:

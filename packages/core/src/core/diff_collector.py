@@ -93,6 +93,19 @@ def _fingerprint_excluding_version_metadata(
     return result
 
 
+def _equivalent_excluding_version_metadata(
+    before: etree._Element,
+    after: etree._Element,
+    cache: dict[etree._Element, tuple] | None = None,
+) -> bool:
+    if cache is None:
+        cache = {}
+
+    return _fingerprint_excluding_version_metadata(
+        before, cache
+    ) == _fingerprint_excluding_version_metadata(after, cache)
+
+
 def _node_updated(before_node: etree._Element, after_node: etree._Element) -> bool:
     """Return True if two nodes differ in tag, filtered attributes, or text content."""
     return (
@@ -146,6 +159,7 @@ def collect_additions_updates_deletes(
     added_nodes: list[AddedEntry] = []
     updated_nodes: list[UpdatedEntry] = []
     deleted_nodes: list[DeletedEntry] = []
+    fingerprint_cache = {}
 
     # Track seen node ids to prevent duplicates across recursion paths
     seen_added: set[int] = set()
@@ -186,9 +200,9 @@ def collect_additions_updates_deletes(
                 seen_updated.add(id(after_node))
                 updated_nodes.append((before_node, after_node))
 
-        if _fingerprint_excluding_version_metadata(
-            before_node, fingerprint_cache
-        ) == _fingerprint_excluding_version_metadata(after_node, fingerprint_cache):
+        if _equivalent_excluding_version_metadata(
+            before_node, after_node, fingerprint_cache
+        ):
             return
 
         before_immediate_child_groups = build_immediate_child_groups(before_node)
