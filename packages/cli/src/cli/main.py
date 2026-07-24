@@ -1,6 +1,5 @@
 import argparse
 import json
-import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -55,14 +54,11 @@ def main() -> None:
 
     # TODO: extract jurisdiction id
     jurisdiction_id = "12345678-1234-5678-1234-567812345678"
-    # TODO: determine whether we can remove condition_grouper_uuid
-    condition_grouper_uuid = uuid.UUID("22345678-1234-5678-1234-567812345678")
 
     augmented_eicr_result = augment_eicr(
         eicr_root,
         augmentation_run,
         jurisdiction_id=jurisdiction_id,
-        condition_grouper_uuid=condition_grouper_uuid,
         diff_output=diff_output,
     )
 

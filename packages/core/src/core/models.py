@@ -38,7 +38,7 @@ class Change(BaseModel):
     rule_name: str | None = None
     changeType: ChangeType
     xml: str
-    after_node_ref: _Element = Field(exclude=True)
+    anchor_node: _Element = Field(exclude=True)  # needed for entry-level augmentation
 
 
 class DiffOutput(BaseModel):
