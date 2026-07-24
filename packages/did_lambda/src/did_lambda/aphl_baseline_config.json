@@ -1,0 +1,35 @@
+{
+  "specVersion": "1.0",
+  "id": "821c2832-54d7-456e-86ff-168f07a3a947",
+  "displayName": "APHL Baseline Criteria",
+  "mode": "WATCH_LIST",
+  "createdAt": "2026-07-21T19:56:17Z",
+  "rules": [
+    {
+      "id": "cd2c0e77-b2e4-4a99-8750-ed4c73396a3a",
+      "displayName": "APHL Baseline Criteria - entry",
+      "changeTypes": ["ADDED", "UPDATED", "DELETED"],
+      "xpaths": [
+        "//hl7:entry/descendant-or-self::*"
+      ]
+    },
+    {
+      "id": "c9e9cb5b-a331-4f6a-b19a-228aaa669166",
+      "displayName": "APHL Baseline Criteria - patient changes",
+      "changeTypes": ["ADDED", "UPDATED", "DELETED"],
+      "xpaths": [
+        "//hl7:patient/sdtc:deceasedInd",
+        "//hl7:patient/hl7:birthTime",
+        "//hl7:patient/hl7:name/descendant-or-self::*"
+      ]
+    },
+    {
+      "id": "11ef22fa-f7b0-4d2c-8058-d95eb4fbe492",
+      "displayName": "APHL Baseline Criteria - encompassingEncounter end time",
+      "changeTypes": ["ADDED", "UPDATED", "DELETED"],
+      "xpaths": [
+        "//hl7:encompassingEncounter/hl7:effectiveTime/hl7:high"
+      ]
+    }
+  ]
+}

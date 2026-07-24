@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 
 class ManifestRecord(BaseModel):
-    """An eICR and its reportability response."""
+    """An eICR and its Reportability Response S3 keys."""
 
     eicr: str
     rr: str | None = None
@@ -16,3 +16,10 @@ class Manifest(BaseModel):
     """A manifest containing files to process."""
 
     files: list[ManifestRecord] = Field(alias="Files")
+
+
+class DIDOutputRecord(ManifestRecord):
+    """An eICR and its Reportability Response DID output S3 keys."""
+
+    eicr_diff_output: str
+    rr_diff_output: str | None = None

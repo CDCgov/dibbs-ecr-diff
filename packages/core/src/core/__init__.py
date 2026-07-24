@@ -53,13 +53,16 @@ def build_cache(elem: etree._ElementTree, rules: list[RuleConfig]) -> NodeCache:
     nodes: NodeCache = {}
 
     for rule in rules:
-        with measure_time(f"Execute {len(rule.xpaths)} xpaths for {rule.name}"):
+        with measure_time(f"Execute {len(rule.xpaths)} xpaths for {rule.displayName}"):
             for xpath in rule.xpaths:
                 vals = eval_xpath(elem, xpath)
 
                 for val in vals:
                     nodes[val] = WatchedNode(
-                        node=val, tag=str(val.tag), xpath=xpath, rule_name=rule.name
+                        node=val,
+                        tag=str(val.tag),
+                        xpath=xpath,
+                        rule_name=rule.displayName,
                     )
     return nodes
 
@@ -90,7 +93,7 @@ def cached_subtree(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
     return nodes_in_cache(node, node.iterdescendants(), cache)
 
 
-def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
+def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
     """Returns a XML diff string."""
     diff_output = DiffOutput()
     parser = etree.XMLParser(remove_blank_text=True, huge_tree=True)
@@ -182,4 +185,4 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
                     )
                 )
 
-    return diff_output.model_dump_json(indent=2)
+    return diff_output

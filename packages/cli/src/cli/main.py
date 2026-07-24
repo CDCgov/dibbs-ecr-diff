@@ -29,11 +29,12 @@ def main() -> None:
     args = ap.parse_args()
     opts = DiffingOptions(**vars(args))
 
-    with open(opts.config) as f:
+    config_path = str(DEFAULT_CONFIG_PATH) if opts.config is None else opts.config
+    with open(config_path) as f:
         config = Configuration(**json.load(f))
 
     diff_output = diff_xml(opts, config)
-    print(diff_output)
+    print(diff_output.model_dump_json(indent=2))
 
 
 if __name__ == "__main__":
