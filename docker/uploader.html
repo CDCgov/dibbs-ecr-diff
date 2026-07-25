@@ -143,6 +143,13 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
       document.querySelector('.preact-app')
     );
 
+    function normalizeS3KeyPath(path = '') {
+      if (!path || !path.trim()) return '';
+
+      return path.replace(/\/+/g, '/') // replace duplicate slashes
+        .replace(/^\//, '') // remove trailing slash
+        .replace(/(.+)/, '$1/'); // append trailing slash if string is not empty
+    }
 
     function parseXML(text, filename) {
       // TODO: this loads the entire document into memory
@@ -182,12 +189,7 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
     async function buildUpload(row, persistenceId) {
       const eicr = row.elements.namedItem('eicr-file').files[0];
       const rr = row.elements.namedItem('rr-file').files[0];
-
-      // normalize upload path
-      let uploadPath = row.elements.namedItem('upload-path').value
-        .replace(/\/+/g, '/') // replace duplicate slashes
-        .replace(/^\//, '') // remove trailing slash
-        .replace(/(.+)/, '$1/'); // append trailing slash if string is not empty
+      const uploadPath = normalizeS3KeyPath(row.elements.namedItem('upload-path').value)
 
       if (!eicr) throw new Error('Each document needs an eICR XML file.');
 
@@ -198,13 +200,11 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
       const manifestRecord = { eicr: eicrKey, ...metadata };
       const objects = [{ key: eicrKey, file: eicr }];
 
-      console.log({eicrKey, uploadPath});
       if (rr) {
         parseXML(await rr.text(), rr.name);
         const rrKey = `${REFINER_INPUT_PREFIX}${persistenceId}/${uploadPath}${rr.name}`;
         manifestRecord.rr = rrKey;
         objects.push({ key: rrKey, file: rr });
-        console.log({rrKey, eicrKey, uploadPath});
       }
 
       return { manifestRecord, objects };

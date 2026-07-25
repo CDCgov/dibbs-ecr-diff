@@ -1,5 +1,7 @@
 """Models for S3 manifest files."""
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -21,5 +23,18 @@ class Manifest(BaseModel):
 class DIDOutputRecord(ManifestRecord):
     """An eICR and its Reportability Response DID output S3 keys."""
 
-    eicr_diff_output: str
+    eicr_diff_output: str | None = None
     rr_diff_output: str | None = None
+
+
+class EICRStorageRecord(BaseModel):
+    """DynamoDB table record."""
+
+    setId: int
+    versionNumber: int
+    s3Key: str
+    s3KeyRR: str | None = None
+    s3KeyDiffOutput: str | None = None
+    processedAt: datetime
+    isActionable: bool
+    comparedToVersion: int

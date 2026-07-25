@@ -2,6 +2,7 @@
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from io import BytesIO
 
 from lxml import etree
 
@@ -93,14 +94,22 @@ def cached_subtree(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
     return nodes_in_cache(node, node.iterdescendants(), cache)
 
 
+def parse_xml(source: str | bytes, parser: etree.XMLParser) -> etree._ElementTree:
+    """Parse an XML file using its filepath or bytes."""
+    return etree.parse(
+        BytesIO(source) if isinstance(source, bytes) else source,
+        parser,
+    )
+
+
 def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
     """Returns a XML diff string."""
     diff_output = DiffOutput()
     parser = etree.XMLParser(remove_blank_text=True, huge_tree=True)
 
     with measure_time("Parse XML files"):
-        left_tree = etree.parse(opts.file1, parser)
-        right_tree = etree.parse(opts.file2, parser)
+        left_tree = parse_xml(opts.file1, parser)
+        right_tree = parse_xml(opts.file2, parser)
 
     with measure_time("Execute XPaths"):
         left_cache = build_cache(left_tree, config.rules)
