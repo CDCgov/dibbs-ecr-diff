@@ -30,11 +30,11 @@ class DIDOutputRecord(ManifestRecord):
 class EICRStorageRecord(BaseModel):
     """DynamoDB table record."""
 
-    setId: int
+    setId: str
     versionNumber: int
     s3Key: str
     s3KeyRR: str | None = None
     s3KeyDiffOutput: str | None = None
     processedAt: datetime
     isActionable: bool
-    comparedToVersion: int
+    comparedToVersion: int | None = None

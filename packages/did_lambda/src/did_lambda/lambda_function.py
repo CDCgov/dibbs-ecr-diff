@@ -78,7 +78,6 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
                 ),
                 FilterExpression=Attr("isActionable").eq(True),
                 ScanIndexForward=False,  # force descending order
-                Limit=1,
             )
 
             latest = (
