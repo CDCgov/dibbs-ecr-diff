@@ -31,6 +31,7 @@ class WatchedNode:
     xpath: str
     rule_id: UUID
     rule_name: str
+    change_types: frozenset[ChangeType]
     origin_node: etree._Element | None = None
 
     @property
@@ -66,6 +67,7 @@ def build_cache(elem: etree._ElementTree, rules: list[RuleConfig]) -> NodeCache:
                         xpath=xpath,
                         rule_id=rule.id,
                         rule_name=rule.displayName,
+                        change_types=frozenset(rule.changeTypes),
                     )
     return nodes
 
@@ -96,19 +98,34 @@ def cached_subtree(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
     return nodes_in_cache(node, node.iterdescendants(), cache)
 
 
-def unique_rule_matches(matches: Iterable[WatchedNode]) -> list[WatchedNode]:
+def unique_rule_matches(
+    matches: Iterable[WatchedNode],
+    change_type: ChangeType,
+) -> list[WatchedNode]:
     """Return one match per rule for the current XML change.
 
-    A change can match the same rule through several related XML elements. Keep
-    the first match so the change is reported only once for that rule.
+    Ignore rules that do not apply to the change type. A change can match an
+    applicable rule through several related XML elements, so keep its first
+    match.
     """
     first_match_by_rule: dict[UUID, WatchedNode] = {}
 
     for match in matches:
+        if change_type not in match.change_types:
+            continue
+
         if match.rule_id not in first_match_by_rule:
             first_match_by_rule[match.rule_id] = match
 
     return list(first_match_by_rule.values())
+
+
+def change_is_not_ignorable(
+    matches: Iterable[WatchedNode],
+    change_type: ChangeType,
+) -> bool:
+    """Return whether no ignore-rule match applies to the change type."""
+    return not any(change_type in match.change_types for match in matches)
 
 
 def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
@@ -129,65 +146,45 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
             left_tree.getroot(), right_tree.getroot()
         )
 
-    with measure_time("Process additions"):
-        for added_element in added:
-            if config.mode == DiffMode.WATCH_LIST:
+    if config.mode == DiffMode.WATCH_LIST:
+        with measure_time("Process additions"):
+            for added_element in added:
                 for actionable_added_element in unique_rule_matches(
-                    cached_subtree(added_element, right_elements_to_watch_cache)
+                    cached_subtree(added_element, right_elements_to_watch_cache),
+                    ChangeType.ADDED,
                 ):
                     diff_output.changes.append(
                         Change(
                             xpath=actionable_added_element.xpath,
                             rule_name=actionable_added_element.rule_name,
                             changeType=ChangeType.ADDED,
-                            xml=build_standalone_xml_string(actionable_added_element.effective_node),
+                            xml=build_standalone_xml_string(
+                                actionable_added_element.effective_node
+                            ),
                         )
                     )
-            elif config.mode == DiffMode.IGNORE_LIST:
-                if cached_ancestry(added_element, right_elements_to_watch_cache):
-                    continue
 
-                diff_output.changes.append(
-                    Change(
-                        xpath=added_element.getroottree().getpath(added_element),
-                        changeType=ChangeType.ADDED,
-                        xml=build_standalone_xml_string(added_element),
-                    )
-                )
-
-    with measure_time("Process updates"):
-        for [before, after] in updated:
-            if config.mode == DiffMode.WATCH_LIST:
-                for actionable_updated_element in unique_rule_matches(
-                    cached_ancestry(after, right_elements_to_watch_cache)
+        with measure_time("Process updates"):
+            for _, after in updated:
+                actionable_updated_element = right_elements_to_watch_cache.get(after)
+                if (
+                    actionable_updated_element is not None
+                    and ChangeType.UPDATED in actionable_updated_element.change_types
                 ):
                     diff_output.changes.append(
                         Change(
                             xpath=actionable_updated_element.xpath,
                             rule_name=actionable_updated_element.rule_name,
                             changeType=ChangeType.UPDATED,
-                            xml=build_standalone_xml_string(actionable_updated_element.effective_node),
+                            xml=build_standalone_xml_string(after),
                         )
                     )
-            elif config.mode == DiffMode.IGNORE_LIST:
-                if cached_ancestry(before, left_elements_to_watch_cache) or cached_ancestry(
-                        after, right_elements_to_watch_cache
-                ):
-                    continue
 
-                diff_output.changes.append(
-                    Change(
-                        xpath=after.getroottree().getpath(after),
-                        changeType=ChangeType.UPDATED,
-                        xml=build_standalone_xml_string(after),
-                    )
-                )
-
-    with measure_time("Process deletions"):
-        for deleted_element in deleted:
-            if config.mode == DiffMode.WATCH_LIST:
+        with measure_time("Process deleted"):
+            for deleted_element in deleted:
                 for actionable_deleted_element in unique_rule_matches(
-                    cached_subtree(deleted_element, left_elements_to_watch_cache)
+                    cached_subtree(deleted_element, left_elements_to_watch_cache),
+                    ChangeType.DELETED,
                 ):
                     diff_output.changes.append(
                         Change(
@@ -195,19 +192,67 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
                             rule_name=actionable_deleted_element.rule_name,
                             changeType=ChangeType.DELETED,
                             xml=build_standalone_xml_string(
-                                actionable_deleted_element.effective_node),
+                                actionable_deleted_element.effective_node
+                            ),
                         )
                     )
-            elif config.mode == DiffMode.IGNORE_LIST:
-                if cached_ancestry(deleted_element, left_elements_to_watch_cache):
-                    continue
 
-                diff_output.changes.append(
-                    Change(
-                        xpath=deleted_element.getroottree().getpath(deleted_element),
-                        changeType=ChangeType.DELETED,
-                        xml=build_standalone_xml_string(deleted_element),
+    elif config.mode == DiffMode.IGNORE_LIST:
+        with measure_time("Process additions"):
+            for added_element in added:
+                if change_is_not_ignorable(
+                    cached_ancestry(
+                        added_element,
+                        right_elements_to_watch_cache,
+                    ),
+                    ChangeType.ADDED,
+                ):
+                    diff_output.changes.append(
+                        Change(
+                            xpath=added_element.getroottree().getpath(added_element),
+                            changeType=ChangeType.ADDED,
+                            xml=build_standalone_xml_string(added_element),
+                        )
                     )
+        with measure_time("Process updates"):
+            for before, after in updated:
+                ignored_before = left_elements_to_watch_cache.get(before)
+                ignored_after = right_elements_to_watch_cache.get(after)
+
+                ignored_matches = (
+                    match
+                    for match in (ignored_before, ignored_after)
+                    if match is not None
                 )
+                if change_is_not_ignorable(
+                    ignored_matches,
+                    ChangeType.UPDATED,
+                ):
+                    diff_output.changes.append(
+                        Change(
+                            xpath=after.getroottree().getpath(after),
+                            changeType=ChangeType.UPDATED,
+                            xml=build_standalone_xml_string(after),
+                        )
+                    )
+
+        with measure_time("Process deletes"):
+            for deleted_element in deleted:
+                if change_is_not_ignorable(
+                    cached_ancestry(
+                        deleted_element,
+                        left_elements_to_watch_cache,
+                    ),
+                    ChangeType.DELETED,
+                ):
+                    diff_output.changes.append(
+                        Change(
+                            xpath=deleted_element.getroottree().getpath(
+                                deleted_element
+                            ),
+                            changeType=ChangeType.DELETED,
+                            xml=build_standalone_xml_string(deleted_element),
+                        )
+                    )
 
     return diff_output.model_dump_json(indent=2)
