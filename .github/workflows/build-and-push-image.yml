@@ -5,7 +5,7 @@
 #     is published.
 #   - Manual run (workflow_dispatch): builds AND publishes to ECR and/or GHCR.
 
-name: Build and push Lambda image (dev)
+name: Build & optionally publish Lambda image (dev)
 
 on:
   # PRs to main VALIDATE the build (no publish)
