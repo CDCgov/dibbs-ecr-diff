@@ -34,6 +34,9 @@ def main() -> None:
 
     diff_output = diff_xml(opts, config)
     print(diff_output)
+    output_path = Path(opts.output_diff_file)
+    output_path.write_text(diff_output, encoding="utf-8")
+    print(f"Wrote: {output_path}")
 
 
 if __name__ == "__main__":

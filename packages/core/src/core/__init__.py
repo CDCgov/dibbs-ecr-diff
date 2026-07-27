@@ -69,48 +69,6 @@ def build_cache(elem: etree._ElementTree, rules: list[RuleConfig]) -> NodeCache:
                     )
     return nodes
 
-
-def nodes_in_cache(
-    origin_node: etree._Element, nodes: Iterable[etree._Element], cache: NodeCache
-) -> list[WatchedNode]:
-    """Generic method for collecting all matched nodes from a cache."""
-    matches: list[WatchedNode] = []
-
-    for node in [origin_node, *nodes]:
-        cache_match = cache.get(node)
-        if cache_match is not None:
-            if node is not origin_node:
-                cache_match.origin_node = origin_node
-            matches.append(cache_match)
-
-    return matches
-
-
-def cached_ancestry(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
-    """Collect node and all ancestor matches."""
-    return nodes_in_cache(node, node.iterancestors(), cache)
-
-
-def cached_subtree(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
-    """Collect node and all descendant matches."""
-    return nodes_in_cache(node, node.iterdescendants(), cache)
-
-
-def unique_rule_matches(matches: Iterable[WatchedNode]) -> list[WatchedNode]:
-    """Return one match per rule for the current XML change.
-
-    A change can match the same rule through several related XML elements. Keep
-    the first match so the change is reported only once for that rule.
-    """
-    first_match_by_rule: dict[UUID, WatchedNode] = {}
-
-    for match in matches:
-        if match.rule_id not in first_match_by_rule:
-            first_match_by_rule[match.rule_id] = match
-
-    return list(first_match_by_rule.values())
-
-
 def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
     """Returns a XML diff string."""
     diff_output = DiffOutput()
@@ -129,85 +87,31 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> str:
             left_tree.getroot(), right_tree.getroot()
         )
 
-    with measure_time("Process additions"):
-        for added_element in added:
-            if config.mode == DiffMode.WATCH_LIST:
-                for actionable_added_element in unique_rule_matches(
-                    cached_subtree(added_element, right_elements_to_watch_cache)
-                ):
-                    diff_output.changes.append(
-                        Change(
-                            xpath=actionable_added_element.xpath,
-                            rule_name=actionable_added_element.rule_name,
-                            changeType=ChangeType.ADDED,
-                            xml=build_standalone_xml_string(actionable_added_element.effective_node),
-                        )
-                    )
-            elif config.mode == DiffMode.IGNORE_LIST:
-                if cached_ancestry(added_element, right_elements_to_watch_cache):
-                    continue
-
+    def process_changes(changes: list[etree._Element], changeType: ChangeType,
+                        watched_node_cache: NodeCache):
+        for change in changes:
+            watched_node_match = watched_node_cache.get(change)
+            if config.mode == DiffMode.WATCH_LIST and watched_node_match:
                 diff_output.changes.append(
                     Change(
-                        xpath=added_element.getroottree().getpath(added_element),
-                        changeType=ChangeType.ADDED,
-                        xml=build_standalone_xml_string(added_element),
+                        xpath=watched_node_match.xpath,
+                        rule_name=watched_node_match.rule_name,
+                        changeType=changeType,
+                        xml=build_standalone_xml_string(watched_node_match.effective_node),
                     )
                 )
-
-    with measure_time("Process updates"):
-        for [before, after] in updated:
-            if config.mode == DiffMode.WATCH_LIST:
-                for actionable_updated_element in unique_rule_matches(
-                    cached_ancestry(after, right_elements_to_watch_cache)
-                ):
-                    diff_output.changes.append(
-                        Change(
-                            xpath=actionable_updated_element.xpath,
-                            rule_name=actionable_updated_element.rule_name,
-                            changeType=ChangeType.UPDATED,
-                            xml=build_standalone_xml_string(actionable_updated_element.effective_node),
-                        )
-                    )
-            elif config.mode == DiffMode.IGNORE_LIST:
-                if cached_ancestry(before, left_elements_to_watch_cache) or cached_ancestry(
-                        after, right_elements_to_watch_cache
-                ):
-                    continue
-
+            elif config.mode == DiffMode.IGNORE_LIST and not watched_node_match:
                 diff_output.changes.append(
                     Change(
-                        xpath=after.getroottree().getpath(after),
-                        changeType=ChangeType.UPDATED,
-                        xml=build_standalone_xml_string(after),
+                        xpath=change.getroottree().getpath(change),
+                        changeType=changeType,
+                        xml=build_standalone_xml_string(change),
                     )
                 )
-
-    with measure_time("Process deletions"):
-        for deleted_element in deleted:
-            if config.mode == DiffMode.WATCH_LIST:
-                for actionable_deleted_element in unique_rule_matches(
-                    cached_subtree(deleted_element, left_elements_to_watch_cache)
-                ):
-                    diff_output.changes.append(
-                        Change(
-                            xpath=actionable_deleted_element.xpath,
-                            rule_name=actionable_deleted_element.rule_name,
-                            changeType=ChangeType.DELETED,
-                            xml=build_standalone_xml_string(
-                                actionable_deleted_element.effective_node),
-                        )
-                    )
-            elif config.mode == DiffMode.IGNORE_LIST:
-                if cached_ancestry(deleted_element, left_elements_to_watch_cache):
-                    continue
-
-                diff_output.changes.append(
-                    Change(
-                        xpath=deleted_element.getroottree().getpath(deleted_element),
-                        changeType=ChangeType.DELETED,
-                        xml=build_standalone_xml_string(deleted_element),
-                    )
-                )
+                
+    with measure_time("Process changes"):
+        process_changes(added, ChangeType.ADDED, right_elements_to_watch_cache)
+        process_changes([after for _, after in updated], ChangeType.UPDATED, right_elements_to_watch_cache)
+        process_changes(deleted, ChangeType.DELETED, left_elements_to_watch_cache)
 
     return diff_output.model_dump_json(indent=2)
