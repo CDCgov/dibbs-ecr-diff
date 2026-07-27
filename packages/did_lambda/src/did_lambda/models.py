@@ -24,7 +24,7 @@ class DIDOutputRecord(ManifestRecord):
     """An eICR and its Reportability Response DID output S3 keys."""
 
     eicr_diff_output: str | None = None
-    rr_diff_output: str | None = None
+    rr_diff_output: str | None = None  # are we diffing the RR?
 
 
 class EICRStorageRecord(BaseModel):
