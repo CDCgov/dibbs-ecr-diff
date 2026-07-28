@@ -214,8 +214,6 @@ def _derive_augmented_rr_setid(
     )
 
 
-
-
 # NOTE:
 # RUN
 # =============================================================================
@@ -863,6 +861,7 @@ def _insert_related_document(doc_root: _Element, related_doc: _Element) -> None:
 # PRIVATE HELPERS — DIFF SUMMARY
 # =============================================================================
 
+
 def _insert_diff_summary(doc_root: _Element, diff_output: DiffOutput) -> None:
     """Insert diff summary as a new eICR section.
 
@@ -870,13 +869,10 @@ def _insert_diff_summary(doc_root: _Element, diff_output: DiffOutput) -> None:
 
     WIP
     """
-    structured_body = doc_root.find(
-        "hl7:component/hl7:structuredBody", NAMESPACES
-    )
+    structured_body = doc_root.find("hl7:component/hl7:structuredBody", NAMESPACES)
     if structured_body is None:
         raise ValueError(
-            "Cannot insert diff summary: eICR has no "
-            "<component>/<structuredBody>."
+            "Cannot insert diff summary: eICR has no <component>/<structuredBody>."
         )
 
     component = _make_element("component")

@@ -87,7 +87,9 @@ def _statement_code_pair(elem: etree._Element) -> tuple[str, str] | None:
 
 
 def _effective_time_discriminator(node: etree._Element) -> tuple | None:
-    """Return a discriminator tuple from a node's <effectiveTime>, trying each
+    """Return a discriminator tuple from a node's <effectiveTime>.
+
+    Return a discriminator tuple from a node's <effectivetime>, trying each
     representation in order: point value, low/high interval, center, period.
     Returns None if no effectiveTime is found.
     """
@@ -121,8 +123,9 @@ def _effective_time_discriminator(node: etree._Element) -> tuple | None:
 
 
 def _statement_effective_time(elem: etree._Element) -> tuple | None:
-    """Return an effectiveTime discriminator from the nested clinical statement
-    if present, otherwise from elem itself.
+    """Return an effectiveTime discriminator from the nested clinical statement if present.
+
+    If nested clinical statement is not present, return discriminator from elem itself.
     """
     clinical_statement_element = clinical_statement_element_for_key_derivation(elem)
     if clinical_statement_element is not None:
@@ -187,9 +190,10 @@ def secondary_discriminator(elem: etree._Element) -> tuple:
 
 
 def _organizer_context(elem: etree._Element) -> tuple:
-    """Walk up the ancestor chain to find the nearest enclosing <organizer> and
-    return a signature tuple for it.  Used so that observations nested inside
-    different organizers (lab panels) are not incorrectly paired across panels.
+    """Return signature tuple for nearest enclosing <organizer> in ancestor chain.
+
+    Used so that observations nested inside different organizers (lab panels)
+    are not incorrectly paired across panels.
     """
     current = elem.getparent()
     while current is not None:
