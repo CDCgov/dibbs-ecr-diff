@@ -406,7 +406,7 @@ def test_fingerprint_excluding_version_metadata_includes_nested_observation_id()
         """
     )
 
-    assert _equivalent_excluding_version_metadata(before_root, after_root)
+    assert not _equivalent_excluding_version_metadata(before_root, after_root)
 
 
 def test_clinical_statement_effective_time_is_not_ignored_by_diff():

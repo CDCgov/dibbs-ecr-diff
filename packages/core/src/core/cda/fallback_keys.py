@@ -1,7 +1,5 @@
 """CDA fallback discriminator and soft-context keys for ambiguous matching."""
 
-from typing import Optional, Tuple
-
 from lxml import etree
 
 from core.cda.clinical_statement import clinical_statement_element_for_key_derivation
@@ -27,7 +25,7 @@ CODE_ATTRIBUTE, CODE_SYSTEM_ATTRIBUTE = CODE_KEY_ATTRS
 
 def _complete_root_extension_from_element(
     element: etree._Element | None,
-) -> Optional[RootExtension]:
+) -> RootExtension | None:
     """Return root/extension only when both attributes are present."""
     pair = _complete_attribute_pair(element, ROOT_ATTRIBUTE, EXTENSION_ATTRIBUTE)
     if pair is None:
@@ -54,8 +52,7 @@ def _complete_root_extensions_from_direct_id_children(
 def _statement_id_root_extensions(
     elem: etree._Element,
 ) -> tuple[RootExtension, ...]:
-    """
-    Return complete direct <id> root/extensions for statement fallback matching.
+    """Return complete direct <id> root/extensions for statement fallback matching.
 
     Prefer IDs from the clinical statement itself when elem is a direct-statement
     wrapper; fall back to elem's own direct IDs when no complete statement IDs
@@ -71,7 +68,7 @@ def _statement_id_root_extensions(
     return _complete_root_extensions_from_direct_id_children(elem)
 
 
-def _statement_code_pair(elem: etree._Element) -> Optional[Tuple[str, str]]:
+def _statement_code_pair(elem: etree._Element) -> tuple[str, str] | None:
     """Return (code, codeSystem) from the clinical statement's <code>, or None."""
     clinical_statement_element = clinical_statement_element_for_key_derivation(elem)
     if clinical_statement_element is not None:
@@ -89,9 +86,8 @@ def _statement_code_pair(elem: etree._Element) -> Optional[Tuple[str, str]]:
     )
 
 
-def _effective_time_discriminator(node: etree._Element) -> Optional[tuple]:
-    """
-    Return a discriminator tuple from a node's <effectiveTime>, trying each
+def _effective_time_discriminator(node: etree._Element) -> tuple | None:
+    """Return a discriminator tuple from a node's <effectiveTime>, trying each
     representation in order: point value, low/high interval, center, period.
     Returns None if no effectiveTime is found.
     """
@@ -124,9 +120,8 @@ def _effective_time_discriminator(node: etree._Element) -> Optional[tuple]:
     return None
 
 
-def _statement_effective_time(elem: etree._Element) -> Optional[tuple]:
-    """
-    Return an effectiveTime discriminator from the nested clinical statement
+def _statement_effective_time(elem: etree._Element) -> tuple | None:
+    """Return an effectiveTime discriminator from the nested clinical statement
     if present, otherwise from elem itself.
     """
     clinical_statement_element = clinical_statement_element_for_key_derivation(elem)
@@ -137,9 +132,8 @@ def _statement_effective_time(elem: etree._Element) -> Optional[tuple]:
     return _effective_time_discriminator(elem)
 
 
-def _weak_attribute_discriminator(elem: etree._Element) -> Optional[tuple]:
-    """
-    Return weak direct attributes for late in-bucket discrimination.
+def _weak_attribute_discriminator(elem: etree._Element) -> tuple | None:
+    """Return weak direct attributes for late in-bucket discrimination.
 
     These attributes are intentionally not stable keys. They are only
     used after stronger CDA discriminators fail, and include the element tag so
@@ -154,8 +148,7 @@ def _weak_attribute_discriminator(elem: etree._Element) -> Optional[tuple]:
 
 
 def secondary_discriminator(elem: etree._Element) -> tuple:
-    """
-    Return the best available secondary discriminator for elem.
+    """Return the best available secondary discriminator for elem.
 
     This is not only used when stable_key() is unavailable. It is also used
     after stable-key matching leaves an ambiguous bucket, especially when
@@ -194,8 +187,7 @@ def secondary_discriminator(elem: etree._Element) -> tuple:
 
 
 def _organizer_context(elem: etree._Element) -> tuple:
-    """
-    Walk up the ancestor chain to find the nearest enclosing <organizer> and
+    """Walk up the ancestor chain to find the nearest enclosing <organizer> and
     return a signature tuple for it.  Used so that observations nested inside
     different organizers (lab panels) are not incorrectly paired across panels.
     """
@@ -223,9 +215,8 @@ def _organizer_context(elem: etree._Element) -> tuple:
     return ("organizer.none", "")
 
 
-def soft_context_key(elem: etree._Element) -> Optional[tuple]:
-    """
-    Return a soft context key for prefer-updates pairing.
+def soft_context_key(elem: etree._Element) -> tuple | None:
+    """Return a soft context key for prefer-updates pairing.
 
     This is used within broad templateId buckets when stable keys alone are not
     enough to choose a one-to-one pairing. It tries to pair elements as updates
