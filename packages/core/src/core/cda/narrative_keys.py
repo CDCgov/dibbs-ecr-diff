@@ -1,16 +1,13 @@
 """CDA narrative table and row key derivation."""
 
-from typing import Optional
-
 from lxml import etree
 
 from core.constants import NAMESPACES
 from core.xml_utils import localname, normalize_text
 
 
-def narrative_table_key(elem: etree._Element) -> Optional[tuple]:
-    """
-    Derive a stable narrative key for a CDA narrative <table> element.
+def narrative_table_key(elem: etree._Element) -> tuple | None:
+    """Derive a stable narrative key for a CDA narrative <table> element.
 
     Prefers the column header labels from <thead>; falls back to the text of
     the first cell in the first row.  Returns None for non-table elements.
@@ -36,9 +33,8 @@ def narrative_table_key(elem: etree._Element) -> Optional[tuple]:
     return None
 
 
-def narrative_row_key(elem: etree._Element) -> Optional[tuple]:
-    """
-    Derive a stable narrative key for a CDA narrative <tr> element.
+def narrative_row_key(elem: etree._Element) -> tuple | None:
+    """Derive a stable narrative key for a CDA narrative <tr> element.
 
     Prefers the text of the first cell; falls back to all cell text joined
     with a pipe separator.  Returns None for non-tr elements.

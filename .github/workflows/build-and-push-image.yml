@@ -1,0 +1,156 @@
+# Builds the difference-in-docs Lambda container image for the dev environment.
+#
+# Two behaviors:
+#   - PR to main / push to main: builds the image to validate it compiles. Nothing
+#     is published.
+#   - Manual run (workflow_dispatch): builds AND publishes to ECR and/or GHCR.
+
+name: Build & optionally publish Lambda image (dev)
+
+on:
+  # PRs to main VALIDATE the build (no publish)
+  pull_request:
+    branches:
+      - main
+
+  # Push to main also VALIDATES the build (no publish)
+  push:
+    branches:
+      - main
+
+  # Manual run is the only path that actually publishes
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref (branch or tag) to build from"
+        required: false
+        default: main
+      version_tag:
+        description: "Optional Docker tag to use instead of branch name (`1.2.3`)"
+        required: false
+      push_ghcr:
+        description: "Push image to GitHub Container Registry (GHCR)"
+        type: boolean
+        default: true
+      push_ecr:
+        description: "Push image to AWS ECR"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    env:
+      PUSH_GHCR: ${{ github.event.inputs.push_ghcr }}
+      PUSH_ECR: ${{ github.event.inputs.push_ecr }}
+      # True only on a manual run with at least one destination enabled.
+      PUBLISH_IMAGE: >-
+        ${{ github.event_name == 'workflow_dispatch'
+            && (inputs.push_ghcr || inputs.push_ecr) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # ---- Publish-only setup (skipped on validation runs) ----
+
+      - name: Log into GitHub Container Registry
+        if: env.PUBLISH_IMAGE == 'true' && env.PUSH_GHCR == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure AIMS dev AWS credentials
+        if: env.PUBLISH_IMAGE == 'true' && env.PUSH_ECR == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          aws-access-key-id: ${{ secrets.AIMS_DEV_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AIMS_DEV_AWS_SECRET_ACCESS_KEY }}
+
+      - name: Login to AIMS dev ECR
+        id: ecr
+        if: env.PUBLISH_IMAGE == 'true' && env.PUSH_ECR == 'true'
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Make repo owner lowercase
+        id: repo
+        if: env.PUBLISH_IMAGE == 'true' && env.PUSH_GHCR == 'true'
+        run: |
+          echo "owner=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+        env:
+          OWNER: ${{ github.repository_owner }}
+
+      - name: Determine Docker tags
+        id: vars
+        if: env.PUBLISH_IMAGE == 'true'
+        env:
+          REF_NAME: ${{ github.event.inputs.ref || github.ref_name }}
+          VERSION_TAG: ${{ github.event.inputs.version_tag }}
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+          OWNER: ${{ steps.repo.outputs.owner }}
+        run: |
+          # Sanitize ref so it's a valid image tag
+          if [ -z "$VERSION_TAG" ]; then
+            TAG=$(echo "$REF_NAME" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
+          else
+            # Sanitize the supplied version tag the same way
+            TAG=$(echo "$VERSION_TAG" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
+          fi
+
+          echo "version_tag=$TAG" >> $GITHUB_OUTPUT
+
+          TAGS=()
+
+          # GHCR
+          if [ "$PUSH_GHCR" = "true" ]; then
+            TAGS+=("ghcr.io/$OWNER/dibbs-ecr-diff:$TAG")
+          fi
+
+          # ECR
+          if [ "$PUSH_ECR" = "true" ]; then
+            TAGS+=("$ECR_REGISTRY/dibbs-ecr-diff:$TAG")
+          fi
+
+          # Add 'latest' if on main
+          if [ "$REF_NAME" = "main" ]; then
+            [ "$PUSH_GHCR" = "true" ] && TAGS+=("ghcr.io/$OWNER/dibbs-ecr-diff:latest")
+            [ "$PUSH_ECR" = "true" ] && TAGS+=("$ECR_REGISTRY/dibbs-ecr-diff:latest")
+          fi
+
+          echo "image_tags=$(IFS=, ; echo "${TAGS[*]}")" >> $GITHUB_OUTPUT
+
+      - name: Debug Docker tags
+        if: env.PUBLISH_IMAGE == 'true'
+        env:
+          IMAGE_TAGS: ${{ steps.vars.outputs.image_tags }}
+        run: |
+          echo "IMAGE_TAGS: $IMAGE_TAGS"
+
+      # ---- Build runs on every trigger. push: is true only on a publishing run. ----
+
+      - name: Build (and maybe push) Lambda image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          provenance: false
+          file: docker/lambda.Dockerfile
+          push: ${{ env.PUBLISH_IMAGE == 'true' }}
+          platforms: linux/amd64
+          tags: ${{ steps.vars.outputs.image_tags }}
+          build-args: |
+            VERSION=${{ steps.vars.outputs.version_tag }}

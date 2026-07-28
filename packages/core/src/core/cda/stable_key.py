@@ -217,9 +217,7 @@ def stable_key(elem: etree._Element) -> StableKey | None:
         return DirectChildCodeElementSetKey(code_elements=direct_child_code_elements)
 
     wrapped_clinical_statement_element = (
-        clinical_statement_element
-        if clinical_statement_element is not elem
-        else None
+        clinical_statement_element if clinical_statement_element is not elem else None
     )
     if wrapped_clinical_statement_element is not None:
         stmt_child_code_elements = _direct_child_code_elements(

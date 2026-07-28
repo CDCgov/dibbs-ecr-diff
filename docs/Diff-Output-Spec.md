@@ -48,6 +48,11 @@ APHL uses the diff to decide whether to send the new eICR to the receiving juris
 | `actionabilityRuleId` | string | Yes | UUID of the rule or default behavior that determined `isActionable`. Default behaviors (watch-all, ignore-all) also have reserved UUIDs. |
 | `actionabilityRuleDisplayName` | string | Optional | Human-readable name of the rule or default behavior. |
 
+The reserved rule UUID for the default behavior that makes unmatched changes
+actionable under an `IGNORE_LIST` configuration is
+`b3bdf60f-e22a-4467-8e1d-c8d4df7c8df0` (display name:
+`Default: actionable when no ignore rule matches`).
+
 #### XPath Document Id
 
 - For `added` and `updated` changes, `xPath` resolves against the current document. `xPathDocumentId` equals the value of `currentDocument.documentId`.
@@ -60,7 +65,7 @@ APHL uses the diff to decide whether to send the new eICR to the receiving juris
 
 ```json
 {
-  "specVersion": "1.0",
+  "outputSpecVersion": "1.0",
   "generatedAt": "2026-06-05T00:00:00Z",
   "configurationId": "44d9a0b0-3c0c-4f49-bd11-6f219c7cfa9b",
   "configurationVersion": "1",
@@ -78,32 +83,32 @@ APHL uses the diff to decide whether to send the new eICR to the receiving juris
   "changes": [
     {
       "changeType": "updated",
-      "xPath": "/ClinicalDocument/recordTarget/patientRole/patient/birthTime/@value",
-      "xPathDocumentId": "db734647-fc99-424c-a864-7e3cda82e704",
+      "xpath": "/ClinicalDocument/recordTarget/patientRole/patient/birthTime/@value",
+      "xpathDocumentId": "db734647-fc99-424c-a864-7e3cda82e704",
       "isActionable": true,
       "actionabilityRuleId": "8b1f4a2e-3c5d-4e6f-9a7b-1c2d3e4f5a6b",
       "actionabilityRuleDisplayName": "Patient date of birth changed"
     },
     {
       "changeType": "added",
-      "xPath": "/ClinicalDocument/component/structuredBody/component[3]/section/entry[2]",
-      "xPathDocumentId": "db734647-fc99-424c-a864-7e3cda82e704",
+      "xpath": "/ClinicalDocument/component/structuredBody/component[3]/section/entry[2]",
+      "xpathDocumentId": "db734647-fc99-424c-a864-7e3cda82e704",
       "isActionable": true,
       "actionabilityRuleId": "2d4e6f8a-1b3c-5d7e-9f0a-2b4c6d8e0f1a",
       "actionabilityRuleDisplayName": "Medication added"
     },
     {
       "changeType": "updated",
-      "xPath": "/ClinicalDocument/component/structuredBody/component[4]/section/entry[3]",
-      "xPathDocumentId": "db734647-fc99-424c-a864-7e3cda82e704",
+      "xpath": "/ClinicalDocument/component/structuredBody/component[4]/section/entry[3]",
+      "xpathDocumentId": "db734647-fc99-424c-a864-7e3cda82e704",
       "isActionable": false,
       "actionabilityRuleId": "f78ecad1-6122-40f7-8203-bace36944de5",
       "actionabilityRuleDisplayName": "Default: ignore all"
     },
     {
       "changeType": "deleted",
-      "xPath": "/ClinicalDocument/component/structuredBody/component[5]/section/entry[1]",
-      "xPathDocumentId": "db734647-fc99-424c-a864-7e3cda82e703",
+      "xpath": "/ClinicalDocument/component/structuredBody/component[5]/section/entry[1]",
+      "xpathDocumentId": "db734647-fc99-424c-a864-7e3cda82e703",
       "isActionable": true,
       "actionabilityRuleId": "0e870a30-2745-4dbb-8e3e-2c6820441b27",
       "actionabilityRuleDisplayName": "Problem deleted"

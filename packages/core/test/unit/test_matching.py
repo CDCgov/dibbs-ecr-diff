@@ -98,10 +98,12 @@ def test_matching_does_not_pair_ambiguous_overlapping_child_ids():
         """,
     )
 
-    pairs = list(match_children_ignore_order(
-        [before_first, before_second],
-        [after],
-    ))
+    pairs = list(
+        match_children_ignore_order(
+            [before_first, before_second],
+            [after],
+        )
+    )
 
     assert (before_first, after) not in pairs
     assert (before_second, after) not in pairs
@@ -187,10 +189,12 @@ def test_matching_does_not_pair_ambiguous_direct_template_id_subset():
         """
     )
 
-    pairs = list(match_children_ignore_order(
-        [before_first, before_second],
-        [after],
-    ))
+    pairs = list(
+        match_children_ignore_order(
+            [before_first, before_second],
+            [after],
+        )
+    )
 
     assert (before_first, after) not in pairs
     assert (before_second, after) not in pairs
@@ -297,10 +301,12 @@ def test_matching_pairs_by_complete_direct_statement_id_subset():
     after_xy = _entry_with_direct_observation_ids("x", "y")
     after_abz = _entry_with_direct_observation_ids("a", "b", "z")
 
-    pairs = list(match_children_ignore_order(
-        [before_ab, before_xy],
-        [after_xy, after_abz],
-    ))
+    pairs = list(
+        match_children_ignore_order(
+            [before_ab, before_xy],
+            [after_xy, after_abz],
+        )
+    )
 
     assert (before_ab, after_abz) in pairs
     assert (before_xy, after_xy) in pairs
@@ -355,10 +361,12 @@ def test_matching_does_not_pair_ambiguous_nested_section_id_overlap():
         """
     )
 
-    pairs = list(match_children_ignore_order(
-        [before_first, before_second],
-        [after],
-    ))
+    pairs = list(
+        match_children_ignore_order(
+            [before_first, before_second],
+            [after],
+        )
+    )
 
     assert (before_first, after) not in pairs
     assert (before_second, after) not in pairs
@@ -370,17 +378,19 @@ def test_matching_does_not_pair_ambiguous_nested_section_id_overlap():
 def test_matching_pairs_template_ids_independent_of_document_order():
     before_first = elem(f'<section xmlns="{HL7_NS}"><id root="a"/></section>')
     before_second = elem(f'<section xmlns="{HL7_NS}"><id root="b"/></section>')
-    
+
     after_first = elem(f'<section xmlns="{HL7_NS}"><id root="b"/></section>')
     after_second = elem(f'<section xmlns="{HL7_NS}"><id root="a"/></section>')
-    
-    assert list(match_children_ignore_order(
-        [before_first, before_second],
-        [after_first, after_second],
-    )) == [
-               (before_first, after_second),
-               (before_second, after_first),
-           ]
+
+    assert list(
+        match_children_ignore_order(
+            [before_first, before_second],
+            [after_first, after_second],
+        )
+    ) == [
+        (before_first, after_second),
+        (before_second, after_first),
+    ]
 
 
 def test_weak_attributes_are_only_late_in_bucket_discriminators():
@@ -397,10 +407,12 @@ def test_weak_attributes_are_only_late_in_bucket_discriminators():
         f"""<telecom xmlns="{HL7_NS}" use="HP" value="tel:+15551119999"/>"""
     )
 
-    pairs = list(match_children_ignore_order(
-        [before_home, before_work],
-        [after_work, after_home],
-    ))
+    pairs = list(
+        match_children_ignore_order(
+            [before_home, before_work],
+            [after_work, after_home],
+        )
+    )
 
     assert (before_home, after_home) in pairs
     assert (before_work, after_work) in pairs
