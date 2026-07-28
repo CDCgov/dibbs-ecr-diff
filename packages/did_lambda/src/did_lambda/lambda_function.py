@@ -22,7 +22,7 @@ DID_OUTPUT_PREFIX = "DIDOutput/"
 DID_COMPLETE_PREFIX = "DIDComplete/"
 
 s3: "S3Client" = boto3.client("s3")
-logger = Logger("did-lambda")
+logger = Logger(service="difference-in-docs")
 
 
 class InfraError(Exception):

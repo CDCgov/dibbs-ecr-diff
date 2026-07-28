@@ -118,18 +118,18 @@ jobs:
 
           # GHCR
           if [ "$PUSH_GHCR" = "true" ]; then
-            TAGS+=("ghcr.io/$OWNER/dibbs-ecr-diff:$TAG")
+            TAGS+=("ghcr.io/$OWNER/dibbs-dev-did/lambda:$TAG")
           fi
 
           # ECR
           if [ "$PUSH_ECR" = "true" ]; then
-            TAGS+=("$ECR_REGISTRY/dibbs-ecr-diff:$TAG")
+            TAGS+=("$ECR_REGISTRY/dibbs-dev-did/lambda:$TAG")
           fi
 
           # Add 'latest' if on main
           if [ "$REF_NAME" = "main" ]; then
-            [ "$PUSH_GHCR" = "true" ] && TAGS+=("ghcr.io/$OWNER/dibbs-ecr-diff:latest")
-            [ "$PUSH_ECR" = "true" ] && TAGS+=("$ECR_REGISTRY/dibbs-ecr-diff:latest")
+            [ "$PUSH_GHCR" = "true" ] && TAGS+=("ghcr.io/$OWNER/dibbs-dev-did/lambda:latest")
+            [ "$PUSH_ECR" = "true" ] && TAGS+=("$ECR_REGISTRY/dibbs-dev-did/lambda:latest")
           fi
 
           echo "image_tags=$(IFS=, ; echo "${TAGS[*]}")" >> $GITHUB_OUTPUT
