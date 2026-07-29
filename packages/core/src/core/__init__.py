@@ -70,7 +70,7 @@ def build_cache(elem: etree._ElementTree, rules: list[RuleConfig]) -> NodeCache:
                         node=val,
                         tag=str(val.tag),
                         xpath=xpath,
-                        rule_name=rule.name,
+                        rule_name=rule.displayName,
                         rule_id=rule.id,
                         change_types=frozenset(rule.changeTypes),
                     )
