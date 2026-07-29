@@ -1,4 +1,7 @@
+from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.typing import LambdaContext
+
+logger = Logger(service="difference-in-docs")
 
 
 # TODO: use event source data class for event here
@@ -6,6 +9,7 @@ from aws_lambda_powertools.utilities.typing import LambdaContext
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
     """Main Lambda handler function."""
     try:
+        logger.info("hello world")
         return {
             "statusCode": 200,
             "message": "diff processed successfully",

@@ -33,7 +33,12 @@ def main() -> None:
         config = Configuration(**json.load(f))
 
     diff_output = diff_xml(opts, config)
-    print(diff_output)
+    diff_output_json = diff_output.model_dump_json(indent=2)
+
+    if opts.output_diff_file:
+        json_out_path = Path(opts.output_diff_file)
+        json_out_path.write_text(diff_output_json, encoding="utf-8")
+        print(f"Wrote {json_out_path.resolve()}")
 
 
 if __name__ == "__main__":

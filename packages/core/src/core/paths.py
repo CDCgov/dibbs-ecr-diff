@@ -1,13 +1,8 @@
-"""
-core/paths.py
-
-Human-readable xmlPath and machine-readable xPath generation.
+"""Human-readable xmlPath and machine-readable xPath generation.
 
 Both path types are written into changes.json alongside each change entry
 to help consumers locate the changed element in the document.
 """
-
-from typing import Dict, List, Optional
 
 from lxml import etree
 
@@ -42,7 +37,7 @@ def _pfx(tag: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _stable_key_to_label(path_key: StableKey | tuple | None) -> Optional[str]:
+def _stable_key_to_label(path_key: StableKey | tuple | None) -> str | None:
     """Convert stable or narrative path keys into human-readable bracket labels."""
     if path_key is None:
         return None
@@ -144,8 +139,7 @@ def stable_xml_path(
     elem: etree._Element,
     anchor: str = "ClinicalDocument",
 ) -> str:
-    """
-    Return a stable, human-readable path string for elem.
+    """Return a stable, human-readable path string for elem.
 
     Uses meaningful bracket labels derived from stable_key / narrative keys
     where available; falls back to positional [:N] notation otherwise.
@@ -198,9 +192,9 @@ def stable_xml_path(
 
 
 def _xpath_literal(value: str) -> str:
-    """
-    Wrap value in XPath-safe quotes.  Falls back to concat() when value
-    contains both single and double quotes.
+    """Wrap value in XPath-safe quotes.
+
+    Falls back to concat() when value contains both single and double quotes.
     """
     if "'" not in value:
         return f"'{value}'"
@@ -227,9 +221,7 @@ def _direct_template_id_predicates(node: etree._Element) -> list[str]:
             f"@root={_xpath_literal(root_extension.root)}",
         ]
         if root_extension.extension:
-            conditions.append(
-                f"@extension={_xpath_literal(root_extension.extension)}"
-            )
+            conditions.append(f"@extension={_xpath_literal(root_extension.extension)}")
         else:
             conditions.append("(not(@extension) or @extension='')")
 
@@ -238,14 +230,14 @@ def _direct_template_id_predicates(node: etree._Element) -> list[str]:
     return predicates
 
 
-def _append_xpath_predicate(predicates: List[str], predicate: str) -> None:
+def _append_xpath_predicate(predicates: list[str], predicate: str) -> None:
     """Append predicate unless an earlier key helper already produced it."""
     if predicate not in predicates:
         predicates.append(predicate)
 
 
 def _direct_attribute_stable_key_predicates(
-    stable_key_value: Optional[StableKey],
+    stable_key_value: StableKey | None,
 ) -> list[str]:
     """Return XPath predicates for direct attribute stable-key variants."""
     if isinstance(stable_key_value, RootExtensionKey):
@@ -287,12 +279,12 @@ def _position_among_siblings(node: etree._Element) -> int:
         return 1
 
 
-def _effective_time_predicates(node: etree._Element) -> Dict[str, str]:
-    """
-    Return a dict of available effectiveTime component values for node.
+def _effective_time_predicates(node: etree._Element) -> dict[str, str]:
+    """Return a dict of available effectiveTime component values for node.
+
     Keys: "value", "low", "high", "center", "period_value", "period_unit".
     """
-    result: Dict[str, str] = {}
+    result: dict[str, str] = {}
 
     point_value = _xpath_first_attribute_value(node, "./hl7:effectiveTime/@value")
     if point_value:
@@ -332,14 +324,13 @@ def xpath_with_predicates(
     elem: etree._Element,
     anchor: str = "ClinicalDocument",
 ) -> str:
-    """
-    Return a machine-readable absolute XPath for elem using hl7: namespace prefix.
+    """Return a machine-readable absolute XPath for elem using hl7: namespace prefix.
 
     Stable predicates (id, templateId, code, effectiveTime) are used where
     available; positional [N] predicates are used as a fallback.
     Stops ascending at the element whose local name matches `anchor`.
     """
-    steps: List[str] = []
+    steps: list[str] = []
     current = elem
 
     while current is not None:
@@ -350,7 +341,7 @@ def xpath_with_predicates(
         local = localname(current)
         qname = etree.QName(current.tag)
         tag_step = _pfx(local) if qname.namespace == HL7_NS else local
-        predicates: List[str] = []
+        predicates: list[str] = []
 
         if local == "table":
             table_key = narrative_table_key(current)
