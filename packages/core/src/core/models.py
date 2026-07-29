@@ -17,7 +17,7 @@ class DiffingOptions(BaseModel):
 
     file1: str
     file2: str
-    config: str
+    config: str | None = None
     output_diff_file: str | None = None
 
 
