@@ -32,7 +32,7 @@ s3: "S3Client" = boto3.client("s3")
 dynamodb: "DynamoDBServiceResource" = boto3.resource("dynamodb")
 
 eicr_records = dynamodb.Table(DYNAMODB_TABLE_NAME)
-logger = Logger("did-lambda")
+logger = Logger("difference-in-docs")
 
 config_path = Path(__file__).parent / "aphl_baseline_config.json"
 with config_path.open(encoding="utf-8") as config_file:
