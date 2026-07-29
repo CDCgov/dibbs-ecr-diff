@@ -28,7 +28,7 @@ from .performance import measure_time
 
 
 @dataclass()
-class WatchedNode:
+class RuleMatchNode:
     """Metadata for watched/ignored node cache."""
 
     node: etree._Element
@@ -46,7 +46,7 @@ class WatchedNode:
 
 
 """Used to cache nodes from evaluated rule XPaths."""
-type NodeCache = dict[etree._Element, WatchedNode]
+type RuleMatchCache = dict[etree._Element, RuleMatchNode]
 
 
 def eval_xpath(
@@ -56,9 +56,9 @@ def eval_xpath(
     return elem.xpath(xpath_expr, namespaces=NAMESPACES) or []
 
 
-def build_cache(elem: etree._ElementTree, rules: list[RuleConfig]) -> NodeCache:
+def build_cache(elem: etree._ElementTree, rules: list[RuleConfig]) -> RuleMatchCache:
     """Execute XPaths against element to build node cache."""
-    nodes: NodeCache = {}
+    nodes: RuleMatchCache = {}
 
     for rule in rules:
         with measure_time(f"Execute {len(rule.xpaths)} xpaths for {rule.displayName}"):
@@ -66,7 +66,7 @@ def build_cache(elem: etree._ElementTree, rules: list[RuleConfig]) -> NodeCache:
                 vals = eval_xpath(elem, xpath)
 
                 for val in vals:
-                    nodes[val] = WatchedNode(
+                    nodes[val] = RuleMatchNode(
                         node=val,
                         tag=str(val.tag),
                         xpath=xpath,
@@ -78,10 +78,12 @@ def build_cache(elem: etree._ElementTree, rules: list[RuleConfig]) -> NodeCache:
 
 
 def nodes_in_cache(
-    origin_node: etree._Element, nodes: Iterable[etree._Element], cache: NodeCache
-) -> list[WatchedNode]:
+    origin_node: etree._Element,
+    nodes: Iterable[etree._Element],
+    cache: RuleMatchCache,
+) -> list[RuleMatchNode]:
     """Generic method for collecting all matched nodes from a cache."""
-    matches: list[WatchedNode] = []
+    matches: list[RuleMatchNode] = []
 
     for node in [origin_node, *nodes]:
         cache_match = cache.get(node)
@@ -93,14 +95,21 @@ def nodes_in_cache(
     return matches
 
 
-def cached_ancestry(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
+def rule_matches_for_node_and_ancestors(
+    node: etree._Element,
+    cache: RuleMatchCache,
+) -> list[RuleMatchNode]:
     """Collect node and all ancestor matches."""
     return nodes_in_cache(node, node.iterancestors(), cache)
 
 
-def cached_subtree(node: etree._Element, cache: NodeCache) -> list[WatchedNode]:
+def rule_matches_for_node_and_descendants(
+    node: etree._Element,
+    cache: RuleMatchCache,
+) -> list[RuleMatchNode]:
     """Collect node and all descendant matches."""
     return nodes_in_cache(node, node.iterdescendants(), cache)
+
 
 def _get_document_metadata(root: etree._Element) -> Document:
     return Document(
@@ -110,17 +119,18 @@ def _get_document_metadata(root: etree._Element) -> Document:
         ),
     )
 
+
 def unique_rule_matches(
-        matches: Iterable[WatchedNode],
-        change_type: ChangeType,
-) -> list[WatchedNode]:
+    matches: Iterable[RuleMatchNode],
+    change_type: ChangeType,
+) -> list[RuleMatchNode]:
     """Return one match per rule for the current XML change.
 
     Ignore rules that do not apply to the change type. A change can match an
     applicable rule through several related XML elements, so keep its first
     match.
     """
-    first_match_by_rule: dict[UUID, WatchedNode] = {}
+    first_match_by_rule: dict[UUID, RuleMatchNode] = {}
 
     for match in matches:
         if change_type not in match.change_types:
@@ -132,19 +142,23 @@ def unique_rule_matches(
     return list(first_match_by_rule.values())
 
 
-def change_is_not_ignorable(
-        matches: Iterable[WatchedNode],
-        change_type: ChangeType,
+def change_is_ignorable(
+    matches: Iterable[RuleMatchNode],
+    ignorable_change_type: ChangeType,
 ) -> bool:
-    """Return whether no ignore-rule match applies to the change type."""
-    return not any(change_type in match.change_types for match in matches)
+    """Return true if any match has the ignorable change type."""
+    for match in matches:
+        if ignorable_change_type in match.change_types:
+            return True
+
+    return False
 
 
 def _process_additions(
-        added: list,
-        mode: DiffMode,
-        right_cache: NodeCache,
-        current_document: Document,
+    added: list,
+    mode: DiffMode,
+    right_rule_match_cache: RuleMatchCache,
+    current_document: Document,
 ) -> list[Change]:
     """Build ADDED change list for nodes present in the new document only.
 
@@ -153,71 +167,99 @@ def _process_additions(
     node, skipping any node under an ignored ancestor. Added nodes live in
     the new tree, so xpathDocumentId is taken from ``current_document``.
     """
-    changes: list[Change] = []
-    for after in added:
+    actionable_added_elements: list[Change] = []
+    for added_element in added:
         if mode == DiffMode.WATCH_LIST:
-            for match in cached_subtree(after, right_cache):
-                changes.append(
+            for actionable_added_element in unique_rule_matches(
+                rule_matches_for_node_and_descendants(
+                    added_element,
+                    right_rule_match_cache,
+                ),
+                ChangeType.ADDED,
+            ):
+                actionable_added_elements.append(
                     Change(
                         changeType=ChangeType.ADDED,
-                        xpath=xpath_with_predicates(after),
+                        xpath=xpath_with_predicates(added_element),
                         xpathDocumentId=current_document.documentId,
                         isActionable=True,
-                        actionabilityRuleId=match.rule_id,
-                        actionabilityRuleDisplayName=match.rule_name,
+                        actionabilityRuleId=actionable_added_element.rule_id,
+                        actionabilityRuleDisplayName=actionable_added_element.rule_name,
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
-            if cached_ancestry(after, right_cache):
+            if change_is_ignorable(
+                rule_matches_for_node_and_ancestors(
+                    added_element,
+                    right_rule_match_cache,
+                ),
+                ChangeType.ADDED,
+            ):
                 continue
-            changes.append(
+
+            actionable_added_elements.append(
                 Change(
                     changeType=ChangeType.ADDED,
-                    xpath=xpath_with_predicates(after),
+                    xpath=xpath_with_predicates(added_element),
                     xpathDocumentId=current_document.documentId,
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
                     actionabilityRuleDisplayName=(DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME),
                 )
             )
-    return changes
+    return actionable_added_elements
 
 
 def _process_updates(
-        updated: list,
-        mode: DiffMode,
-        left_cache: NodeCache,
-        right_cache: NodeCache,
-        current_document: Document,
+    updated: list,
+    mode: DiffMode,
+    left_rule_match_cache: RuleMatchCache,
+    right_rule_match_cache: RuleMatchCache,
+    current_document: Document,
 ) -> list[Change]:
     """Build UPDATED change list for nodes that differ between the two documents.
 
     Each item in ``updated`` is a (before, after) pair. In WATCH_LIST mode,
-    emits one change per rule match in the updated node's ancestry. In
-    IGNORE_LIST mode, emits one change per updated node, skipping nodes that
-    are ignored in either the old or new tree. xpathDocumentId is taken from
-    ``current_document``.
+    emits a change when the after node directly matches an applicable rule. In
+    IGNORE_LIST mode, emits one change per updated node unless that node or one
+    of its ancestors matches an applicable rule in either the previous or
+    current document. xpathDocumentId is taken from ``current_document``.
     """
-    changes: list[Change] = []
+    actionable_updated_elements: list[Change] = []
     for before, after in updated:
         if mode == DiffMode.WATCH_LIST:
-            for match in cached_ancestry(after, right_cache):
-                changes.append(
+            actionable_updated_element = right_rule_match_cache.get(after)
+            if (
+                actionable_updated_element is not None
+                and ChangeType.UPDATED in actionable_updated_element.change_types
+            ):
+                actionable_updated_elements.append(
                     Change(
                         changeType=ChangeType.UPDATED,
                         xpath=xpath_with_predicates(after),
                         xpathDocumentId=current_document.documentId,
                         isActionable=True,
-                        actionabilityRuleId=match.rule_id,
-                        actionabilityRuleDisplayName=match.rule_name,
+                        actionabilityRuleId=actionable_updated_element.rule_id,
+                        actionabilityRuleDisplayName=actionable_updated_element.rule_name,
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
-            if cached_ancestry(before, left_cache) or cached_ancestry(
-                    after, right_cache
+            rule_matches = [
+                *rule_matches_for_node_and_ancestors(
+                    before,
+                    left_rule_match_cache,
+                ),
+                *rule_matches_for_node_and_ancestors(
+                    after,
+                    right_rule_match_cache,
+                ),
+            ]
+            if change_is_ignorable(
+                rule_matches,
+                ChangeType.UPDATED,
             ):
                 continue
-            changes.append(
+            actionable_updated_elements.append(
                 Change(
                     changeType=ChangeType.UPDATED,
                     xpath=xpath_with_predicates(after),
@@ -227,14 +269,14 @@ def _process_updates(
                     actionabilityRuleDisplayName=(DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME),
                 )
             )
-    return changes
+    return actionable_updated_elements
 
 
 def _process_deletions(
-        deleted: list,
-        mode: DiffMode,
-        left_cache: NodeCache,
-        previous_document: Document,
+    deleted: list,
+    mode: DiffMode,
+    left_rule_match_cache: RuleMatchCache,
+    previous_document: Document,
 ) -> list[Change]:
     """Build DELETED change list for nodes present in the old document only.
 
@@ -243,34 +285,46 @@ def _process_deletions(
     node, skipping any node under an ignored ancestor. Deleted nodes live in
     the old tree, so xpathDocumentId is taken from ``previous_document``.
     """
-    changes: list[Change] = []
-    for before in deleted:
+    actionable_deleted_elements: list[Change] = []
+    for deleted_element in deleted:
         if mode == DiffMode.WATCH_LIST:
-            for match in cached_subtree(before, left_cache):
-                changes.append(
+            for actionable_deleted_element in unique_rule_matches(
+                rule_matches_for_node_and_descendants(
+                    deleted_element,
+                    left_rule_match_cache,
+                ),
+                ChangeType.DELETED,
+            ):
+                actionable_deleted_elements.append(
                     Change(
                         changeType=ChangeType.DELETED,
-                        xpath=xpath_with_predicates(before),
+                        xpath=xpath_with_predicates(deleted_element),
                         xpathDocumentId=previous_document.documentId,
                         isActionable=True,
-                        actionabilityRuleId=match.rule_id,
-                        actionabilityRuleDisplayName=match.rule_name,
+                        actionabilityRuleId=actionable_deleted_element.rule_id,
+                        actionabilityRuleDisplayName=actionable_deleted_element.rule_name,
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
-            if cached_ancestry(before, left_cache):
+            if change_is_ignorable(
+                rule_matches_for_node_and_ancestors(
+                    deleted_element,
+                    left_rule_match_cache,
+                ),
+                ChangeType.DELETED,
+            ):
                 continue
-            changes.append(
+            actionable_deleted_elements.append(
                 Change(
                     changeType=ChangeType.DELETED,
-                    xpath=xpath_with_predicates(before),
+                    xpath=xpath_with_predicates(deleted_element),
                     xpathDocumentId=previous_document.documentId,
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
                     actionabilityRuleDisplayName=(DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME),
                 )
             )
-    return changes
+    return actionable_deleted_elements
 
 
 def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
@@ -305,8 +359,8 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
     )
 
     with measure_time("Execute XPaths"):
-        left_cache = build_cache(left_tree, config.rules)
-        right_cache = build_cache(right_tree, config.rules)
+        left_rule_match_cache = build_cache(left_tree, config.rules)
+        right_rule_match_cache = build_cache(right_tree, config.rules)
 
     with measure_time("Perform diff and collect changes"):
         added, updated, deleted = collect_additions_updates_deletes(
@@ -315,19 +369,30 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
 
     with measure_time("Process additions"):
         diff_output.changes.extend(
-            _process_additions(added, config.mode, right_cache, current_document)
+            _process_additions(
+                added,
+                config.mode,
+                right_rule_match_cache,
+                current_document,
+            )
         )
 
     with measure_time("Process updates"):
         diff_output.changes.extend(
             _process_updates(
-                updated, config.mode, left_cache, right_cache, current_document
+                updated,
+                config.mode,
+                left_rule_match_cache,
+                right_rule_match_cache,
+                current_document,
             )
         )
 
     with measure_time("Process deletions"):
         diff_output.changes.extend(
-            _process_deletions(deleted, config.mode, left_cache, previous_document)
+            _process_deletions(
+                deleted, config.mode, left_rule_match_cache, previous_document
+            )
         )
 
     diff_output.hasActionableChanges = any(

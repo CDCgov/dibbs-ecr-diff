@@ -1,17 +1,16 @@
-import pytest
-
 from uuid import UUID
 
+import pytest
 from core import (
-    WatchedNode,
+    RuleMatchNode,
     _get_document_metadata,
     _process_additions,
     _process_deletions,
     _process_updates,
     build_cache,
-    cached_ancestry,
-    cached_subtree,
-    change_is_not_ignorable,
+    change_is_ignorable,
+    rule_matches_for_node_and_ancestors,
+    rule_matches_for_node_and_descendants,
     unique_rule_matches,
 )
 from core.constants import (
@@ -27,20 +26,24 @@ RULE_ID = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 RULE_NAME = "Relevant clinical observation"
 
 
-def watched_node(node, xpath: str = "//hl7:observation") -> WatchedNode:
-    return WatchedNode(
+def watched_node(
+    node,
+    xpath: str = "//hl7:observation",
+    change_types: frozenset[ChangeType] = frozenset(
+        {
+            ChangeType.ADDED,
+            ChangeType.UPDATED,
+            ChangeType.DELETED,
+        }
+    ),
+) -> RuleMatchNode:
+    return RuleMatchNode(
         node=node,
         tag=str(node.tag),
         xpath=xpath,
         rule_name=RULE_NAME,
         rule_id=RULE_ID,
-        change_types=frozenset(
-            {
-                ChangeType.ADDED,
-                ChangeType.UPDATED,
-                ChangeType.DELETED,
-            }
-        ),
+        change_types=change_types,
     )
 
 
@@ -125,7 +128,29 @@ def test_process_additions_watch_list_emits_change_for_watched_descendant():
     )
 
 
-def test_process_additions_ignore_list_skips_ignored_ancestry():
+def test_process_additions_ignore_list_skips_directly_matched_element():
+    root = elem(
+        f"""
+        <ClinicalDocument xmlns="{HL7_NS}">
+          <component>
+            <observation ID="ignored-addition"/>
+          </component>
+        </ClinicalDocument>
+        """
+    )
+    ignored_addition = find_one(root, ".//hl7:observation")
+
+    changes = _process_additions(
+        [ignored_addition],
+        DiffMode.IGNORE_LIST,
+        {ignored_addition: watched_node(ignored_addition)},
+        Document(documentId="current-document-id", versionNumber="2"),
+    )
+
+    assert changes == []
+
+
+def test_process_additions_ignore_list_skips_descendant_of_matched_element():
     root = elem(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}">
@@ -162,7 +187,42 @@ def test_process_additions_ignore_list_skips_ignored_ancestry():
     )
 
 
-def test_process_updates_watch_list_emits_change_for_watched_ancestor():
+def test_process_additions_ignore_list_includes_match_for_other_change_type():
+    root = elem(
+        f"""
+        <ClinicalDocument xmlns="{HL7_NS}">
+          <component>
+            <observation ID="included-addition"/>
+          </component>
+        </ClinicalDocument>
+        """
+    )
+    included_addition = find_one(root, ".//hl7:observation")
+
+    changes = _process_additions(
+        [included_addition],
+        DiffMode.IGNORE_LIST,
+        {
+            included_addition: watched_node(
+                included_addition,
+                change_types=frozenset({ChangeType.UPDATED}),
+            )
+        },
+        Document(documentId="current-document-id", versionNumber="2"),
+    )
+
+    assert len(changes) == 1
+    assert_change(
+        changes[0],
+        change_type=ChangeType.ADDED,
+        node=included_addition,
+        document_id="current-document-id",
+        rule_id=DEFAULT_ACTIONABLE_RULE_ID,
+        rule_name=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
+    )
+
+
+def test_process_updates_watch_list_emits_change_for_direct_match():
     before_root = elem(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}">
@@ -179,13 +239,12 @@ def test_process_updates_watch_list_emits_change_for_watched_ancestor():
     )
     before = find_one(before_root, ".//hl7:observation")
     after = find_one(after_root, ".//hl7:observation")
-    watched_section = find_one(after_root, ".//hl7:section")
 
     changes = _process_updates(
         [(before, after)],
         DiffMode.WATCH_LIST,
         {},
-        {watched_section: watched_node(watched_section, "//hl7:section")},
+        {after: watched_node(after)},
         Document(documentId="current-document-id", versionNumber="2"),
     )
 
@@ -346,7 +405,10 @@ def test_unique_rule_matches_keeps_one_match_per_rule():
     observation = find_one(entry, "./hl7:observation")
     identifier = find_one(observation, "./hl7:id")
 
-    added_or_deleted_matches = cached_subtree(observation, cache)
+    added_or_deleted_matches = rule_matches_for_node_and_descendants(
+        observation,
+        cache,
+    )
     assert [match.node for match in added_or_deleted_matches] == [
         observation,
         identifier,
@@ -356,7 +418,7 @@ def test_unique_rule_matches_keeps_one_match_per_rule():
         ChangeType.ADDED,
     ) == [added_or_deleted_matches[0]]
 
-    updated_matches = cached_ancestry(identifier, cache)
+    updated_matches = rule_matches_for_node_and_ancestors(identifier, cache)
     assert [match.node for match in updated_matches] == [
         identifier,
         observation,
@@ -382,13 +444,13 @@ def test_unique_rule_matches_filters_by_change_type():
     )
     cache = build_cache(entry.getroottree(), [added_rule])
     observation = find_one(entry, "./hl7:observation")
-    matches = cached_ancestry(observation, cache)
+    matches = rule_matches_for_node_and_ancestors(observation, cache)
 
     assert unique_rule_matches(matches, ChangeType.ADDED) == [matches[0]]
     assert unique_rule_matches(matches, ChangeType.UPDATED) == []
     assert unique_rule_matches(matches, ChangeType.DELETED) == []
-    assert not change_is_not_ignorable(matches, ChangeType.ADDED)
-    assert change_is_not_ignorable(matches, ChangeType.UPDATED)
+    assert change_is_ignorable(matches, ChangeType.ADDED)
+    assert not change_is_ignorable(matches, ChangeType.UPDATED)
 
 
 def test_rule_config_requires_at_least_one_change_type():

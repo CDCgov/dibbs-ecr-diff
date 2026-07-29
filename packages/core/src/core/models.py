@@ -24,9 +24,9 @@ class DiffingOptions(BaseModel):
 class ChangeType(StrEnum):
     """Possible diff change types."""
 
-    ADDED = "added"
-    UPDATED = "updated"
-    DELETED = "deleted"
+    ADDED = "ADDED"
+    UPDATED = "UPDATED"
+    DELETED = "DELETED"
 
 
 class Change(BaseModel):
