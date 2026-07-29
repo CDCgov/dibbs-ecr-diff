@@ -37,12 +37,6 @@ class RuleMatchNode:
     rule_name: str
     rule_id: UUID
     change_types: frozenset[ChangeType]
-    origin_node: etree._Element | None = None
-
-    @property
-    def effective_node(self) -> etree._Element:
-        """Return effective node. Used when an ancestor/descendant is cached."""
-        return self.origin_node if self.origin_node is not None else self.node
 
 
 """Used to cache nodes from evaluated rule XPaths."""
@@ -78,18 +72,16 @@ def build_cache(elem: etree._ElementTree, rules: list[RuleConfig]) -> RuleMatchC
 
 
 def nodes_in_cache(
-    origin_node: etree._Element,
-    nodes: Iterable[etree._Element],
+    node: etree._Element,
+    related_nodes: Iterable[etree._Element],
     cache: RuleMatchCache,
 ) -> list[RuleMatchNode]:
     """Generic method for collecting all matched nodes from a cache."""
     matches: list[RuleMatchNode] = []
 
-    for node in [origin_node, *nodes]:
-        cache_match = cache.get(node)
+    for related_node in [node, *related_nodes]:
+        cache_match = cache.get(related_node)
         if cache_match is not None:
-            if node is not origin_node:
-                cache_match.origin_node = origin_node
             matches.append(cache_match)
 
     return matches
