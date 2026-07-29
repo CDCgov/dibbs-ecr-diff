@@ -1,0 +1,263 @@
+<!-- 
+This is a single-file web app to let devs upload eICRs/RRs to our local environment S3 buckets.
+This should be run using Docker & our compose.yml file
+to allow the uploader to send requests to our local S3 without dealing with CORS-related restrictions
+-->
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Difference in Docs (Dev Uploader)</title>
+  <style>
+    body { font: 16px sans-serif; max-width: 48rem; margin: 2rem auto; padding: 0 1rem; }
+    fieldset { margin: 1rem 0; padding: 1rem; }
+    label { display: block; margin: .75rem 0; }
+    input { box-sizing: border-box; display: block; margin-top: .25rem; width: 100%; }
+    button { margin: .25rem .5rem .25rem 0; }
+    .status { white-space: pre-wrap; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Difference in Docs - Dev Input Uploader222</h1>
+    <p>Upload eICRs and RRs to local S3.</p>
+    <div class="preact-app"></div>
+  </main>
+
+  <script type="module">
+    import { html, render, useRef, useState } from 'https://esm.sh/htm@3/preact/standalone';
+    import { PutObjectCommand, S3Client } from 'https://esm.sh/@aws-sdk/client-s3@3.1087.0?bundle';
+
+    const S3_BUCKET = 'ecr-dev-data-repository';
+    const DID_INPUT_PREFIX = 'DIDInput/';
+    const REFINER_INPUT_PREFIX = 'RefinerOutputV2/';
+
+    const AWS_ENDPOINT_URL = 'http://localhost:4566';
+    const AWS_ACCESS_KEY_ID = 'test'
+    const AWS_SECRET_ACCESS_KEY = 'test';
+    const AWS_DEFAULT_REGION = 'us-east-1';
+
+    const s3 = new S3Client({
+      region: AWS_DEFAULT_REGION,
+      endpoint: AWS_ENDPOINT_URL,
+      forcePathStyle: true,
+      credentials: {
+        accessKeyId: AWS_ACCESS_KEY_ID,
+        secretAccessKey: AWS_SECRET_ACCESS_KEY
+      }
+    });
+
+    function Form() {
+      const nextRowId = useRef(1);
+      const [rows, setRows] = useState([0]);
+      const [uploading, setUploading] = useState(false);
+      const [status, setStatus] = useState({ error: false, message: '' });
+
+      function addRow() {
+        const id = nextRowId.current++;
+        setRows((prev) => [...prev, id]);
+      }
+
+      function removeRow(id) {
+        setRows((prev) => prev.filter((rowId) => rowId !== id));
+      }
+
+      async function handleSubmit(ev) {
+        setUploading(true);
+        setStatus({ error: false, message: '' });
+
+        const { error } = await submitForm(ev);
+        setUploading(false);
+
+        if (error) {
+          console.error(error);
+          setStatus({ error: true, message: error.message });
+          return
+        }
+
+        setStatus({ error: false, message: 'Upload complete.' });
+        setRows(() => [nextRowId.current++]); // empty rows, and add new one
+      }
+
+      const fieldsets = rows.map((id) =>
+        html`<${FieldSet}
+          key=${id}
+          disabled=${uploading}
+          onRemove=${() => removeRow(id)}
+        />`
+      );
+
+      return html`
+        <form onsubmit=${handleSubmit}>
+          <div class="rows">
+            ${fieldsets}
+          </div>
+
+          <button
+            disabled=${uploading}
+            onclick=${addRow}
+            type="button"
+          >
+            Add eICR
+          </button>
+
+          <button disabled=${uploading} type="submit">
+            Upload
+          </button>
+
+          <p class=${status.error ? 'status error' : 'status'} role="status">
+            ${status.message}
+          </p>
+        </form>
+      `;
+    }
+
+    function FieldSet({ disabled, onRemove }) {
+      return html`
+        <fieldset class="upload-row" disabled=${disabled}>
+          <legend></legend>
+          <label>
+            eICR XML
+            <input name="eicr-file" type="file" accept=".xml,application/xml,text/xml" required/>
+          </label>
+          <label>
+            RR XML (optional)
+            <input name="rr-file" type="file" accept=".xml,application/xml,text/xml" />
+          </label>
+          <label>
+            Upload directory after the eICR or RR persistence ID (optional)
+            <input name="upload-path" type="text" placeholder="SDDH/COVID19/" />
+          </label>
+
+          <button onclick=${onRemove} type="button">Remove</button>
+        </fieldset>
+      `;
+    }
+
+    render(
+      html`<${Form} />`,
+      document.querySelector('.preact-app')
+    );
+
+
+    function parseXML(text, filename) {
+      // TODO: this loads the entire document into memory
+      // native DOMParser doesn't support a streaming interface
+      // so look for an alternative that allows us to parse out the setId and version number from the doc
+      // some npm packages we can use here: `sax`, `saxes`
+      // prefer one that lets you use async iterables
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, 'application/xml');
+
+      // https://developer.mozilla.org/en-US/docs/Web/API/DOMParser/parseFromString#error_handling
+      const errorNode = doc.querySelector('parsererror');
+      if (errorNode) throw Error(`${filename} is not valid XML`);
+
+      return doc;
+    }
+
+    function getMetadata(xmlDoc, filename) {
+      const children = [...xmlDoc.documentElement.children];
+
+      const setId = children
+        .find((element) => element.localName === 'setId')
+        ?.getAttribute('root')?.trim();
+
+      const versionValue = children
+        .find((element) => element.localName === 'versionNumber')
+        ?.getAttribute('value')?.trim();
+
+      const versionNumber = Number(versionValue);
+
+      if (!setId || isNaN(versionNumber))
+        throw Error(`${filename} has invalid setId or versionNumber`)
+
+      return { setId, versionNumber };
+    }
+
+    async function buildUpload(row, persistenceId) {
+      const eicr = row.elements.namedItem('eicr-file').files[0];
+      const rr = row.elements.namedItem('rr-file').files[0];
+
+      // normalize upload path
+      let uploadPath = row.elements.namedItem('upload-path').value
+        .replace(/\/+/g, '/') // replace duplicate slashes
+        .replace(/^\//, '') // remove trailing slash
+        .replace(/(.+)/, '$1/'); // append trailing slash if string is not empty
+
+      if (!eicr) throw new Error('Each document needs an eICR XML file.');
+
+      const eicrDoc = parseXML(await eicr.text(), eicr.name);
+      const eicrKey = `${REFINER_INPUT_PREFIX}${persistenceId}/${uploadPath}${eicr.name}`;
+      const metadata = getMetadata(eicrDoc, eicr.name);
+
+      const manifestRecord = { eicr: eicrKey, ...metadata };
+      const objects = [{ key: eicrKey, file: eicr }];
+
+      console.log({eicrKey, uploadPath});
+      if (rr) {
+        parseXML(await rr.text(), rr.name);
+        const rrKey = `${REFINER_INPUT_PREFIX}${persistenceId}/${uploadPath}${rr.name}`;
+        manifestRecord.rr = rrKey;
+        objects.push({ key: rrKey, file: rr });
+        console.log({rrKey, eicrKey, uploadPath});
+      }
+
+      return { manifestRecord, objects };
+    }
+
+    async function submitForm(ev) {
+      ev.preventDefault();
+      const form = ev.currentTarget;
+
+      try {
+        const datePath = new Date().toISOString().slice(0, 10).replaceAll('-', '/'); // ex: 2026/07/22
+        const persistenceId = `${datePath}/${crypto.randomUUID()}`;
+        const uploads = [];
+
+        for (const el of form.elements) {
+          if (el instanceof HTMLFieldSetElement) {
+            const upload = await buildUpload(el, persistenceId);
+            uploads.push(upload);
+          }
+        }
+
+        // upload all individual eICRs and RRs first
+        const xmls = uploads.flatMap((upload) => upload.objects);
+        for (const xml of xmls) {
+          await s3.send(
+            new PutObjectCommand({
+              Bucket: S3_BUCKET,
+              Key: xml.key,
+              Body: new Uint8Array(await xml.file.arrayBuffer()), // convert file contents into byte array
+              ContentType: 'application/xml'
+            })
+          );
+        }
+
+        // finally, upload manifest file
+        const manifestKey = `${DID_INPUT_PREFIX}${persistenceId}`;
+
+        const manifest = {
+          Files: uploads.map((upload) => upload.manifestRecord),
+        };
+
+        await s3.send(new PutObjectCommand({
+          Bucket: S3_BUCKET,
+          Key: manifestKey,
+          Body: JSON.stringify(manifest, null, 2),
+          ContentType: 'application/json',
+        }));
+
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: e };
+      }
+    }
+  </script>
+</body>
+</html>

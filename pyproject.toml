@@ -4,9 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-    "pydantic>=2.12.5",
-]
+dependencies = []
 
 [dependency-groups]
 dev = [
@@ -29,7 +27,7 @@ core = { workspace = true }
 include = [
     "packages/cli/src",
     "packages/core/src",
-    "packages/lambda/src"
+    "packages/did_lambda/src"
 ]
 
 [tool.ty.environment]
@@ -38,12 +36,12 @@ root = [
     # src directories
     "packages/cli/src",
     "packages/core/src",
-    "packages/lambda/src",
+    "packages/did_lambda/src",
 
     # test directories
     "packages/cli/test",
     "packages/core/test",
-    "packages/lambda/test"
+    "packages/did_lambda/test"
 ]
 
 [tool.ruff.lint]

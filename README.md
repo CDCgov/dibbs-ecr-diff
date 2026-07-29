@@ -45,6 +45,24 @@ To access the CLI, run:
 just diff
 ```
 
+### Local AWS pipeline
+
+Start the local S3, SQS, EventBridge, DynamoDB, Lambda, and uploader services:
+
+```bash
+docker compose --env-file .env.local up --build --watch
+```
+
+View local AWS resources at `http://localhost:8080`.
+
+Open `http://localhost:8081` and upload an eICR and RR. The uploader:
+
+1. Stores the documents in local S3, and generates a manifest which is also stored in local S3.
+2. Triggers an S3 notification to EventBridge -> SQS.
+3. `sqs-poller.py` checks SQS, and invokes the lambda on new messages.
+
+Stop the services with `docker compose down`.
+
 ### Type checking / Linting / Formatting
 
 Check types:
@@ -92,7 +110,7 @@ uv add --dev pytest
 Dependencies can be added to workspace packages by specifying the package using `--package <name>`:
 
 ```bash
-uv add --package lambda aws-lambda-powertools
+uv add --package did_lambda aws-lambda-powertools
 ```
 
 ## Architecture
@@ -121,7 +139,7 @@ This project is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/wor
 │   ├── core                  # Core Difference in Docs logic and shared modules
 │   │   ├── pyproject.toml
 │   │   └── src/
-│   └── lambda                # AWS Lambda package
+│   └── did_lambda                # AWS Lambda package
 │       ├── pyproject.toml
 │       └── src/
 ├── pyproject.toml            # Workspace config (dependencies, linter rules, metadata)

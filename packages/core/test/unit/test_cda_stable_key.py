@@ -363,9 +363,7 @@ def test_direct_child_code_beats_template_ids():
     )
 
     assert stable_key(statement) == DirectChildCodeElementSetKey(
-        code_elements=(
-            CodeElement(code="statement-kind", code_system="test-system"),
-        ),
+        code_elements=(CodeElement(code="statement-kind", code_system="test-system"),),
     )
 
 
