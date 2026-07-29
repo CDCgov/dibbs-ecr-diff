@@ -3,7 +3,7 @@ FROM public.ecr.aws/lambda/python:3.14 AS builder
 WORKDIR ${LAMBDA_TASK_ROOT}
 
 # copy uv binary from uv image
-COPY --from=ghcr.io/astral-sh/uv:0.10.9 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.11.31 /uv /bin/uv
 
 # copy dependency manifests
 COPY uv.lock pyproject.toml ./

@@ -1,5 +1,12 @@
 """Shared key-attribute and namespace constants."""
 
+from uuid import UUID
+
+# Reserved rule identity used when an unmatched change is actionable under an
+# IGNORE_LIST configuration.
+DEFAULT_ACTIONABLE_RULE_ID = UUID("b3bdf60f-e22a-4467-8e1d-c8d4df7c8df0")
+DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME = "Default: actionable when no ignore rule matches"
+
 # ---------------------------------------------------------------------------
 # Stable key attributes
 # ---------------------------------------------------------------------------

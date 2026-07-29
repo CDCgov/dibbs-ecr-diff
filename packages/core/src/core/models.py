@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
@@ -21,32 +22,50 @@ class DiffingOptions(BaseModel):
 
 
 class ChangeType(StrEnum):
-    """Difference in Docs diffing mode."""
+    """Possible diff change types."""
 
-    ADDED = "ADDED"
-    DELETED = "DELETED"
-    UPDATED = "UPDATED"
+    ADDED = "added"
+    UPDATED = "updated"
+    DELETED = "deleted"
 
 
 class Change(BaseModel):
-    """Difference in Docs change."""
+    """Single changed node reported in the diff output."""
 
-    xpath: str
-    rule_name: str | None = None
     changeType: ChangeType
-    # maybe omit the xml in prod mode?
-    # or omit entirely for PII reasons
-    xml: str
+    xpath: str
+    xpathDocumentId: str
+    isActionable: bool = (
+        True  # TODO: Replace placeholders once configurations implemented
+    )
+    actionabilityRuleId: UUID
+    actionabilityRuleDisplayName: str = "placeholder"
+
+
+class Document(BaseModel):
+    """Document metadata included in the diff output for current and previous documents."""
+
+    documentId: str
+    versionNumber: str
 
 
 class DiffOutput(BaseModel):
-    """Difference in Docs diff output."""
+    """Top-level diff output payload."""
 
-    changes: list[Change] = []
+    outputSpecVersion: str = "1.0"
+    generatedAt: datetime
+    configurationId: str = "00000000-0000-0000-0000-000000000000"  # TODO: Populate from configuration once implemented
+    configurationVersion: str = "placeholder"
+    configurationDisplayName: str = "placeholder"
+    setId: str
+    currentDocument: Document
+    previousDocument: Document
+    hasActionableChanges: bool
+    changes: list[Change] = Field(default_factory=list)
 
 
 class RuleConfig(BaseModel):
-    """Difference in Docs rule."""
+    """Configured rule used to match relevant XML nodes."""
 
     id: UUID = Field(default_factory=uuid4)
     displayName: str
