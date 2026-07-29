@@ -1,6 +1,7 @@
 """Ingest manifests delivered through S3 and SQS."""
 
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -18,20 +19,21 @@ from boto3.dynamodb.conditions import Attr, Key
 from core import Configuration, DiffingOptions, DiffOutput, diff_xml
 from pydantic import ValidationError
 
-from .models import DIDOutputRecord, EICRStorageRecord, Manifest
+from .models import DIDInputManifest, DIDOutputRecord, EICRStorageRecord
 
 if TYPE_CHECKING:
     from types_boto3_dynamodb import DynamoDBServiceResource
     from types_boto3_s3 import S3Client
 
-DID_OUTPUT_PREFIX = "DIDOutput/"
-DID_COMPLETE_PREFIX = "DIDComplete/"
-DYNAMODB_TABLE_NAME = "did-eicr-record"
+DID_OUTPUT_PREFIX = os.getenv("DID_OUTPUT_PREFIX", "DIDOutput/")
+DID_COMPLETE_PREFIX = os.getenv("DID_COMPLETE_PREFIX", "DIDComplete/")
+DYNAMODB_TABLE = os.getenv("DYNAMODB_TABLE", "did-eicr-record")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "prod")
 
 s3: "S3Client" = boto3.client("s3")
 dynamodb: "DynamoDBServiceResource" = boto3.resource("dynamodb")
 
-eicr_records = dynamodb.Table(DYNAMODB_TABLE_NAME)
+db = dynamodb.Table(DYNAMODB_TABLE)
 logger = Logger("difference-in-docs")
 
 config_path = Path(__file__).parent / "aphl_baseline_config.json"
@@ -57,7 +59,7 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
         manifest_key = unquote_plus(s3_event.detail.object.key)
 
         persistence_id = persistence_id_from_key(manifest_key)
-        manifest = get_manifest(bucket_name, manifest_key)
+        manifest = get_input_manifest(bucket_name, manifest_key)
 
         did_complete_files: list[DIDOutputRecord] = []
 
@@ -75,7 +77,7 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
 
             if latest is None:
                 # write eICR metadata to DB as the new baseline for this setId
-                eicr_records.put_item(
+                db.put_item(
                     Item={
                         "setId": set_id,
                         "versionNumber": version_number,
@@ -89,8 +91,8 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
                 output_prefix = get_did_output_prefix(entry.eicr)
                 diff_output_key = f"{output_prefix}/{set_id}_eicr_diff"
 
-                before_xml = read_object(bucket_name, latest.s3Key)
-                after_xml = read_object(bucket_name, entry.eicr)
+                before_xml = get_object(bucket_name, latest.s3Key)
+                after_xml = get_object(bucket_name, entry.eicr)
 
                 logger.info(
                     f"Diffing version {version_number} against version {latest.versionNumber} of {set_id}"
@@ -101,16 +103,17 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
                 )
 
                 augmented_eicr = get_augmented_eicr(diff_output, after_xml)
+                is_actionable = len(diff_output.changes) > 0
 
                 # write the diff output to S3
-                write_object(
+                put_object(
                     bucket_name,
                     diff_output_key,
                     diff_output.model_dump_json(indent=2).encode("utf-8"),
                 )
 
                 # write eICR metadata to DB
-                eicr_records.put_item(
+                db.put_item(
                     Item={
                         "setId": set_id,
                         "versionNumber": version_number,
@@ -118,23 +121,21 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
                         "s3KeyRR": entry.rr,
                         "s3KeyDiffOutput": diff_output_key,
                         "processedAt": get_timestamp(),
-                        "isActionable": len(diff_output.changes) > 0,
+                        "isActionable": is_actionable,
                         "comparedToVersion": latest.versionNumber,
                     }
                 )
 
-            write_object(
+            put_object(
                 bucket_name,
                 eicr_out_key,
                 augmented_eicr
                 if augmented_eicr
-                else read_object(bucket_name, entry.eicr),
+                else get_object(bucket_name, entry.eicr),
             )
 
             if entry.rr and rr_out_key:
-                write_object(
-                    bucket_name, rr_out_key, read_object(bucket_name, entry.rr)
-                )
+                put_object(bucket_name, rr_out_key, get_object(bucket_name, entry.rr))
 
             did_complete_files.append(
                 DIDOutputRecord(
@@ -143,19 +144,11 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
                     eicr=eicr_out_key,
                     rr=rr_out_key,
                     eicr_diff_output=diff_output_key,
+                    is_actionable=is_actionable,
                 )
             )
 
-        # TODO: should this be an empty array when there are no actionable changes?
-        did_complete_key = f"{DID_COMPLETE_PREFIX}{persistence_id}"
-        did_complete_body = {
-            "Files": [record.model_dump() for record in did_complete_files]
-        }
-        write_object(
-            bucket_name,
-            did_complete_key,
-            json.dumps(did_complete_body, indent=2).encode("utf-8"),
-        )
+        put_complete_manifest(bucket_name, persistence_id, did_complete_files)
 
     return {"statusCode": 200, "message": "OK"}
 
@@ -169,7 +162,7 @@ def get_latest_actionable_record(
     set_id: str, version_number: int
 ) -> EICRStorageRecord | None:
     """Retrieves the latest earlier actionable record for a given setId and versionNumber."""
-    results = eicr_records.query(
+    results = db.query(
         KeyConditionExpression=(
             Key("setId").eq(set_id) & Key("versionNumber").lt(version_number)
         ),
@@ -189,15 +182,30 @@ def get_timestamp() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def get_manifest(bucket: str, key: str) -> Manifest:
+def get_input_manifest(bucket: str, key: str) -> DIDInputManifest:
     """Reads and validates manifest file from S3."""
     try:
-        return Manifest.model_validate_json(read_object(bucket, key))
+        return DIDInputManifest.model_validate_json(get_object(bucket, key))
     except ValidationError as exc:
         raise InfraError(f"Invalid manifest s3://{bucket}/{key}") from exc
 
 
-def read_object(bucket: str, key: str) -> bytes:
+def put_complete_manifest(
+    bucket_name: str, persistence_id: str, did_complete_files: list[DIDOutputRecord]
+) -> None:
+    """Write complete manifest to DIDComplete/ path."""
+    did_complete_key = f"{DID_COMPLETE_PREFIX}{persistence_id}"
+    did_complete_body = {
+        "Files": [record.model_dump() for record in did_complete_files]
+    }
+    put_object(
+        bucket_name,
+        did_complete_key,
+        json.dumps(did_complete_body, indent=2).encode("utf-8"),
+    )
+
+
+def get_object(bucket: str, key: str) -> bytes:
     """Utility to read object from S3."""
     try:
         obj = s3.get_object(Bucket=bucket, Key=key)
@@ -206,7 +214,7 @@ def read_object(bucket: str, key: str) -> bytes:
         raise InfraError(f"S3 get_object failed s3://{bucket}/{key}: {exc}") from exc
 
 
-def write_object(bucket: str, key: str, data: bytes) -> None:
+def put_object(bucket: str, key: str, data: bytes) -> None:
     """Utility to write object to S3."""
     try:
         s3.put_object(Bucket=bucket, Key=key, Body=data)
