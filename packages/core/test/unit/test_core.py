@@ -17,7 +17,7 @@ from core.constants import (
     DEFAULT_ACTIONABLE_RULE_ID,
 )
 from core.models import Change, ChangeType, DiffMode, Document, Rule
-from core.paths import xpath_with_predicates
+from core.paths import structural_xpath
 from helpers import HL7_NS, elem, find_one
 from pydantic import ValidationError
 
@@ -51,7 +51,7 @@ def assert_change(
     rule_name: str,
 ) -> None:
     assert change.changeType == change_type
-    assert change.xpath == xpath_with_predicates(node)
+    assert change.xpath == structural_xpath(node)
     assert change.xpathDocumentId == document_id
     assert change.isActionable is True
     assert change.actionabilityRuleId == rule_id

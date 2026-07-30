@@ -22,7 +22,7 @@ from .models import (
     Document,
     Rule,
 )
-from .paths import xpath_with_predicates
+from .paths import structural_xpath
 from .performance import measure_time
 
 # Maps XML nodes matched by configured XPaths to their rules.
@@ -152,7 +152,7 @@ def _process_additions(
                 actionable_changes.append(
                     Change(
                         changeType=ChangeType.ADDED,
-                        xpath=xpath_with_predicates(added_element),
+                        xpath=structural_xpath(added_element),
                         xpathDocumentId=current_document.documentId,
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
@@ -174,7 +174,7 @@ def _process_additions(
             actionable_changes.append(
                 Change(
                     changeType=ChangeType.ADDED,
-                    xpath=xpath_with_predicates(added_element),
+                    xpath=structural_xpath(added_element),
                     xpathDocumentId=current_document.documentId,
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
@@ -210,7 +210,7 @@ def _process_updates(
                 actionable_changes.append(
                     Change(
                         changeType=ChangeType.UPDATED,
-                        xpath=xpath_with_predicates(after),
+                        xpath=structural_xpath(after),
                         xpathDocumentId=current_document.documentId,
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
@@ -238,7 +238,7 @@ def _process_updates(
             actionable_changes.append(
                 Change(
                     changeType=ChangeType.UPDATED,
-                    xpath=xpath_with_predicates(after),
+                    xpath=structural_xpath(after),
                     xpathDocumentId=current_document.documentId,
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
@@ -275,7 +275,7 @@ def _process_deletions(
                 actionable_changes.append(
                     Change(
                         changeType=ChangeType.DELETED,
-                        xpath=xpath_with_predicates(deleted_element),
+                        xpath=structural_xpath(deleted_element),
                         xpathDocumentId=previous_document.documentId,
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
@@ -296,7 +296,7 @@ def _process_deletions(
             actionable_changes.append(
                 Change(
                     changeType=ChangeType.DELETED,
-                    xpath=xpath_with_predicates(deleted_element),
+                    xpath=structural_xpath(deleted_element),
                     xpathDocumentId=previous_document.documentId,
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
