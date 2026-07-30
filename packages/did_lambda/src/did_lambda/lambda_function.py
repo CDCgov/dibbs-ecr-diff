@@ -42,10 +42,10 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
         s3_event = S3EventBridgeNotificationEvent(record.json_body)
 
         bucket_name = s3_event.detail.bucket.name
-        manifest_key = unquote_plus(s3_event.detail.object.key)
+        did_input_manifest_key = unquote_plus(s3_event.detail.object.key)
 
-        persistence_id = persistence_id_from_key(manifest_key)
-        did_input_manifest = get_input_manifest(bucket_name, manifest_key)
+        persistence_id = persistence_id_from_key(did_input_manifest_key)
+        did_input_manifest = get_input_manifest(bucket_name, did_input_manifest_key)
 
         did_complete_output_records: list[DIDOutputFile] = []
 
@@ -75,10 +75,10 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
 
         # write to DIDComplete/
         did_complete_manifest = DIDCompleteManifest(Files=did_complete_output_records)
-        did_complete_key = f"{DID_COMPLETE_PREFIX}{persistence_id}"
+        did_complete_manifest_key = f"{DID_COMPLETE_PREFIX}{persistence_id}"
         put_object(
             bucket_name,
-            did_complete_key,
+            did_complete_manifest_key,
             did_complete_manifest.model_dump_json(by_alias=True, indent=2).encode(
                 "utf-8"
             ),
