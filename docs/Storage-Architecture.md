@@ -29,9 +29,9 @@ DynamoDB supports either a single primary key (composing of just the Partition K
 | --- | --- | --- | --- |
 | `setId` | string (S) | Yes | **Partition Key**. The shared eICR set ID. |
 | `versionNumber` | number (N) | Yes | **Sort Key**. The version of this specific eICR document. |
-| `s3Address` | string (S) | No | The S3 URI (ex: `s3://did-eicr-bucket/eICR.xml`) where the raw eICR is stored. |
-| `s3AddressRR` | string (S) | No | The S3 URI (ex: `s3://did-eicr-bucket/RR.xml`) where the raw RR is stored. |
-| `s3AddressDiffOutput` | string (S) | No | The S3 URI (ex: `s3://did-diff-bucket/DiffOutput.json`) where the diff output (if any) is stored. |
+| `s3Key` | string (S) | No | The S3 Object Key where the raw eICR is stored. |
+| `s3KeyRR` | string (S) | No | The S3 Object Key where the raw RR is stored. |
+| `s3KeyDiffOutput` | string (S) | No | The S3 Object Key where the diff output (if any) is stored. |
 | `processedAt` | string (S) | No | Timestamp (ISO-8601) indicating when the document was processed by the Lambda. |
 | `isActionable` | boolean (BOOL) | No | `true` if the diff between this document and its baseline predecessor was evaluated as containing actionable changes. For the initial version, this defaults to `true`. |
 | `comparedToVersion` | number (N) | No | The version number of the document this version was compared against. Null or missing for the initial version of a set. |

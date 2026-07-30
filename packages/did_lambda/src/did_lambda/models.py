@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class DIDInputRecord(BaseModel):
-    """An eICR and its Reportability Response S3 keys."""
+    """Input EICR and RR S3 keys, and their setId and versionNumber."""
 
     eicr: str
     rr: str | None = None
@@ -15,7 +15,7 @@ class DIDInputRecord(BaseModel):
 
 
 class DIDOutputRecord(DIDInputRecord):
-    """An eICR and its Reportability Response DID output S3 keys."""
+    """Output EICR, RR, DiffOutput S3 keys, and related metadata."""
 
     eicr_diff_output: str | None = None
     is_actionable: bool

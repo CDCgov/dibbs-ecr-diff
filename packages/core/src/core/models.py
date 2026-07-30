@@ -6,19 +6,17 @@ from pydantic import BaseModel, Field
 
 
 class DiffMode(StrEnum):
-    """Difference in Docs diffing mode."""
+    """Configuration mode for deciding which configured changes are actionable."""
 
     WATCH_LIST = "WATCH_LIST"
     IGNORE_LIST = "IGNORE_LIST"
 
 
-class DiffingOptions(BaseModel):
-    """Diffing inputs."""
+class DiffingInputs(BaseModel):
+    """XML inputs supplied to the diff operation."""
 
     file1: str | bytes
     file2: str | bytes
-    config: str | None = None
-    output_diff_file: str | None = None
 
 
 class ChangeType(StrEnum):
@@ -68,17 +66,13 @@ class RuleConfig(BaseModel):
     """Configured rule used to match relevant XML nodes."""
 
     id: UUID = Field(default_factory=uuid4)
-    displayName: str
-    changeTypes: set[ChangeType] = Field(default_factory=set)
+    name: str
     xpaths: list[str] = Field(default_factory=list)
 
 
 class Configuration(BaseModel):
-    """Difference in Docs configuration spec."""
+    """Diff configuration loaded by the CLI."""
 
-    displayName: str
-    specVersion: str
-    id: UUID = Field(default_factory=uuid4)
-    createdAt: str
+    version: str
     mode: DiffMode
     rules: list[RuleConfig] = Field(default_factory=list)

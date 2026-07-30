@@ -1,0 +1,29 @@
+{
+  "version": "1.0.0",
+  "mode": "WATCH_LIST",
+  "rules": [
+    {
+      "id": "cd2c0e77-b2e4-4a99-8750-ed4c73396a3a",
+      "name": "APHL Baseline Criteria - entry",
+      "xpaths": [
+        "//hl7:entry"
+      ]
+    },
+    {
+      "id": "c9e9cb5b-a331-4f6a-b19a-228aaa669166",
+      "name": "APHL Baseline Criteria - patient changes",
+      "xpaths": [
+        "//hl7:patient/sdtc:deceasedInd",
+        "//hl7:patient/hl7:birthTime",
+        "//hl7:patient/hl7:name"
+      ]
+    },
+    {
+      "id": "11ef22fa-f7b0-4d2c-8058-d95eb4fbe492",
+      "name": "APHL Baseline Criteria - encompassingEncounter end time",
+      "xpaths": [
+        "//hl7:encompassingEncounter/hl7:effectiveTime/hl7:high"
+      ]
+    }
+  ]
+}

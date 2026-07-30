@@ -18,7 +18,7 @@ from .models import (
     Change,
     ChangeType,
     Configuration,
-    DiffingOptions,
+    DiffingInputs,
     DiffMode,
     DiffOutput,
     Document,
@@ -61,7 +61,7 @@ def build_cache(elem: etree._ElementTree, rules: list[RuleConfig]) -> NodeCache:
     nodes: NodeCache = {}
 
     for rule in rules:
-        with measure_time(f"Execute {len(rule.xpaths)} xpaths for {rule.displayName}"):
+        with measure_time(f"Execute {len(rule.xpaths)} xpaths for {rule.name}"):
             for xpath in rule.xpaths:
                 vals = eval_xpath(elem, xpath)
 
@@ -70,7 +70,7 @@ def build_cache(elem: etree._ElementTree, rules: list[RuleConfig]) -> NodeCache:
                         node=val,
                         tag=str(val.tag),
                         xpath=xpath,
-                        rule_name=rule.displayName,
+                        rule_name=rule.name,
                         rule_id=rule.id,
                     )
     return nodes
@@ -251,10 +251,10 @@ def parse_xml(source: str | bytes, parser: etree.XMLParser) -> etree._ElementTre
     )
 
 
-def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
+def diff_xml(inputs: DiffingInputs, config: Configuration) -> DiffOutput:
     """Diff two XML documents and collect the changes into a DiffOutput.
 
-    Compares the two files named in ``opts`` (file1 = previous, file2 =
+    Compares the two XML inputs (file1 = previous, file2 =
     current) and records every added, updated, and deleted node. The
     configuration mode decides which changes are reported: WATCH_LIST
     includes only nodes matching the configured rules, while IGNORE_LIST
@@ -263,8 +263,8 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
     parser = etree.XMLParser(remove_blank_text=True, huge_tree=True)
 
     with measure_time("Parse XML files"):
-        left_tree = parse_xml(opts.file1, parser)
-        right_tree = parse_xml(opts.file2, parser)
+        left_tree = parse_xml(inputs.file1, parser)
+        right_tree = parse_xml(inputs.file2, parser)
 
     previous_document = _get_document_metadata(left_tree.getroot())
     current_document = _get_document_metadata(right_tree.getroot())

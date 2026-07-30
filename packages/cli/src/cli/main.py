@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from core import diff_xml
-from core.models import Configuration, DiffingOptions
+from core.models import Configuration, DiffingInputs
 
 DEFAULT_CONFIG_PATH = Path(__file__).parent / "cste_config.json"
 
@@ -27,17 +27,16 @@ def main() -> None:
     )
 
     args = ap.parse_args()
-    opts = DiffingOptions(**vars(args))
 
-    config_path = str(DEFAULT_CONFIG_PATH) if opts.config is None else opts.config
-    with open(config_path) as f:
+    with open(args.config) as f:
         config = Configuration(**json.load(f))
 
-    diff_output = diff_xml(opts, config)
+    inputs = DiffingInputs(file1=args.file1, file2=args.file2)
+    diff_output = diff_xml(inputs, config)
     diff_output_json = diff_output.model_dump_json(indent=2)
 
-    if opts.output_diff_file:
-        json_out_path = Path(opts.output_diff_file)
+    if args.output_diff_file:
+        json_out_path = Path(args.output_diff_file)
         json_out_path.write_text(diff_output_json, encoding="utf-8")
         print(f"Wrote {json_out_path.resolve()}")
 

@@ -16,7 +16,7 @@ from aws_lambda_powertools.utilities.data_classes import (
 )
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from boto3.dynamodb.conditions import Attr, Key
-from core import Configuration, DiffingOptions, DiffOutput, diff_xml
+from core import Configuration, DiffingInputs, DiffOutput, diff_xml
 from pydantic import ValidationError
 
 from .models import (
@@ -41,7 +41,7 @@ dynamodb: "DynamoDBServiceResource" = boto3.resource("dynamodb")
 db = dynamodb.Table(DYNAMODB_TABLE)
 logger = Logger("difference-in-docs")
 
-config_path = Path(__file__).parent / "aphl_baseline_config.json"
+config_path = Path(__file__).parent / "tmp_baseline_config.json"
 with config_path.open(encoding="utf-8") as config_file:
     BASELINE_CONFIG = Configuration(**json.load(config_file))
 
@@ -68,6 +68,7 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
 
         did_complete_files: list[DIDOutputRecord] = []
 
+        # TODO: refine error handling
         for entry in manifest.files:
             set_id = entry.setId
             version_number = entry.versionNumber
@@ -94,7 +95,7 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
                 )
 
                 diff_output = diff_xml(
-                    DiffingOptions(file1=before_xml, file2=entry_xml), BASELINE_CONFIG
+                    DiffingInputs(file1=before_xml, file2=entry_xml), BASELINE_CONFIG
                 )
 
                 is_actionable = len(diff_output.changes) > 0
