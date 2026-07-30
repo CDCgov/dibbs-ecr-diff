@@ -36,7 +36,9 @@ def eval_xpath(
     return elem.xpath(xpath_expr, namespaces=NAMESPACES) or []
 
 
-def build_rule_match_cache(elem: etree._ElementTree, rules: list[Rule]) -> RuleMatchCache:
+def build_rule_match_cache(
+    elem: etree._ElementTree, rules: list[Rule]
+) -> RuleMatchCache:
     """Evaluate rule XPaths and map each matched XML node to its rule."""
     rule_match_cache: RuleMatchCache = {}
 
@@ -71,7 +73,9 @@ def rule_matches_for_node_and_ancestors(
     rule_match_cache: RuleMatchCache,
 ) -> list[Rule]:
     """Collect node and all ancestor matches."""
-    return rule_matches_for_node_and_related_nodes(node, node.iterancestors(), rule_match_cache)
+    return rule_matches_for_node_and_related_nodes(
+        node, node.iterancestors(), rule_match_cache
+    )
 
 
 def rule_matches_for_node_and_descendants(
@@ -79,7 +83,9 @@ def rule_matches_for_node_and_descendants(
     rule_match_cache: RuleMatchCache,
 ) -> list[Rule]:
     """Collect node and all descendant matches."""
-    return rule_matches_for_node_and_related_nodes(node, node.iterdescendants(), rule_match_cache)
+    return rule_matches_for_node_and_related_nodes(
+        node, node.iterdescendants(), rule_match_cache
+    )
 
 
 def _get_document_metadata(root: etree._Element) -> Document:
@@ -156,9 +162,7 @@ def _process_additions(
                         xpathDocumentId=current_document.documentId,
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
-                        actionabilityRuleDisplayName=(
-                            rule_match.displayName
-                        ),
+                        actionabilityRuleDisplayName=(rule_match.displayName),
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
@@ -203,10 +207,7 @@ def _process_updates(
     for before, after in updated:
         if mode == DiffMode.WATCH_LIST:
             rule_match = right_rule_match_cache.get(after)
-            if (
-                rule_match is not None
-                and ChangeType.UPDATED in rule_match.changeTypes
-            ):
+            if rule_match is not None and ChangeType.UPDATED in rule_match.changeTypes:
                 actionable_changes.append(
                     Change(
                         changeType=ChangeType.UPDATED,
@@ -214,9 +215,7 @@ def _process_updates(
                         xpathDocumentId=current_document.documentId,
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
-                        actionabilityRuleDisplayName=(
-                            rule_match.displayName
-                        ),
+                        actionabilityRuleDisplayName=(rule_match.displayName),
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
@@ -279,9 +278,7 @@ def _process_deletions(
                         xpathDocumentId=previous_document.documentId,
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
-                        actionabilityRuleDisplayName=(
-                            rule_match.displayName
-                        ),
+                        actionabilityRuleDisplayName=(rule_match.displayName),
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
