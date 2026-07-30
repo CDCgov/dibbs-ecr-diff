@@ -8,6 +8,7 @@
 # 2. invoke the lambda function
 # 3. delete the message from the queue upon successful invocation of lambda
 
+import json
 import os
 import time
 
@@ -21,6 +22,21 @@ AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
 
 QUEUE_URL = os.getenv("QUEUE_URL")
 LAMBDA_URL = os.getenv("LAMBDA_URL")
+
+
+def log_errors(lambda_response: httpx.Response) -> bool:
+    """Log Lambda errors."""
+    try:
+        lambda_result = lambda_response.json()
+    except ValueError:
+        lambda_result = None
+
+    if isinstance(lambda_result, dict) and "errorType" in lambda_result:
+        print(
+            f"Lambda invocation failed:\n{json.dumps(lambda_result, indent=2)}",
+            flush=True,
+        )
+
 
 # 1. wait until localstack is ready to receive requests
 while True:
@@ -80,9 +96,13 @@ while True:
             ]
         }
 
-        # invoke lambda & raise exception in case of non-200 response
-        # raising prevents us from deleting the message in case the lambda failed
-        httpx.post(LAMBDA_URL, json=event, timeout=30).raise_for_status()
+        # invoke lambda; log failures and leave the message for retry
+        try:
+            lambda_response = httpx.post(LAMBDA_URL, json=event, timeout=30)
+            log_errors(lambda_response)
+        except httpx.HTTPError as exc:
+            print(f"Lambda invocation request failed: {exc}", flush=True)
+            continue
 
         # delete message
         sqs.delete_message(
