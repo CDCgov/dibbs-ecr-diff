@@ -19,7 +19,12 @@ from boto3.dynamodb.conditions import Attr, Key
 from core import Configuration, DiffingOptions, DiffOutput, diff_xml
 from pydantic import ValidationError
 
-from .models import DIDInputManifest, DIDOutputRecord, EICRStorageRecord
+from .models import (
+    DIDCompleteManifest,
+    DIDInputManifest,
+    DIDOutputRecord,
+    EICRStorageRecord,
+)
 
 if TYPE_CHECKING:
     from types_boto3_dynamodb import DynamoDBServiceResource
@@ -70,69 +75,55 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
             eicr_out_key = get_did_output_key(entry.eicr)
             rr_out_key = get_did_output_key(entry.rr) if entry.rr else None
 
-            augmented_eicr: bytes | None = None
-            diff_output_key: str | None = None
-
+            entry_xml = get_object(bucket_name, entry.eicr)
             latest = get_latest_actionable_record(set_id, version_number)
 
-            if latest is None:
-                # write eICR metadata to DB as the new baseline for this setId
-                db.put_item(
-                    Item={
-                        "setId": set_id,
-                        "versionNumber": version_number,
-                        "s3Key": entry.eicr,
-                        "s3KeyRR": entry.rr,
-                        "processedAt": get_timestamp(),
-                        "isActionable": True,
-                    }
-                )
-            else:
+            compared_to_version = latest.versionNumber if latest else None
+            is_actionable = latest is None
+            diff_output: DiffOutput | None = None
+            diff_output_key: str | None = None
+
+            if latest:
                 output_prefix = get_did_output_prefix(entry.eicr)
                 diff_output_key = f"{output_prefix}/{set_id}_eicr_diff"
 
                 before_xml = get_object(bucket_name, latest.s3Key)
-                after_xml = get_object(bucket_name, entry.eicr)
 
                 logger.info(
                     f"Diffing version {version_number} against version {latest.versionNumber} of {set_id}"
                 )
 
                 diff_output = diff_xml(
-                    DiffingOptions(file1=before_xml, file2=after_xml), BASELINE_CONFIG
+                    DiffingOptions(file1=before_xml, file2=entry_xml), BASELINE_CONFIG
                 )
 
-                augmented_eicr = get_augmented_eicr(diff_output, after_xml)
                 is_actionable = len(diff_output.changes) > 0
 
-                # write the diff output to S3
+            augmented_eicr = get_augmented_eicr(entry_xml, diff_output)
+
+            if diff_output_key and diff_output is not None:
                 put_object(
                     bucket_name,
                     diff_output_key,
                     diff_output.model_dump_json(indent=2).encode("utf-8"),
                 )
 
-                # write eICR metadata to DB
-                db.put_item(
-                    Item={
-                        "setId": set_id,
-                        "versionNumber": version_number,
-                        "s3Key": entry.eicr,
-                        "s3KeyRR": entry.rr,
-                        "s3KeyDiffOutput": diff_output_key,
-                        "processedAt": get_timestamp(),
-                        "isActionable": is_actionable,
-                        "comparedToVersion": latest.versionNumber,
-                    }
-                )
-
-            put_object(
-                bucket_name,
-                eicr_out_key,
-                augmented_eicr
-                if augmented_eicr
-                else get_object(bucket_name, entry.eicr),
+            # write eICR metadata to DB
+            db.put_item(
+                Item={
+                    "setId": set_id,
+                    "versionNumber": version_number,
+                    "s3Key": entry.eicr,
+                    "s3KeyRR": entry.rr,
+                    "s3KeyDiffOutput": diff_output_key,
+                    "processedAt": get_timestamp(),
+                    "isActionable": is_actionable,
+                    "comparedToVersion": compared_to_version,
+                }
             )
+
+            # write augmented eicr to DIDOutput/
+            put_object(bucket_name, eicr_out_key, augmented_eicr)
 
             if entry.rr and rr_out_key:
                 put_object(bucket_name, rr_out_key, get_object(bucket_name, entry.rr))
@@ -148,12 +139,22 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
                 )
             )
 
-        put_complete_manifest(bucket_name, persistence_id, did_complete_files)
+        # write to DIDComplete/
+        did_complete_manifest = DIDCompleteManifest(Files=did_complete_files)
+        did_complete_key = f"{DID_COMPLETE_PREFIX}{persistence_id}"
+        put_object(
+            bucket_name,
+            did_complete_key,
+            did_complete_manifest.model_dump_json(by_alias=True, indent=2).encode(
+                "utf-8"
+            ),
+        )
 
+    # TODO: should did_complete_manifest be the response body?
     return {"statusCode": 200, "message": "OK"}
 
 
-def get_augmented_eicr(_diff_output: DiffOutput, eicr: bytes) -> bytes:
+def get_augmented_eicr(eicr: bytes, _diff_output: DiffOutput | None) -> bytes:
     """TODO: stub for augmenting the eicr."""
     return eicr
 
@@ -188,21 +189,6 @@ def get_input_manifest(bucket: str, key: str) -> DIDInputManifest:
         return DIDInputManifest.model_validate_json(get_object(bucket, key))
     except ValidationError as exc:
         raise InfraError(f"Invalid manifest s3://{bucket}/{key}") from exc
-
-
-def put_complete_manifest(
-    bucket_name: str, persistence_id: str, did_complete_files: list[DIDOutputRecord]
-) -> None:
-    """Write complete manifest to DIDComplete/ path."""
-    did_complete_key = f"{DID_COMPLETE_PREFIX}{persistence_id}"
-    did_complete_body = {
-        "Files": [record.model_dump() for record in did_complete_files]
-    }
-    put_object(
-        bucket_name,
-        did_complete_key,
-        json.dumps(did_complete_body, indent=2).encode("utf-8"),
-    )
 
 
 def get_object(bucket: str, key: str) -> bytes:
