@@ -44,9 +44,10 @@ A configuration defines a set of rules that match changes based on XPath express
 ### `ChangeType` enum
 
 | Value     | Description             |
-| --------- | ----------------------- |
+|-----------|-------------------------|
 | `ADDED`   | An element was added.   |
 | `UPDATED` | An element was changed. |
+| `DELETED` | An element was deleted. |
 
 ### Rule evaluation
 
@@ -58,8 +59,6 @@ The matching rule's `id` and `displayName` are included in the Diff Output docum
 
 * XPath expressions identify locations within an eICR that should be considered by a rule.
 * A rule matches when the changed node corresponds to one of the rule's XPath expressions.
-* In `IGNORE_LIST` mode, a configured XPath excludes the element and its entire subtree for the configured
-  change types.
 * Attribute matching is not enabled for the default config of the MVP and may be implemented in a future version of this specification.
 
 ## Example

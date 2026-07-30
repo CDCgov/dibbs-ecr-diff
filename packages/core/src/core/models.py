@@ -64,7 +64,7 @@ class DiffOutput(BaseModel):
     changes: list[Change] = Field(default_factory=list)
 
 
-class RuleConfig(BaseModel):
+class Rule(BaseModel):
     """Configured rule used to match relevant XML nodes."""
 
     id: UUID = Field(default_factory=uuid4)
@@ -74,11 +74,11 @@ class RuleConfig(BaseModel):
 
 
 class Configuration(BaseModel):
-    """Diff configuration loaded by the CLI."""
+    """Configuration controlling which XML changes are actionable."""
 
     displayName: str
     specVersion: str
     id: UUID = Field(default_factory=uuid4)
     createdAt: str
     mode: DiffMode
-    rules: list[RuleConfig] = Field(default_factory=list)
+    rules: list[Rule] = Field(default_factory=list)

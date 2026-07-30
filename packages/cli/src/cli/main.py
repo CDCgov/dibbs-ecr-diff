@@ -20,7 +20,7 @@ def main() -> None:
     ap.add_argument(
         "-c",
         "--config",
-        help="Path to configuration (default: bundled APHL baseline)",
+        help="Path to configuration (default: " + DEFAULT_CONFIGURATION_FILE,
     )
     ap.add_argument(
         "-o",
