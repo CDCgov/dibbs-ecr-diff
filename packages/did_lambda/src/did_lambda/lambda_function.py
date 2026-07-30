@@ -14,7 +14,7 @@ from aws_lambda_powertools.utilities.data_classes import (
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from pydantic import ValidationError
 
-from .models import DIDCompleteManifest, DIDInputManifest, DIDOutputRecord
+from .models import DIDCompleteManifest, DIDInputManifest, DIDOutputFile
 
 if TYPE_CHECKING:
     from types_boto3_s3 import S3Client
@@ -45,11 +45,11 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
         manifest_key = unquote_plus(s3_event.detail.object.key)
 
         persistence_id = persistence_id_from_key(manifest_key)
-        manifest = get_input_manifest(bucket_name, manifest_key)
+        did_input_manifest = get_input_manifest(bucket_name, manifest_key)
 
-        did_complete_files: list[DIDOutputRecord] = []
+        did_complete_output_records: list[DIDOutputFile] = []
 
-        for entry in manifest.files:
+        for entry in did_input_manifest.files:
             set_id = entry.setId
             version_number = entry.versionNumber
 
@@ -62,8 +62,8 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
             # write RR to DIDOutput/
             put_object(bucket_name, rr_out_key, get_object(bucket_name, entry.rr))
 
-            did_complete_files.append(
-                DIDOutputRecord(
+            did_complete_output_records.append(
+                DIDOutputFile(
                     setId=set_id,
                     versionNumber=version_number,
                     eicr=eicr_out_key,
@@ -74,7 +74,7 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
             )
 
         # write to DIDComplete/
-        did_complete_manifest = DIDCompleteManifest(Files=did_complete_files)
+        did_complete_manifest = DIDCompleteManifest(Files=did_complete_output_records)
         did_complete_key = f"{DID_COMPLETE_PREFIX}{persistence_id}"
         put_object(
             bucket_name,
@@ -96,7 +96,7 @@ def get_input_manifest(bucket: str, key: str) -> DIDInputManifest:
 
 
 def get_object(bucket: str, key: str) -> bytes:
-    """Utility to read object from S3."""
+    """Utility to get object from S3."""
     try:
         obj = s3.get_object(Bucket=bucket, Key=key)
         return obj["Body"].read()
@@ -105,7 +105,7 @@ def get_object(bucket: str, key: str) -> bytes:
 
 
 def put_object(bucket: str, key: str, data: bytes) -> None:
-    """Utility to write object to S3."""
+    """Utility to put object to S3."""
     try:
         s3.put_object(Bucket=bucket, Key=key, Body=data)
     except Exception as exc:
@@ -128,7 +128,7 @@ def persistence_id_from_key(key: str) -> str:
 def get_did_output_key(source_key: str) -> str:
     """Converts an S3 Key into a DIDOutput prefixed key."""
     output_prefix = get_did_output_prefix(source_key)
-    return f"{output_prefix}/{get_last_key_part(source_key)}"
+    return f"{output_prefix}/{get_key_basename(source_key)}"
 
 
 def get_did_output_prefix(source_key: str) -> str:
@@ -139,8 +139,8 @@ def get_did_output_prefix(source_key: str) -> str:
     return f"{DID_OUTPUT_PREFIX}{'/'.join(parts[1:-1])}"
 
 
-def get_last_key_part(source_key: str) -> str:
-    """Gets last part of an S3 key."""
+def get_key_basename(source_key: str) -> str:
+    """Gets basename of an S3 key."""
     key = source_key.strip("/")
     if not key:
         raise InfraError(f"Invalid S3 key: {source_key}")

@@ -3,7 +3,7 @@
 from pydantic import BaseModel, Field
 
 
-class DIDInputRecord(BaseModel):
+class DIDInputFile(BaseModel):
     """Input EICR and RR S3 keys, and their setId and versionNumber."""
 
     eicr: str
@@ -12,7 +12,7 @@ class DIDInputRecord(BaseModel):
     versionNumber: int
 
 
-class DIDOutputRecord(DIDInputRecord):
+class DIDOutputFile(DIDInputFile):
     """Output EICR, RR, DiffOutput S3 keys, and related metadata."""
 
     eicr_diff_output: str | None = None
@@ -22,10 +22,10 @@ class DIDOutputRecord(DIDInputRecord):
 class DIDInputManifest(BaseModel):
     """A manifest containing DIDInput files to process."""
 
-    files: list[DIDInputRecord] = Field(alias="Files")
+    files: list[DIDInputFile] = Field(alias="Files")
 
 
 class DIDCompleteManifest(BaseModel):
     """A manifest containing DIDOutput files."""
 
-    files: list[DIDOutputRecord] = Field(alias="Files")
+    files: list[DIDOutputFile] = Field(alias="Files")
