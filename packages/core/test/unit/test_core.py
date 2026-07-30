@@ -7,7 +7,7 @@ from core import (
     _process_deletions,
     _process_updates,
     build_rule_match_cache,
-    change_is_ignorable,
+    has_ignore_rule_for_change_type,
     rule_matches_for_node_and_ancestors,
     rule_matches_for_node_and_descendants,
     unique_rule_matches,
@@ -441,8 +441,8 @@ def test_unique_rule_matches_filters_by_change_type():
     assert unique_rule_matches(matches, ChangeType.ADDED) == [matches[0]]
     assert unique_rule_matches(matches, ChangeType.UPDATED) == []
     assert unique_rule_matches(matches, ChangeType.DELETED) == []
-    assert change_is_ignorable(matches, ChangeType.ADDED)
-    assert not change_is_ignorable(matches, ChangeType.UPDATED)
+    assert has_ignore_rule_for_change_type(matches, ChangeType.ADDED)
+    assert not has_ignore_rule_for_change_type(matches, ChangeType.UPDATED)
 
 
 def test_rule_requires_at_least_one_change_type():

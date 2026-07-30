@@ -10,6 +10,3 @@ dependencies = [
 dev = [
     "types-lxml>=2026.2.16",
 ]
-
-[tool.setuptools.package-data]
-core = ["configurations/*.json"]

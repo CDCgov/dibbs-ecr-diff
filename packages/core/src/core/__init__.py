@@ -113,13 +113,13 @@ def unique_rule_matches(
     return list(first_match_by_rule.values())
 
 
-def change_is_ignorable(
+def has_ignore_rule_for_change_type(
     rule_matches: Iterable[Rule],
-    ignorable_change_type: ChangeType,
+    change_type: ChangeType,
 ) -> bool:
-    """Return true if any match has the ignorable change type."""
+    """Return true if any of the ignore-rule matches has the change type."""
     for rule_match in rule_matches:
-        if ignorable_change_type in rule_match.changeTypes:
+        if change_type in rule_match.changeTypes:
             return True
 
     return False
@@ -162,7 +162,7 @@ def _process_additions(
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
-            if change_is_ignorable(
+            if has_ignore_rule_for_change_type(
                 rule_matches_for_node_and_ancestors(
                     added_element,
                     right_rule_match_cache,
@@ -230,7 +230,7 @@ def _process_updates(
                     right_rule_match_cache,
                 ),
             ]
-            if change_is_ignorable(
+            if has_ignore_rule_for_change_type(
                 rule_matches,
                 ChangeType.UPDATED,
             ):
@@ -285,7 +285,7 @@ def _process_deletions(
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
-            if change_is_ignorable(
+            if has_ignore_rule_for_change_type(
                 rule_matches_for_node_and_ancestors(
                     deleted_element,
                     left_rule_match_cache,
