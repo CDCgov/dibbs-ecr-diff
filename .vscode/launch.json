@@ -14,12 +14,14 @@
     },
 
     {
-      "name": "Python Debugger: Current File with Arguments",
+      "name": "Pytest Debugger: Current File",
       "type": "debugpy",
       "request": "launch",
-      "program": "${file}",
+      "module": "pytest",
+      "args": [
+        "${file}"
+      ],
       "console": "integratedTerminal",
-      "args": "${command:pickArgs}",
       "justMyCode": true
     }
   ]
