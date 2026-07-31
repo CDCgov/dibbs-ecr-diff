@@ -72,7 +72,8 @@ def main() -> None:
     print(f"Original document id: {augmented_eicr_result.original_doc_id}")
     print(f"Augmented document id: {augmented_eicr_result.augmented_doc_id}")
 
-    eicr_out_path = Path("augmented_eicr_with_diff.xml")
+    eicr_out_path = Path("temp/augmented_eicr_with_diff.xml")
+    eicr_out_path.parent.mkdir(parents=True, exist_ok=True)
     eicr_out_path.write_bytes(output_bytes)
     print(f"Wrote {eicr_out_path.resolve()} ({len(output_bytes)} bytes)")
 
