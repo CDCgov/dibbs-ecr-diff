@@ -1,0 +1,39 @@
+{
+  "specVersion": "1.0",
+  "id": "44d9a0b0-3c0c-4f49-bd11-6f219c7cfa9b",
+  "displayName": "Difference in Docs Example Config",
+  "configVersion": "1.0",
+  "mode": "IGNORE_LIST",
+  "createdAt": "2026-06-12T19:56:17Z",
+  "rules": [
+    {
+      "id": "e654b542-c0bd-4166-8320-4e0a7651d612",
+      "displayName": "Ignore Document Properties",
+      "xpaths": [
+        "/hl7:ClinicalDocument/hl7:realmCode",
+        "/hl7:ClinicalDocument/hl7:typeId",
+        "/hl7:ClinicalDocument/hl7:code",
+        "/hl7:ClinicalDocument/hl7:id",
+        "/hl7:ClinicalDocument/hl7:templateId"
+      ],
+      "changeTypes": ["UPDATED", "ADDED"]
+    },
+    {
+      "id": "d92c9890-4a85-4b21-a6dd-57864ae40ccc",
+      "displayName": "Date of Diagnosis",
+      "xpaths": [
+        "//hl7:encounter[hl7:templateId/@root='2.16.840.1.113883.10.20.22.4.49']/hl7:effectiveTime/hl7:low"
+      ],
+      "changeTypes": ["ADDED"]
+    },
+    {
+      "id": "1f989163-596d-4eae-b2f2-8b9f00ddb635",
+      "displayName": "Diagnoses",
+      "xpaths": [
+        "//hl7:encounter[hl7:templateId/@root='2.16.840.1.113883.10.20.22.4.49']/hl7:effectiveTime/hl7:low",
+        "//hl7:encounter[hl7:templateId/@root='2.16.840.1.113883.10.20.22.4.49']/hl7:entryRelationship/hl7:act[hl7:templateId/@root='2.16.840.1.113883.10.20.22.4.80']/hl7:entryRelationship/hl7:observation[hl7:templateId/@root='2.16.840.1.113883.10.20.22.4.4']/hl7:value"
+      ],
+      "changeTypes": ["UPDATED", "ADDED"]
+    }
+  ]
+}

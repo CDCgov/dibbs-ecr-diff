@@ -2,6 +2,7 @@
   "specVersion": "1.0",
   "id": "821c2832-54d7-456e-86ff-168f07a3a947",
   "displayName": "APHL Baseline Criteria",
+  "configVersion": "1.0",
   "mode": "WATCH_LIST",
   "createdAt": "2026-07-21T19:56:17Z",
   "rules": [

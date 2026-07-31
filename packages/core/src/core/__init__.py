@@ -25,8 +25,8 @@ from .models import (
 from .paths import structural_xpath
 from .performance import measure_time
 
-# Maps XML nodes matched by configured XPaths to their rules.
-type RuleMatchCache = dict[etree._Element, Rule]
+# Maps XML nodes matched by configured XPaths to all their rules.
+type RuleMatchCache = dict[etree._Element, list[Rule]]
 
 
 def eval_xpath(
@@ -39,7 +39,7 @@ def eval_xpath(
 def build_rule_match_cache(
     elem: etree._ElementTree, rules: list[Rule]
 ) -> RuleMatchCache:
-    """Evaluate rule XPaths and map each matched XML node to its rule."""
+    """Evaluate rule XPaths and map each matched XML node to all its rules."""
     rule_match_cache: RuleMatchCache = {}
 
     for rule in rules:
@@ -48,7 +48,13 @@ def build_rule_match_cache(
                 matched_nodes = eval_xpath(elem, xpath)
 
                 for matched_node in matched_nodes:
-                    rule_match_cache[matched_node] = rule
+                    matched_rules = rule_match_cache.setdefault(matched_node, [])
+                    # Avoid caching the same rule more than once when multiple
+                    # XPath expressions from that rule match the same node.
+                    if not any(
+                        matched_rule.id == rule.id for matched_rule in matched_rules
+                    ):
+                        matched_rules.append(rule)
     return rule_match_cache
 
 
@@ -61,9 +67,7 @@ def rule_matches_for_node_and_related_nodes(
     rule_matches: list[Rule] = []
 
     for related_node in [node, *related_nodes]:
-        rule_match = rule_match_cache.get(related_node)
-        if rule_match is not None:
-            rule_matches.append(rule_match)
+        rule_matches.extend(rule_match_cache.get(related_node, []))
 
     return rule_matches
 
@@ -97,7 +101,7 @@ def _get_document_metadata(root: etree._Element) -> Document:
     )
 
 
-def unique_rule_matches(
+def unique_rule_matches_for_change_type(
     rule_matches: Iterable[Rule],
     change_type: ChangeType,
 ) -> list[Rule]:
@@ -148,7 +152,7 @@ def _process_additions(
     actionable_changes: list[Change] = []
     for added_element in added:
         if mode == DiffMode.WATCH_LIST:
-            for rule_match in unique_rule_matches(
+            for rule_match in unique_rule_matches_for_change_type(
                 rule_matches_for_node_and_descendants(
                     added_element,
                     right_rule_match_cache,
@@ -162,7 +166,7 @@ def _process_additions(
                         xpathDocumentId=current_document.documentId,
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
-                        actionabilityRuleDisplayName=(rule_match.displayName),
+                        actionabilityRuleDisplayName=rule_match.displayName,
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
@@ -182,7 +186,7 @@ def _process_additions(
                     xpathDocumentId=current_document.documentId,
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
-                    actionabilityRuleDisplayName=(DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME),
+                    actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
                 )
             )
     return actionable_changes
@@ -206,8 +210,10 @@ def _process_updates(
     actionable_changes: list[Change] = []
     for before, after in updated:
         if mode == DiffMode.WATCH_LIST:
-            rule_match = right_rule_match_cache.get(after)
-            if rule_match is not None and ChangeType.UPDATED in rule_match.changeTypes:
+            for rule_match in unique_rule_matches_for_change_type(
+                right_rule_match_cache.get(after, []),
+                ChangeType.UPDATED,
+            ):
                 actionable_changes.append(
                     Change(
                         changeType=ChangeType.UPDATED,
@@ -215,7 +221,7 @@ def _process_updates(
                         xpathDocumentId=current_document.documentId,
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
-                        actionabilityRuleDisplayName=(rule_match.displayName),
+                        actionabilityRuleDisplayName=rule_match.displayName,
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
@@ -241,7 +247,7 @@ def _process_updates(
                     xpathDocumentId=current_document.documentId,
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
-                    actionabilityRuleDisplayName=(DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME),
+                    actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
                 )
             )
     return actionable_changes
@@ -264,7 +270,7 @@ def _process_deletions(
     actionable_changes: list[Change] = []
     for deleted_element in deleted:
         if mode == DiffMode.WATCH_LIST:
-            for rule_match in unique_rule_matches(
+            for rule_match in unique_rule_matches_for_change_type(
                 rule_matches_for_node_and_descendants(
                     deleted_element,
                     left_rule_match_cache,
@@ -278,7 +284,7 @@ def _process_deletions(
                         xpathDocumentId=previous_document.documentId,
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
-                        actionabilityRuleDisplayName=(rule_match.displayName),
+                        actionabilityRuleDisplayName=rule_match.displayName,
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
@@ -297,7 +303,7 @@ def _process_deletions(
                     xpathDocumentId=previous_document.documentId,
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
-                    actionabilityRuleDisplayName=(DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME),
+                    actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
                 )
             )
     return actionable_changes
@@ -328,10 +334,12 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
 
     diff_output = DiffOutput(
         generatedAt=datetime.now(UTC),
+        configurationId=config.id,
+        configurationVersion=config.configVersion,
+        configurationDisplayName=config.displayName,
         setId=set_id,
         currentDocument=current_document,
         previousDocument=previous_document,
-        hasActionableChanges=False,
     )
 
     with measure_time("Execute XPaths"):

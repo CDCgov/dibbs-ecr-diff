@@ -35,11 +35,9 @@ class Change(BaseModel):
     changeType: ChangeType
     xpath: str
     xpathDocumentId: str
-    isActionable: bool = (
-        True  # TODO: Replace placeholders once configurations implemented
-    )
+    isActionable: bool = True
     actionabilityRuleId: UUID
-    actionabilityRuleDisplayName: str = "placeholder"
+    actionabilityRuleDisplayName: str
 
 
 class Document(BaseModel):
@@ -54,13 +52,13 @@ class DiffOutput(BaseModel):
 
     outputSpecVersion: str = "1.0"
     generatedAt: datetime
-    configurationId: str = "00000000-0000-0000-0000-000000000000"  # TODO: Populate from configuration once implemented
-    configurationVersion: str = "placeholder"
-    configurationDisplayName: str = "placeholder"
+    configurationId: UUID
+    configurationVersion: str
+    configurationDisplayName: str
     setId: str
     currentDocument: Document
     previousDocument: Document
-    hasActionableChanges: bool
+    hasActionableChanges: bool = True
     changes: list[Change] = Field(default_factory=list)
 
 
@@ -78,6 +76,7 @@ class Configuration(BaseModel):
 
     displayName: str
     specVersion: str
+    configVersion: str
     id: UUID = Field(default_factory=uuid4)
     createdAt: str
     mode: DiffMode

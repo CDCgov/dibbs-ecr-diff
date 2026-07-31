@@ -16,14 +16,15 @@ A configuration defines a set of rules that match changes based on XPath express
 
 ## Top-level schema
 
-| Field                      | Type                           | Required | Description                                                                                      |
-| -------------------------- | ------------------------------ | -------- | ------------------------------------------------------------------------------------------------ |
-| `specVersion`              | string                         | Yes      | Version of this configuration spec.                                                              |
-| `id`                       | string                         | Yes      | Stable identifier for the configuration. Remains unchanged across configuration revisions.       |
-| `displayName`              | string                         | Optional | Human-readable name for the configuration.                                                       |
-| `mode`                     | [ConfigMode](#configmode-enum) | Yes      | How to treat rule XPath matches.                                                                 |
-| `createdAt`                | string ISO-8601 timestamp      | Yes      | A UTC ISO 8601 timestamp of when the configuration was created.                                  |
-| `rules`                    | array of [Rule](#rule-object)  | Yes      | Ordered list of actionability rules.                                                             |
+| Field           | Type                           | Required | Description                                                                                |
+|-----------------| ------------------------------ |----------|--------------------------------------------------------------------------------------------|
+| `specVersion`   | string                         | Yes      | Version of this configuration spec file being used to structure the configuration.         |
+| `id`            | string                         | Yes      | Stable identifier for the configuration. Remains unchanged across configuration revisions. |
+| `displayName`   | string                         | Optional | Human-readable name for the configuration.                                                 |
+| `configVersion` | string                         | Yes      | Version of the configuration itself.                                                       |
+| `mode`          | [ConfigMode](#configmode-enum) | Yes      | How to treat rule XPath matches.                                                           |
+| `createdAt`     | string ISO-8601 timestamp      | Yes      | A UTC ISO 8601 timestamp of when the configuration was created.                            |
+| `rules`         | array of [Rule](#rule-object)  | Yes      | Ordered list of actionability rules.                                                       |
 
 ### Rule object
 
@@ -67,7 +68,7 @@ The matching rule's `id` and `displayName` are included in the Diff Output docum
 {
   "specVersion": "1.0",
   "id": "44d9a0b0-3c0c-4f49-bd11-6f219c7cfa9b",
-  "displayName": "Differene in Docs Default Config",
+  "displayName": "Difference in Docs Example Config",
   "mode": "IGNORE_LIST",
   "createdAt": "2026-06-12T19:56:17Z",
   "rules": [
@@ -75,11 +76,11 @@ The matching rule's `id` and `displayName` are included in the Diff Output docum
       "id": "e654b542-c0bd-4166-8320-4e0a7651d612",
       "displayName": "Ignore Document Properties",
       "xpaths": [
-        "/ClinicalDocument/realmCode",
-        "/ClinicalDocument/typeId",
-        "/ClinicalDocument/code",
-        "/ClinicalDocument/id",
-        "/ClinicalDocument/templateId"
+        "/hl7:ClinicalDocument/hl7:realmCode",
+        "/hl7:ClinicalDocument/hl7:typeId",
+        "/hl7:ClinicalDocument/hl7:code",
+        "/hl7:ClinicalDocument/hl7:id",
+        "/hl7:ClinicalDocument/hl7:templateId"
       ],
       "changeTypes": ["UPDATED", "ADDED"]
     },
@@ -87,7 +88,7 @@ The matching rule's `id` and `displayName` are included in the Diff Output docum
       "id": "d92c9890-4a85-4b21-a6dd-57864ae40ccc",
       "displayName": "Date of Diagnosis",
       "xpaths": [
-        "//encounter[templateId/@root=2.16.840.1.113883.10.20.22.4.49]/effectiveTime/low"
+        "//hl7:encounter[hl7:templateId/@root='2.16.840.1.113883.10.20.22.4.49']/hl7:effectiveTime/hl7:low"
       ],
       "changeTypes": ["ADDED"]
     },
@@ -95,8 +96,8 @@ The matching rule's `id` and `displayName` are included in the Diff Output docum
       "id": "1f989163-596d-4eae-b2f2-8b9f00ddb635",
       "displayName": "Diagnoses",
       "xpaths": [
-        "//encounter[templateId/@root=2.16.840.1.113883.10.20.22.4.49]/effectiveTime/low",
-        "//encounter[templateId/@root=2.16.840.1.113883.10.20.22.4.49]/entryRelationship/act[templateId/@root=2.16.840.1.113883.10.20.22.4.80]/entryRelationship/observation[templateId/@root=2.16.840.1.113883.10.20.22.4.4]/value"
+        "//hl7:encounter[hl7:templateId/@root='2.16.840.1.113883.10.20.22.4.49']/hl7:effectiveTime/hl7:low",
+        "//hl7:encounter[hl7:templateId/@root='2.16.840.1.113883.10.20.22.4.49']/hl7:entryRelationship/hl7:act[hl7:templateId/@root='2.16.840.1.113883.10.20.22.4.80']/hl7:entryRelationship/hl7:observation[hl7:templateId/@root='2.16.840.1.113883.10.20.22.4.4']/hl7:value"
       ],
       "changeTypes": ["UPDATED", "ADDED"]
     }
