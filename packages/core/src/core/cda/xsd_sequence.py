@@ -165,7 +165,6 @@ SEQUENCE_ORDER_REGION_OF_INTEREST_CHILDREN = [
 ]
 
 SEQUENCE_ORDER_SUBSTANCE_ADMINISTRATION_CHILDREN = [
-    # starting from consumable which is always required
     "realmCode",
     "typeId",
     "templateId",
