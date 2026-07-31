@@ -13,7 +13,6 @@ from core.cda.xsd_sequence import (
 )
 from core.models import Change, ChangeType, DiffOutput
 from core.xml_utils import (
-    _xpath_first_attribute_value,
     hl7_clark_tag,
 )
 
@@ -310,7 +309,8 @@ def augment_eicr(
     _add_related_document(eicr_root, original)
 
     # STEP 9: add entry level diff info
-    _process_diff_output_changes(diff_output, run.augmentation_time)
+    if diff_output is not None:
+        _process_diff_output_changes(diff_output, run.augmentation_time)
 
     return augmented_result
 
@@ -746,17 +746,21 @@ def _process_diff_output_changes(diff_output: DiffOutput, timestamp: str) -> Non
         (i.e. recordTarget cannot accept author directly)
     """
     # Can't add entry-level augmentation to a deleted element that doesn't exist in the new eICR
-    filtered_changes = [x for x in diff_output.changes if x != ChangeType.DELETED]
+    filtered_changes = [
+        x for x in diff_output.changes if x.changeType != ChangeType.DELETED
+    ]
 
     for change in filtered_changes:
         anchor = change.anchor_node
-        author_allowed_element = _find_best_author_allowed_element(anchor)
+        if anchor is None:
+            continue
 
+        author_allowed_element = _find_best_author_allowed_element(anchor)
         if author_allowed_element is None:
             continue
 
         # If there are multiple changes on the same element, only add one diff author child
-        if not _contains_diff_author_child(author_allowed_element):
+        if not _contains_diff_author_direct_child(author_allowed_element):
             author = _create_diff_author_element(change, timestamp)
             insert_sequenced_child_of_clinical_statement_parent(
                 author_allowed_element, author
@@ -777,11 +781,27 @@ def _find_best_author_allowed_element(anchor: _Element) -> _Element | None:
     return None
 
 
-def _contains_diff_author_child(element: _Element) -> bool:
-    """Returns true if the element already contains a diff author child."""
-    diff_author_xpath = "./hl7:author/hl7:assignedAuthor/hl7:assignedAuthoringDevice/hl7:softwareName/@displayName"
-    diff_author_displayName = _xpath_first_attribute_value(element, diff_author_xpath)
-    return diff_author_displayName is not None
+def _contains_diff_author_direct_child(element: _Element) -> bool:
+    """Returns true if the element already contains a diff author direct child."""
+    software_name = element.find(
+        "./hl7:author/hl7:assignedAuthor/hl7:assignedAuthoringDevice/hl7:softwareName",
+        NAMESPACES,
+    )
+    if software_name is None:
+        return False
+
+    function_code = element.find("./hl7:author/hl7:functionCode", NAMESPACES)
+    if function_code is None:
+        return False
+
+    return (
+        software_name.get("code") == DIFF_TOOL_CODE
+        and software_name.get("codeSystem") == ECR_DATA_AUG_CODE_SYSTEM
+        and software_name.get("codeSystemName") == ECR_DATA_AUG_CODE_SYSTEM_NAME
+        and software_name.get("displayName") == DIFF_TOOL_DISPLAY
+        and function_code.get("codeSystem") == ECR_DATA_AUG_CODE_SYSTEM
+        and function_code.get("codeSystemName") == ECR_DATA_AUG_CODE_SYSTEM_NAME
+    )
 
 
 def _create_diff_author_element(change: Change, timestamp: str) -> _Element:
@@ -807,14 +827,14 @@ def _create_diff_author_element(change: Change, timestamp: str) -> _Element:
     telecom = etree.SubElement(assigned_author, hl7_clark_tag("telecom"))
     telecom.set("nullFlavor", "NA")
 
-    authoringDevice = etree.SubElement(
+    authoring_device = etree.SubElement(
         assigned_author, hl7_clark_tag("assignedAuthoringDevice")
     )
-    softwareName = etree.SubElement(authoringDevice, hl7_clark_tag("softwareName"))
-    softwareName.set("code", DIFF_TOOL_CODE)
-    softwareName.set("codeSystem", ECR_DATA_AUG_CODE_SYSTEM)
-    softwareName.set("codeSystemName", ECR_DATA_AUG_CODE_SYSTEM_NAME)
-    softwareName.set("displayName", DIFF_TOOL_DISPLAY)
+    software_name = etree.SubElement(authoring_device, hl7_clark_tag("softwareName"))
+    software_name.set("code", DIFF_TOOL_CODE)
+    software_name.set("codeSystem", ECR_DATA_AUG_CODE_SYSTEM)
+    software_name.set("codeSystemName", ECR_DATA_AUG_CODE_SYSTEM_NAME)
+    software_name.set("displayName", DIFF_TOOL_DISPLAY)
 
     return author
 
