@@ -1,6 +1,4 @@
-"""core/paths.py
-
-Human-readable xmlPath and machine-readable xPath generation.
+"""Human-readable xmlPath and machine-readable xPath generation.
 
 Both path types are written into changes.json alongside each change entry
 to help consumers locate the changed element in the document.
@@ -194,8 +192,9 @@ def stable_xml_path(
 
 
 def _xpath_literal(value: str) -> str:
-    """Wrap value in XPath-safe quotes.  Falls back to concat() when value
-    contains both single and double quotes.
+    """Wrap value in XPath-safe quotes.
+
+    Falls back to concat() when value contains both single and double quotes.
     """
     if "'" not in value:
         return f"'{value}'"
@@ -282,6 +281,7 @@ def _position_among_siblings(node: etree._Element) -> int:
 
 def _effective_time_predicates(node: etree._Element) -> dict[str, str]:
     """Return a dict of available effectiveTime component values for node.
+
     Keys: "value", "low", "high", "center", "period_value", "period_unit".
     """
     result: dict[str, str] = {}

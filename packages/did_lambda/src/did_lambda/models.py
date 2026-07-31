@@ -1,0 +1,31 @@
+"""Models for S3 manifest files."""
+
+from pydantic import BaseModel, Field
+
+
+class DIDInputFile(BaseModel):
+    """Input EICR and RR S3 keys, and their setId and versionNumber."""
+
+    eicr: str
+    rr: str
+    setId: str
+    versionNumber: int
+
+
+class DIDOutputFile(DIDInputFile):
+    """Output EICR, RR, DiffOutput S3 keys, and related metadata."""
+
+    eicr_diff_output: str | None = None
+    is_actionable: bool
+
+
+class DIDInputManifest(BaseModel):
+    """A manifest containing DIDInput files to process."""
+
+    files: list[DIDInputFile] = Field(alias="Files")
+
+
+class DIDCompleteManifest(BaseModel):
+    """A manifest containing DIDOutput files."""
+
+    files: list[DIDOutputFile] = Field(alias="Files")

@@ -1,6 +1,4 @@
-"""core/matching.py
-
-Child element matching machinery.
+"""Child element matching logic.
 
 Responsible for pairing elements from a before-tree sibling list against
 elements from the corresponding after-tree sibling list, yielding (e1, e2)
@@ -18,9 +16,8 @@ only by adding or removing conformance declarations.
 """
 
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from typing import TypeAlias
 
 from lxml import etree
 
@@ -41,7 +38,7 @@ from core.cda.narrative_keys import narrative_row_key, narrative_table_key
 from core.cda.stable_key import stable_key
 from core.xml_utils import localname
 
-RootExtensionSetKeyTypes: TypeAlias = tuple[type[RootExtensionSetKeyBase], ...]
+type RootExtensionSetKeyTypes = tuple[type[RootExtensionSetKeyBase], ...]
 
 
 @dataclass(frozen=True)
@@ -68,7 +65,10 @@ TEMPLATE_ID_STABLE_KEY_TYPES: RootExtensionSetKeyTypes = (
 # Child grouping
 # ---------------------------------------------------------------------------
 
-def build_immediate_child_groups(parent: etree._Element) -> dict[str, list[etree._Element]]:
+
+def build_immediate_child_groups(
+    parent: etree._Element,
+) -> dict[str, list[etree._Element]]:
     """Group the immediate element children of `parent` by tag name.
 
     Namespaced tags use Clark notation (`{namespace}localname`);
@@ -86,24 +86,26 @@ def build_immediate_child_groups(parent: etree._Element) -> dict[str, list[etree
 # Prefer-updates soft pairing
 # ---------------------------------------------------------------------------
 
+
 def _is_table_cell_list(elements: list[etree._Element]) -> bool:
     """Return True if every element in the list is a <td> or <th>."""
     return bool(elements) and all(localname(elem) in ("td", "th") for elem in elements)
 
 
 def _prefer_updates_pairing(
-        before_list: list[etree._Element],
-        after_list: list[etree._Element],
+    before_list: list[etree._Element],
+    after_list: list[etree._Element],
 ) -> tuple[list[tuple], list[etree._Element], list[etree._Element]]:
-    """Attempt to pair elements from before_list and after_list by their soft
-    context key, preferring to classify matching elements as updates rather
+    """Attempt to pair elements from before_list and after_list by their soft context key.
+
+    Prefer to classify matching elements as updates rather
     than add+delete pairs.
 
     Returns (matched_pairs, unmatched_from_before, unmatched_from_after).
     Elements whose soft context key is None are left unmatched.
     """
     before_buckets: dict = defaultdict(list)
-    after_buckets:  dict = defaultdict(list)
+    after_buckets: dict = defaultdict(list)
     for elem in before_list:
         before_buckets[soft_context_key(elem)].append(elem)
     for elem in after_list:
@@ -111,16 +113,14 @@ def _prefer_updates_pairing(
 
     matched_pairs = []
     unmatched_before = []
-    unmatched_after  = []
+    unmatched_after = []
 
-    all_keys = sorted(
-        (set(before_buckets) | set(after_buckets)) - {None}, key=str
-    )
+    all_keys = sorted((set(before_buckets) | set(after_buckets)) - {None}, key=str)
 
     for key in all_keys:
         before_group = before_buckets.get(key, [])
-        after_group  = after_buckets.get(key, [])
-        pair_count   = min(len(before_group), len(after_group))
+        after_group = after_buckets.get(key, [])
+        pair_count = min(len(before_group), len(after_group))
         for index in range(pair_count):
             matched_pairs.append((before_group[index], after_group[index]))
         unmatched_before.extend(before_group[pair_count:])
@@ -132,8 +132,8 @@ def _prefer_updates_pairing(
 
 
 def _id_root_extensions_from_stable_key(
-        stable_key_value: StableKey | None,
-        allowed_key_types: RootExtensionSetKeyTypes,
+    stable_key_value: StableKey | None,
+    allowed_key_types: RootExtensionSetKeyTypes,
 ) -> tuple[RootExtension, ...]:
     """Return <id> root/extensions from allowed stable-key classes."""
     if not isinstance(stable_key_value, allowed_key_types):
@@ -143,8 +143,8 @@ def _id_root_extensions_from_stable_key(
 
 
 def _template_id_root_extensions_from_stable_key(
-        stable_key_value: StableKey | None,
-        allowed_key_types: RootExtensionSetKeyTypes,
+    stable_key_value: StableKey | None,
+    allowed_key_types: RootExtensionSetKeyTypes,
 ) -> tuple[RootExtension, ...]:
     """Return <templateId> root/extensions from allowed stable-key classes."""
     if not isinstance(stable_key_value, allowed_key_types):
@@ -159,23 +159,25 @@ def _root_extension_sort_key(root_extension: RootExtension) -> tuple[str, str]:
 
 
 def _root_extension_set_sort_key(
-        root_extensions: set[RootExtension],
+    root_extensions: set[RootExtension],
 ) -> tuple[tuple[str, str], ...]:
     """Return a deterministic sort key for a set of root/extensions."""
-    return tuple(sorted(
-        (
-            _root_extension_sort_key(root_extension)
-            for root_extension in root_extensions
-        ),
-    ))
+    return tuple(
+        sorted(
+            (
+                _root_extension_sort_key(root_extension)
+                for root_extension in root_extensions
+            ),
+        )
+    )
 
 
 def _build_root_extension_element_index(
-        elements: list[etree._Element],
-        root_extension_extractor: Callable[
-            [etree._Element],
-            tuple[RootExtension, ...],
-        ],
+    elements: list[etree._Element],
+    root_extension_extractor: Callable[
+        [etree._Element],
+        tuple[RootExtension, ...],
+    ],
 ) -> _RootExtensionElementIndex:
     """Index elements by root/extensions returned from an element extractor."""
     elements_by_root_extension: dict[
@@ -205,11 +207,11 @@ def _build_root_extension_element_index(
 
 
 def _index_elements_by_stable_key_root_extension(
-        elements: list[etree._Element],
-        stable_key_root_extension_extractor: Callable[
-            [StableKey | None],
-            tuple[RootExtension, ...],
-        ],
+    elements: list[etree._Element],
+    stable_key_root_extension_extractor: Callable[
+        [StableKey | None],
+        tuple[RootExtension, ...],
+    ],
 ) -> _RootExtensionElementIndex:
     """Index elements by each allowed stable-key root/extension pair."""
     return _build_root_extension_element_index(
@@ -219,9 +221,9 @@ def _index_elements_by_stable_key_root_extension(
 
 
 def _pair_indexed_elements_by_root_extension(
-        before_index: _RootExtensionElementIndex,
-        after_index: _RootExtensionElementIndex,
-        require_complete_subset: bool = False,
+    before_index: _RootExtensionElementIndex,
+    after_index: _RootExtensionElementIndex,
+    require_complete_subset: bool = False,
 ) -> tuple[list[tuple], set[int], set[int]]:
     """Pair indexed elements that share unambiguous root/extensions.
 
@@ -238,9 +240,8 @@ def _pair_indexed_elements_by_root_extension(
     before_candidate_after_ids: dict[int, set[int]] = defaultdict(set)
     after_candidate_before_ids: dict[int, set[int]] = defaultdict(set)
 
-    shared_root_extensions = (
-        set(before_index.elements_by_root_extension)
-        & set(after_index.elements_by_root_extension)
+    shared_root_extensions = set(before_index.elements_by_root_extension) & set(
+        after_index.elements_by_root_extension
     )
     for root_extension in sorted(shared_root_extensions, key=_root_extension_sort_key):
         before_group = before_index.elements_by_root_extension[root_extension]
@@ -262,13 +263,13 @@ def _pair_indexed_elements_by_root_extension(
     paired_after_ids = set()
 
     def _candidate_sort_key(
-            candidate: tuple[tuple[int, int], set[RootExtension]],
+        candidate: tuple[tuple[int, int], set[RootExtension]],
     ) -> tuple[tuple[str, str], ...]:
         return _root_extension_set_sort_key(candidate[1])
 
     for pair_key, _ in sorted(
-            candidate_shared_ids.items(),
-            key=_candidate_sort_key,
+        candidate_shared_ids.items(),
+        key=_candidate_sort_key,
     ):
         before_id, after_id = pair_key
 
@@ -293,10 +294,12 @@ def _pair_indexed_elements_by_root_extension(
             if len(shared_root_extensions_for_pair) != smaller_root_extension_set_size:
                 continue
 
-        matched_pairs.append((
-            before_index.elements_by_id[before_id],
-            after_index.elements_by_id[after_id],
-        ))
+        matched_pairs.append(
+            (
+                before_index.elements_by_id[before_id],
+                after_index.elements_by_id[after_id],
+            )
+        )
         paired_before_ids.add(before_id)
         paired_after_ids.add(after_id)
 
@@ -304,21 +307,21 @@ def _pair_indexed_elements_by_root_extension(
 
 
 def _unpaired_elements(
-        elements: list[etree._Element],
-        paired_element_ids: set[int],
+    elements: list[etree._Element],
+    paired_element_ids: set[int],
 ) -> list[etree._Element]:
     """Return elements whose object IDs were not paired."""
     return [elem for elem in elements if id(elem) not in paired_element_ids]
 
 
 def _shared_stable_key_root_extension_pairing(
-        before_list: list[etree._Element],
-        after_list: list[etree._Element],
-        stable_key_root_extension_extractor: Callable[
-            [StableKey | None],
-            tuple[RootExtension, ...],
-        ],
-        require_complete_subset: bool = False,
+    before_list: list[etree._Element],
+    after_list: list[etree._Element],
+    stable_key_root_extension_extractor: Callable[
+        [StableKey | None],
+        tuple[RootExtension, ...],
+    ],
+    require_complete_subset: bool = False,
 ) -> tuple[list[tuple], list[etree._Element], list[etree._Element]]:
     """Pair elements that share unambiguous stable-key root/extensions.
 
@@ -349,8 +352,8 @@ def _shared_stable_key_root_extension_pairing(
 
 
 def _shared_child_id_pairing(
-        before_list: list[etree._Element],
-        after_list: list[etree._Element],
+    before_list: list[etree._Element],
+    after_list: list[etree._Element],
 ) -> tuple[list[tuple], list[etree._Element], list[etree._Element]]:
     """Pair elements that share unambiguous CDA child-id keys.
 
@@ -365,8 +368,8 @@ def _shared_child_id_pairing(
 
 
 def _shared_nested_section_id_pairing(
-        before_list: list[etree._Element],
-        after_list: list[etree._Element],
+    before_list: list[etree._Element],
+    after_list: list[etree._Element],
 ) -> tuple[list[tuple], list[etree._Element], list[etree._Element]]:
     """Pair wrappers that share an unambiguous nested-section ID subset.
 
@@ -386,7 +389,7 @@ def _shared_nested_section_id_pairing(
 
 
 def _direct_clinical_statement_child_id_root_extensions(
-        element: etree._Element,
+    element: etree._Element,
 ) -> tuple[RootExtension, ...]:
     """Return child <id> root/extensions from direct clinical statement children.
 
@@ -406,7 +409,7 @@ def _direct_clinical_statement_child_id_root_extensions(
 
 
 def _index_elements_by_direct_statement_id_root_extension(
-        elements: list[etree._Element],
+    elements: list[etree._Element],
 ) -> _RootExtensionElementIndex:
     """Index elements by direct clinical statement child <id> root/extensions."""
     return _build_root_extension_element_index(
@@ -416,8 +419,8 @@ def _index_elements_by_direct_statement_id_root_extension(
 
 
 def _shared_direct_clinical_statement_id_pairing(
-        before_list: list[etree._Element],
-        after_list: list[etree._Element],
+    before_list: list[etree._Element],
+    after_list: list[etree._Element],
 ) -> tuple[list[tuple], list[etree._Element], list[etree._Element]]:
     """Pair wrappers that share an unambiguous direct statement ID subset.
 
@@ -443,8 +446,8 @@ def _shared_direct_clinical_statement_id_pairing(
 
 
 def _shared_template_id_pairing(
-        before_list: list[etree._Element],
-        after_list: list[etree._Element],
+    before_list: list[etree._Element],
+    after_list: list[etree._Element],
 ) -> tuple[list[tuple], list[etree._Element], list[etree._Element]]:
     """Pair elements that share an unambiguous templateId subset.
 
@@ -460,9 +463,11 @@ def _shared_template_id_pairing(
             _shared_stable_key_root_extension_pairing(
                 before_list,
                 after_list,
-                lambda key, key_type=key_type: _template_id_root_extensions_from_stable_key(
-                    key,
-                    (key_type,),
+                lambda key, key_type=key_type: (
+                    _template_id_root_extensions_from_stable_key(
+                        key,
+                        (key_type,),
+                    )
                 ),
                 require_complete_subset=True,
             )
@@ -473,8 +478,8 @@ def _shared_template_id_pairing(
 
 
 def _stable_key_overlap_pairing(
-        before_list: list[etree._Element],
-        after_list: list[etree._Element],
+    before_list: list[etree._Element],
+    after_list: list[etree._Element],
 ) -> tuple[list[tuple], list[etree._Element], list[etree._Element]]:
     """Apply overlap fallbacks from strongest to weakest stable-key signal.
 
@@ -490,8 +495,8 @@ def _stable_key_overlap_pairing(
     )
     matched_pairs.extend(child_id_pairs)
 
-    section_id_pairs, before_list, after_list = (
-        _shared_nested_section_id_pairing(before_list, after_list)
+    section_id_pairs, before_list, after_list = _shared_nested_section_id_pairing(
+        before_list, after_list
     )
     matched_pairs.extend(section_id_pairs)
 
@@ -513,12 +518,14 @@ def _stable_key_overlap_pairing(
 # Main matching entry point
 # ---------------------------------------------------------------------------
 
+
 def match_children_ignore_order(
-        before_list: list[etree._Element],
-        after_list: list[etree._Element],
-):
-    """Yield (before_elem, after_elem) pairs matching elements from before_list
-    against after_list.  Either side of a pair may be None, indicating an
+    before_list: list[etree._Element],
+    after_list: list[etree._Element],
+) -> Iterator[tuple[etree._Element | None, etree._Element | None]]:
+    """Yield (before_elem, after_elem) pairs matching elements from before_list against after_list.
+
+    Either side of a pair may be None, indicating an
     addition (None, after_elem) or deletion (before_elem, None).
 
     Matching strategy (applied in order):
@@ -549,7 +556,7 @@ def match_children_ignore_order(
         return
 
     # --- Strategy 2: unique stable-key fast path ---
-    def unique_stable_key_map(elem_list):
+    def unique_stable_key_map(elem_list: list[etree._Element]):
         keyed_elements = {}
         for elem in elem_list:
             elem_key = stable_key(elem)
@@ -572,11 +579,9 @@ def match_children_ignore_order(
             after_map[key] for key in sorted(set(after_map) - exact_keys, key=str)
         ]
 
-        overlap_pairs, unmatched_before, unmatched_after = (
-            _stable_key_overlap_pairing(
-                unmatched_before,
-                unmatched_after,
-            )
+        overlap_pairs, unmatched_before, unmatched_after = _stable_key_overlap_pairing(
+            unmatched_before,
+            unmatched_after,
         )
         for before_elem, after_elem in overlap_pairs:
             yield before_elem, after_elem
@@ -612,8 +617,10 @@ def match_children_ignore_order(
 
     # --- Strategy 3: bucket then discriminate ---
     def primary_bucket_key(elem: etree._Element) -> tuple:
-        """Coarse grouping key so that elements of the same general type are
-        compared against each other before falling back to position.
+        """Creates coarse grouping key.
+
+        Used so that elements of the same general type are compared
+        against each other before falling back to position.
         """
         table_key = narrative_table_key(elem)
         if table_key:
@@ -629,7 +636,7 @@ def match_children_ignore_order(
         return ("tag", elem.tag)
 
     before_buckets: dict = defaultdict(list)
-    after_buckets:  dict = defaultdict(list)
+    after_buckets: dict = defaultdict(list)
     for elem in before_list:
         before_buckets[primary_bucket_key(elem)].append(elem)
     for elem in after_list:
@@ -637,7 +644,7 @@ def match_children_ignore_order(
 
     for bucket_key in sorted(set(before_buckets) | set(after_buckets), key=str):
         bucket_before = before_buckets.get(bucket_key, [])
-        bucket_after  = after_buckets.get(bucket_key, [])
+        bucket_after = after_buckets.get(bucket_key, [])
 
         if not bucket_before:
             for after_elem in bucket_after:
@@ -653,7 +660,10 @@ def match_children_ignore_order(
             continue
 
         # 3a. Prefer-updates soft pairing within templateId.root_extensions buckets
-        if isinstance(bucket_key, tuple) and bucket_key[0] == "templateId.root_extensions":
+        if (
+            isinstance(bucket_key, tuple)
+            and bucket_key[0] == "templateId.root_extensions"
+        ):
             soft_pairs, bucket_before, bucket_after = _prefer_updates_pairing(
                 bucket_before, bucket_after
             )
@@ -674,16 +684,18 @@ def match_children_ignore_order(
 
         # 3b. Secondary discriminator matching within the remaining bucket
         before_discriminated: dict = defaultdict(list)
-        after_discriminated:  dict = defaultdict(list)
+        after_discriminated: dict = defaultdict(list)
         for elem in bucket_before:
             before_discriminated[secondary_discriminator(elem)].append(elem)
         for elem in bucket_after:
             after_discriminated[secondary_discriminator(elem)].append(elem)
 
-        for disc_key in sorted(set(before_discriminated) | set(after_discriminated), key=str):
+        for disc_key in sorted(
+            set(before_discriminated) | set(after_discriminated), key=str
+        ):
             before_group = before_discriminated.get(disc_key, [])
-            after_group  = after_discriminated.get(disc_key, [])
-            pair_count   = min(len(before_group), len(after_group))
+            after_group = after_discriminated.get(disc_key, [])
+            pair_count = min(len(before_group), len(after_group))
             for index in range(pair_count):
                 yield before_group[index], after_group[index]
             for index in range(pair_count, len(before_group)):

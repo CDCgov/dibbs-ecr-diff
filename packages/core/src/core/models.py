@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
@@ -6,14 +7,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class DiffMode(StrEnum):
-    """Indicates whether the config list of rules is a watch list or ignore list."""
+    """Configuration mode for deciding which configured changes are actionable."""
 
     WATCH_LIST = "WATCH_LIST"
     IGNORE_LIST = "IGNORE_LIST"
 
 
 class DiffingOptions(BaseModel):
-    """Options to pass into the diffing CLI."""
+    """Runtime options supplied to the diff command."""
 
     file1: str
     file2: str
@@ -22,7 +23,7 @@ class DiffingOptions(BaseModel):
 
 
 class ChangeType(StrEnum):
-    """Indicates what type of change was detected."""
+    """Possible diff change types."""
 
     ADDED = "ADDED"
     DELETED = "DELETED"
@@ -30,27 +31,47 @@ class ChangeType(StrEnum):
 
 
 class Change(BaseModel):
-    """Represents a detected change while performing a diff."""
+    """Single changed node reported in the diff output."""
 
     # Arbitrary types allowed so that lxml Element can be included without being serialized
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    xpath: str
-    rule_name: str | None = None
     changeType: ChangeType
-    xml: str
+    xpath: str
+    xpathDocumentId: str
+    isActionable: bool = (
+        True  # TODO: Replace placeholders once configurations implemented
+    )
+    actionabilityRuleId: UUID
+    actionabilityRuleDisplayName: str = "placeholder"
     anchor_node: _Element | None = Field(
         exclude=True, default=None
     )  # needed for entry-level augmentation
 
 
-class DiffOutput(BaseModel):
-    """Output list of changes."""
+class Document(BaseModel):
+    """Document metadata included in the diff output for current and previous documents."""
 
-    changes: list[Change] = []
+    documentId: str
+    versionNumber: str
+
+
+class DiffOutput(BaseModel):
+    """Top-level diff output payload."""
+
+    outputSpecVersion: str = "1.0"
+    generatedAt: datetime
+    configurationId: str = "00000000-0000-0000-0000-000000000000"  # TODO: Populate from configuration once implemented
+    configurationVersion: str = "placeholder"
+    configurationDisplayName: str = "placeholder"
+    setId: str
+    currentDocument: Document
+    previousDocument: Document
+    hasActionableChanges: bool
+    changes: list[Change] = Field(default_factory=list)
 
 
 class RuleConfig(BaseModel):
-    """Config of an individual rule with a list of xpaths that trigger it."""
+    """Configured rule used to match relevant XML nodes."""
 
     id: UUID = Field(default_factory=uuid4)
     name: str
@@ -58,7 +79,7 @@ class RuleConfig(BaseModel):
 
 
 class Configuration(BaseModel):
-    """Determines how the diff engine will process detected changes based on the mode and rules."""
+    """Diff configuration loaded by the CLI."""
 
     version: str
     mode: DiffMode

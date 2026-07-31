@@ -1,3 +1,4 @@
+import datetime
 import uuid
 
 import pytest
@@ -17,7 +18,7 @@ from core.augment import (
 )
 from core.cda.clinical_statement import CDA_CLINICAL_STATEMENT_TAGS
 from core.constants import HL7_NS, NAMESPACES
-from core.models import Change, ChangeType, DiffOutput
+from core.models import Change, ChangeType, DiffOutput, Document
 from core.xml_utils import hl7_clark_tag
 from helpers import elem
 from lxml import etree
@@ -60,6 +61,18 @@ def _make_run(**overrides) -> AugmentationRun:
     return AugmentationRun(**defaults)
 
 
+def _make_empty_diff_output() -> DiffOutput:
+    return DiffOutput(
+        generatedAt=datetime.datetime.strptime(
+            _TEST_AUGMENTATION_TIME, "%Y%m%d%H%M%S%z"
+        ),
+        setId="abc",
+        currentDocument=Document(documentId="123", versionNumber="2"),
+        previousDocument=Document(documentId="345", versionNumber="1"),
+        hasActionableChanges=True,
+    )
+
+
 # NOTE:
 # EICR AUGMENTATION TESTS
 # =============================================================================
@@ -75,7 +88,7 @@ def test_augment_eicr_adds_template_id(eicr_1_root_v3_1_1: etree.Element):
         eicr_1_root_v3_1_1,
         run,
         jurisdiction_id=_TEST_JURISDICTION_ID,
-        diff_output=DiffOutput(),
+        diff_output=_make_empty_diff_output(),
     )
 
     template_ids = eicr_1_root_v3_1_1.xpath(
@@ -108,7 +121,7 @@ def test_augment_eicr_replaces_document_id(eicr_1_root_v3_1_1: etree.Element):
         eicr_1_root_v3_1_1,
         run,
         jurisdiction_id=_TEST_JURISDICTION_ID,
-        diff_output=DiffOutput(),
+        diff_output=_make_empty_diff_output(),
     )
 
     doc_id = eicr_1_root_v3_1_1.find("hl7:id", NAMESPACES)
@@ -145,7 +158,7 @@ def test_augment_eicr_replaces_set_id_and_version(eicr_1_root_v3_1_1: etree.Elem
         eicr_1_root_v3_1_1,
         run,
         jurisdiction_id=_TEST_JURISDICTION_ID,
-        diff_output=DiffOutput(),
+        diff_output=_make_empty_diff_output(),
     )
 
     set_id = eicr_1_root_v3_1_1.find("hl7:setId", NAMESPACES)
@@ -175,7 +188,7 @@ def test_augment_eicr_adds_author(eicr_1_root_v3_1_1: etree.Element):
         eicr_1_root_v3_1_1,
         run,
         jurisdiction_id=_TEST_JURISDICTION_ID,
-        diff_output=DiffOutput(),
+        diff_output=_make_empty_diff_output(),
     )
 
     authors_after = eicr_1_root_v3_1_1.findall("hl7:author", NAMESPACES)
@@ -242,7 +255,7 @@ def test_augment_eicr_adds_related_document(eicr_1_root_v3_1_1: etree.Element):
         eicr_1_root_v3_1_1,
         run,
         jurisdiction_id=_TEST_JURISDICTION_ID,
-        diff_output=DiffOutput(),
+        diff_output=_make_empty_diff_output(),
     )
 
     related_docs = eicr_1_root_v3_1_1.findall(
@@ -278,7 +291,7 @@ def test_augment_eicr_replaces_effective_time(eicr_1_root_v3_1_1: etree.Element)
         eicr_1_root_v3_1_1,
         run,
         jurisdiction_id=_TEST_JURISDICTION_ID,
-        diff_output=DiffOutput(),
+        diff_output=_make_empty_diff_output(),
     )
 
     eff_time = eicr_1_root_v3_1_1.find("hl7:effectiveTime", NAMESPACES)
@@ -544,7 +557,7 @@ def test_augment_eicr_chains_prior_relatedDocs_as_siblings(
     augment_eicr(
         eicr_1_root_v3_1_1,
         _make_run(),
-        diff_output=DiffOutput(),
+        diff_output=_make_empty_diff_output(),
         jurisdiction_id=_TEST_JURISDICTION_ID,
         tool_code="ecr-refiner",
         tool_display="eCR Refiner",
@@ -563,7 +576,7 @@ def test_augment_eicr_chains_prior_relatedDocs_as_siblings(
     augment_eicr(
         eicr_1_root_v3_1_1,
         _make_run(),
-        diff_output=DiffOutput(),
+        diff_output=_make_empty_diff_output(),
         jurisdiction_id=_TEST_JURISDICTION_ID,
     )
 
@@ -713,7 +726,7 @@ def test_no_diff_augmentation_with_no_diff_output_changes(
     augment_eicr(
         eicr_1_root_v3_1_1,
         _make_run(),
-        diff_output=DiffOutput(),
+        diff_output=_make_empty_diff_output(),
         jurisdiction_id=_TEST_JURISDICTION_ID,
     )
 
@@ -807,10 +820,20 @@ def test_find_best_author_allowed_element_returns_none_when_nothing_allowed():
 # =============================================================================
 
 
+def _create_change(changeType: ChangeType) -> Change:
+    return Change(
+        changeType=changeType,
+        xpath="",
+        xpathDocumentId="",
+        isActionable=True,
+        actionabilityRuleId=uuid.UUID("12345678-1234-5678-1234-567812345678"),
+    )
+
+
 @pytest.fixture
 def diff_author() -> etree._Element:
     return _create_diff_author_element(
-        Change(changeType=ChangeType.ADDED, xpath="", xml=""), _TEST_AUGMENTATION_TIME
+        _create_change(changeType=ChangeType.ADDED), _TEST_AUGMENTATION_TIME
     )
 
 
@@ -833,13 +856,11 @@ def test_create_diff_author_element_includes_function_code(diff_author: etree._E
 @pytest.mark.parametrize(
     "change_type", [ChangeType.ADDED, ChangeType.UPDATED, ChangeType.DELETED]
 )
-def test_create_diff_author_element_function_code_reflects_change_type(change_type):
+def test_create_diff_author_element_function_code_reflects_change_type(
+    change_type: ChangeType,
+):
     author = _create_diff_author_element(
-        Change(
-            changeType=change_type,
-            xpath="",
-            xml="",
-        ),
+        _create_change(change_type),
         _TEST_AUGMENTATION_TIME,
     )
     fc = author.find(hl7_clark_tag("functionCode"))
@@ -856,11 +877,7 @@ def test_create_diff_author_element_includes_timestamp(diff_author: etree._Eleme
 @pytest.mark.parametrize("ts", ["20250101000000+0000", "20261231235959-0500", ""])
 def test_create_diff_author_element_time_value_passes_through_verbatim(ts):
     author = _create_diff_author_element(
-        Change(
-            changeType=ChangeType.ADDED,
-            xpath="",
-            xml="",
-        ),
+        _create_change(ChangeType.ADDED),
         ts,
     )
     time = author.find(hl7_clark_tag("time"))

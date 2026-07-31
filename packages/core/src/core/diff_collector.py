@@ -166,8 +166,6 @@ def collect_additions_updates_deletes(
     seen_updated: set[int] = set()  # keyed on id(after_node)
     seen_deleted: set[int] = set()
 
-    fingerprint_cache = {}
-
     def recurse(
         before_node: etree._Element | None,
         after_node: etree._Element | None,
