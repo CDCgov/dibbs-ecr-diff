@@ -228,7 +228,6 @@ def _process_deletions(
                         isActionable=True,
                         actionabilityRuleId=match.rule_id,
                         actionabilityRuleDisplayName=match.rule_name,
-                        anchor_node=before,
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
@@ -242,7 +241,6 @@ def _process_deletions(
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
                     actionabilityRuleDisplayName=(DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME),
-                    anchor_node=before,
                 )
             )
     return changes
