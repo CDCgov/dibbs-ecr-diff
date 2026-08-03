@@ -23,7 +23,7 @@ from core.cda.narrative_keys import narrative_row_key, narrative_table_key
 from core.cda.root_extensions import direct_child_root_extensions_for_tag
 from core.cda.stable_key import stable_key
 from core.cda.tags import TEMPLATE_ID_TAG
-from core.constants import HL7_NS, HL7_PREFIX
+from core.constants import HL7_NS, HL7_PREFIX, NAMESPACES
 from core.xml_utils import _xpath_first_attribute_value, localname
 
 
@@ -189,6 +189,45 @@ def stable_xml_path(
 # ---------------------------------------------------------------------------
 # Machine-readable xPath (hl7: prefix, stable predicates)
 # ---------------------------------------------------------------------------
+
+
+def structural_xpath(element: etree._Element) -> str:
+    """Return an absolute, namespace-aware XPath locating the element."""
+    steps: list[str] = []
+    current = element
+
+    while current is not None:
+        qualified_name = etree.QName(current)
+        namespace = qualified_name.namespace
+
+        if namespace is None:
+            element_name = qualified_name.localname
+        else:
+            try:
+                prefix_by_namespace = {
+                    namespace: prefix for prefix, namespace in NAMESPACES.items()
+                }
+                prefix = prefix_by_namespace[namespace]
+            except KeyError as error:
+                raise ValueError(
+                    f"No XPath prefix configured for namespace {namespace!r}"
+                ) from error
+
+            element_name = f"{prefix}:{qualified_name.localname}"
+
+        parent = current.getparent()
+        if parent is None:
+            position = 1
+        else:
+            matching_siblings = [
+                sibling for sibling in parent if sibling.tag == current.tag
+            ]
+            position = matching_siblings.index(current) + 1
+
+        steps.append(f"{element_name}[{position}]")
+        current = parent
+
+    return "/" + "/".join(reversed(steps))
 
 
 def _xpath_literal(value: str) -> str:
