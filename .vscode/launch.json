@@ -5,15 +5,6 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Diff eICR 1 and 2 CSTE",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "packages/cli/src/cli/main.py",
-      "console": "integratedTerminal",
-      "args": "data/aphl-examples/Original_1/CDA_eICR_1.xml data/aphl-examples/Original_2/CDA_eICR_2.xml -c packages/cli/src/cli/cste_config.json -o diff_output.json"
-    },
-
-    {
       "name": "Pytest Debugger: Current File",
       "type": "debugpy",
       "request": "launch",
