@@ -96,6 +96,18 @@ s3.put_bucket_notification_configuration(
     Bucket=INPUT_BUCKET, NotificationConfiguration={"EventBridgeConfiguration": {}}
 )
 
+# configure cors to allow uploader to communicate with localstack
+cors_configuration = {
+    'CORSRules': [{
+        'AllowedHeaders': ['*'],
+        'AllowedMethods': ['GET', 'PUT'],
+        'AllowedOrigins': ['*'],
+        'ExposeHeaders': ['ETag', 'x-amz-request-id'],
+        'MaxAgeSeconds': 3000
+    }]
+}
+s3.put_bucket_cors(Bucket=INPUT_BUCKET, CORSConfiguration=cors_configuration)
+
 # create DynamoDB table
 # see: docs/Storage-Architecture.md
 try:

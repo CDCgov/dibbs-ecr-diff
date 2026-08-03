@@ -1,10 +1,14 @@
 {
-  "version": "1.0.0",
+  "specVersion": "1.0",
+  "id": "cd9f2f06-3df2-43b9-b290-998a456d8351",
+  "displayName": "Council of State and Territorial Epidemiologists (CSTE) Config",
+  "configVersion": "1.0",
   "mode": "WATCH_LIST",
+  "createdAt": "2026-06-12T19:56:17Z",
   "rules": [
     {
       "id": "1278ceb6-3351-47e6-82c6-4a8be8d22f7f",
-      "name": "CSTE Consensus Criteria",
+      "displayName": "CSTE Consensus Criteria",
       "xpaths": [
         "//hl7:encounter[hl7:templateId/@root='2.16.840.1.113883.10.20.22.4.49']/hl7:effectiveTime/hl7:low",
         "//hl7:encounter[hl7:templateId/@root='2.16.840.1.113883.10.20.22.4.49']/hl7:entryRelationship/hl7:act[hl7:templateId/@root='2.16.840.1.113883.10.20.22.4.80']/hl7:entryRelationship/hl7:observation[hl7:templateId/@root='2.16.840.1.113883.10.20.22.4.4']/hl7:value",
@@ -58,7 +62,8 @@
         "//hl7:procedure[hl7:templateId/@root='2.16.840.1.113883.10.20.22.4.415']/hl7:targetSiteCode",
         "//hl7:participant[hl7:templateId/@root='2.6.840.1.113883.10.20.22.4.410']/hl7:participantRole/hl7:code",
         "//hl7:observation[hl7:templateId/@root='2.16.840.1.113883.10.20.22.4.293']/hl7:value | //hl7:observation[hl7:templateId/@root='2.16.840.1.113883.10.20.15.3.8']/hl7:value"
-      ]
+      ],
+      "changeTypes": ["UPDATED", "ADDED", "DELETED"]
     }
   ]
 }
