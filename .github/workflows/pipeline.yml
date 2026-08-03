@@ -1,0 +1,30 @@
+name: PR Pipeline
+
+on:
+  pull_request:
+    branches:
+      - "**"
+  merge_group:
+    types:
+      - checks_requested
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-linter:
+    uses: ./.github/workflows/lint.yml
+  run-tests:
+    uses: ./.github/workflows/tests.yml
+  run-type-checking:
+    uses: ./.github/workflows/typecheck.yml
+  run-build:
+    uses: ./.github/workflows/build.yml

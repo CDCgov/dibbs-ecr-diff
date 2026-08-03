@@ -18,16 +18,16 @@ class DiffingOptions(BaseModel):
 
     file1: str
     file2: str
-    config: str
+    config: str | None = None
     output_diff_file: str | None = None
 
 
 class ChangeType(StrEnum):
     """Possible diff change types."""
 
-    ADDED = "added"
-    UPDATED = "updated"
-    DELETED = "deleted"
+    ADDED = "ADDED"
+    UPDATED = "UPDATED"
+    DELETED = "DELETED"
 
 
 class Change(BaseModel):
@@ -38,11 +38,9 @@ class Change(BaseModel):
     changeType: ChangeType
     xpath: str
     xpathDocumentId: str
-    isActionable: bool = (
-        True  # TODO: Replace placeholders once configurations implemented
-    )
+    isActionable: bool = True
     actionabilityRuleId: UUID
-    actionabilityRuleDisplayName: str = "placeholder"
+    actionabilityRuleDisplayName: str
     anchor_node: _Element | None = Field(
         exclude=True, default=None
     )  # needed for entry-level augmentation
@@ -60,27 +58,32 @@ class DiffOutput(BaseModel):
 
     outputSpecVersion: str = "1.0"
     generatedAt: datetime
-    configurationId: str = "00000000-0000-0000-0000-000000000000"  # TODO: Populate from configuration once implemented
-    configurationVersion: str = "placeholder"
-    configurationDisplayName: str = "placeholder"
+    configurationId: UUID
+    configurationVersion: str
+    configurationDisplayName: str
     setId: str
     currentDocument: Document
     previousDocument: Document
-    hasActionableChanges: bool
+    hasActionableChanges: bool = True
     changes: list[Change] = Field(default_factory=list)
 
 
-class RuleConfig(BaseModel):
+class Rule(BaseModel):
     """Configured rule used to match relevant XML nodes."""
 
     id: UUID = Field(default_factory=uuid4)
-    name: str
+    displayName: str
+    changeTypes: set[ChangeType] = Field(min_length=1)
     xpaths: list[str] = Field(default_factory=list)
 
 
 class Configuration(BaseModel):
-    """Diff configuration loaded by the CLI."""
+    """Configuration controlling which XML changes are actionable."""
 
-    version: str
+    displayName: str
+    specVersion: str
+    configVersion: str
+    id: UUID = Field(default_factory=uuid4)
+    createdAt: str
     mode: DiffMode
-    rules: list[RuleConfig] = Field(default_factory=list)
+    rules: list[Rule] = Field(default_factory=list)

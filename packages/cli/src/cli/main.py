@@ -5,11 +5,12 @@ from pathlib import Path
 
 from core import diff_xml
 from core.augment import augment_eicr, create_augmentation_run
+from core.configurations import load_configuration
 from core.models import Configuration, DiffingOptions
 from core.performance import measure_time
 from lxml import etree
 
-DEFAULT_CONFIG_PATH = Path(__file__).parent / "cste_config.json"
+DEFAULT_CONFIGURATION_FILE = "aphl_baseline.json"
 
 
 def main() -> None:
@@ -20,7 +21,9 @@ def main() -> None:
     ap.add_argument("file1", help="Original CDA/eICR XML (before)")
     ap.add_argument("file2", help="New CDA/eICR XML (after)")
     ap.add_argument(
-        "-c", "--config", help="Path to configuration", default=str(DEFAULT_CONFIG_PATH)
+        "-c",
+        "--config",
+        help="Path to configuration (default: " + DEFAULT_CONFIGURATION_FILE,
     )
     ap.add_argument(
         "-o",
@@ -32,8 +35,11 @@ def main() -> None:
     args = ap.parse_args()
     opts = DiffingOptions(**vars(args))
 
-    with open(opts.config) as f:
-        config = Configuration(**json.load(f))
+    if opts.config is None:
+        config = load_configuration(DEFAULT_CONFIGURATION_FILE)
+    else:
+        with open(opts.config) as f:
+            config = Configuration(**json.load(f))
 
     parser = etree.XMLParser(remove_blank_text=True, huge_tree=True)
 

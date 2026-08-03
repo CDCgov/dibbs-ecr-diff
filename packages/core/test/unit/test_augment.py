@@ -66,6 +66,9 @@ def _make_empty_diff_output() -> DiffOutput:
         generatedAt=datetime.datetime.strptime(
             _TEST_AUGMENTATION_TIME, "%Y%m%d%H%M%S%z"
         ),
+        configurationId=uuid.UUID("7f32fea9-5a2a-47de-80e5-808ee9be919b"),
+        configurationVersion="1",
+        configurationDisplayName="test",
         setId="abc",
         currentDocument=Document(documentId="123", versionNumber="2"),
         previousDocument=Document(documentId="345", versionNumber="1"),
@@ -827,6 +830,7 @@ def _create_change(changeType: ChangeType) -> Change:
         xpathDocumentId="",
         isActionable=True,
         actionabilityRuleId=uuid.UUID("12345678-1234-5678-1234-567812345678"),
+        actionabilityRuleDisplayName="test rule",
     )
 
 
