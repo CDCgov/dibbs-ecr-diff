@@ -98,13 +98,15 @@ s3.put_bucket_notification_configuration(
 
 # configure cors to allow uploader to communicate with localstack
 cors_configuration = {
-    'CORSRules': [{
-        'AllowedHeaders': ['*'],
-        'AllowedMethods': ['GET', 'PUT'],
-        'AllowedOrigins': ['*'],
-        'ExposeHeaders': ['ETag', 'x-amz-request-id'],
-        'MaxAgeSeconds': 3000
-    }]
+    "CORSRules": [
+        {
+            "AllowedHeaders": ["*"],
+            "AllowedMethods": ["GET", "PUT"],
+            "AllowedOrigins": ["*"],
+            "ExposeHeaders": ["ETag", "x-amz-request-id"],
+            "MaxAgeSeconds": 3000,
+        }
+    ]
 }
 s3.put_bucket_cors(Bucket=INPUT_BUCKET, CORSConfiguration=cors_configuration)
 
