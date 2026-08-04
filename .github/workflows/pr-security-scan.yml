@@ -2,13 +2,12 @@ name: PR Security Scan
 
 on:
   workflow_dispatch:
-  # TODO: uncomment this trigger block when we want this workflow to run on PRs
-  # pull_request:
-  #   branches:
-  #     - "**"
-  # merge_group:
-  #   types:
-  #     - checks_requested
+  pull_request:
+    branches:
+      - "**"
+  merge_group:
+    types:
+      - checks_requested
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

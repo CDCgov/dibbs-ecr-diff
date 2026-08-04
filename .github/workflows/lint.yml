@@ -1,4 +1,4 @@
-name: Run tests
+name: Run linter & format check
 
 on:
   workflow_call:
@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  pytest:
+  ruff:
     runs-on: ubuntu-latest
 
     steps:
@@ -29,7 +29,12 @@ jobs:
       - name: Install the project
         run: uv sync --all-packages --locked --all-extras --dev
 
-      - name: Run unit tests
+      - name: Run ruff linter
         shell: bash
         run: |
-          uv run pytest
+          uv run ruff check
+
+      - name: Run ruff format check
+        shell: bash
+        run: |
+          uv run ruff format --check

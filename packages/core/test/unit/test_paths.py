@@ -1,5 +1,46 @@
-from core.paths import stable_xml_path, xpath_with_predicates
+from core.constants import NAMESPACES, SDTC_NS
+from core.paths import stable_xml_path, structural_xpath, xpath_with_predicates
 from helpers import HL7_NS, elem
+
+
+def test_structural_xpath_locates_namespaced_element():
+    root = elem(
+        f"""
+        <ClinicalDocument xmlns="{HL7_NS}" xmlns:sdtc="{SDTC_NS}">
+          <recordTarget>
+            <patientRole>
+              <patient>
+                <name/>
+                <name/>
+                <sdtc:deceasedInd value="true"/>
+              </patient>
+            </patientRole>
+          </recordTarget>
+        </ClinicalDocument>
+        """
+    )
+    second_name = root.xpath(
+        ".//hl7:name[2]",
+        namespaces=NAMESPACES,
+    )[0]
+    deceased_status = root.xpath(
+        ".//sdtc:deceasedInd",
+        namespaces=NAMESPACES,
+    )[0]
+
+    second_name_xpath = structural_xpath(second_name)
+    deceased_status_xpath = structural_xpath(deceased_status)
+
+    assert second_name_xpath.endswith("/hl7:name[2]")
+    assert deceased_status_xpath.endswith("/sdtc:deceasedInd[1]")
+    assert root.getroottree().xpath(
+        second_name_xpath,
+        namespaces=NAMESPACES,
+    ) == [second_name]
+    assert root.getroottree().xpath(
+        deceased_status_xpath,
+        namespaces=NAMESPACES,
+    ) == [deceased_status]
 
 
 def test_paths_include_all_direct_template_id_keys():

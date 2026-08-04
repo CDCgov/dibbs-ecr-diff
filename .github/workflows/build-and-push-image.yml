@@ -1,24 +1,10 @@
 # Builds the difference-in-docs Lambda container image for the dev environment.
 #
-# Two behaviors:
-#   - PR to main / push to main: builds the image to validate it compiles. Nothing
-#     is published.
-#   - Manual run (workflow_dispatch): builds AND publishes to ECR and/or GHCR.
+# Manual run (workflow_dispatch): builds AND optionally publishes to ECR and/or GHCR.
 
 name: Build & optionally publish Lambda image (dev)
 
 on:
-  # PRs to main VALIDATE the build (no publish)
-  pull_request:
-    branches:
-      - main
-
-  # Push to main also VALIDATES the build (no publish)
-  push:
-    branches:
-      - main
-
-  # Manual run is the only path that actually publishes
   workflow_dispatch:
     inputs:
       ref:
@@ -45,7 +31,7 @@ jobs:
     env:
       PUSH_GHCR: ${{ github.event.inputs.push_ghcr }}
       PUSH_ECR: ${{ github.event.inputs.push_ecr }}
-      # True only on a manual run with at least one destination enabled.
+      # True only on a run with at least one destination enabled.
       PUBLISH_IMAGE: >-
         ${{ github.event_name == 'workflow_dispatch'
             && (inputs.push_ghcr || inputs.push_ecr) }}

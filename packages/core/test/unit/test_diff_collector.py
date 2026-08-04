@@ -16,6 +16,7 @@ from core.diff_collector import (
     _equivalent_excluding_version_metadata,
     collect_additions_updates_deletes,
 )
+from core.xml_utils import localname
 from helpers import HL7_NS, elem
 
 
@@ -446,4 +447,43 @@ def test_clinical_statement_effective_time_is_not_ignored_by_diff():
     assert len(updated) == 1
     assert updated[0][0].tag == EFFECTIVE_TIME_TAG
     assert updated[0][1].tag == EFFECTIVE_TIME_TAG
+    assert deleted == []
+
+
+def test_nested_updates_are_not_pruned_to_the_outermost_element():
+    before_root = elem(
+        f"""
+        <ClinicalDocument xmlns="{HL7_NS}">
+          <component>
+            <observation classCode="OBS" moodCode="EVN" negationInd="false">
+              <id root="same-observation-id"/>
+              <statusCode code="active"/>
+            </observation>
+          </component>
+        </ClinicalDocument>
+        """
+    )
+    after_root = elem(
+        f"""
+        <ClinicalDocument xmlns="{HL7_NS}">
+          <component>
+            <observation classCode="OBS" moodCode="EVN" negationInd="true">
+              <id root="same-observation-id"/>
+              <statusCode code="completed"/>
+            </observation>
+          </component>
+        </ClinicalDocument>
+        """
+    )
+
+    added, updated, deleted = collect_additions_updates_deletes(
+        before_root,
+        after_root,
+    )
+
+    assert added == []
+    assert [localname(after) for _, after in updated] == [
+        "observation",
+        "statusCode",
+    ]
     assert deleted == []

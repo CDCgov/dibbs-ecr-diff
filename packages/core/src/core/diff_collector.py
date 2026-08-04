@@ -151,8 +151,9 @@ def collect_additions_updates_deletes(
     ignored: document id, document effectiveTime, versionNumber, and RPLC
     relatedDocument lineage.
 
-    After collection, ancestor pruning ensures that if both a parent and a
-    child are marked, only the outermost node is kept.
+    After collection, ancestor pruning keeps only the outermost added and
+    deleted nodes. Updated nodes are not pruned because each one represents a
+    direct element change that watch-list evaluation may need to inspect.
 
     Returns (added, updated, deleted).
     """
@@ -217,20 +218,7 @@ def collect_additions_updates_deletes(
 
     recurse(before_root, after_root)
 
-    # Additions take precedence over updates for the same after_node
-    added_ids = {id(node) for node in added_nodes}
-    updated_nodes = [
-        (before, after) for before, after in updated_nodes if id(after) not in added_ids
-    ]
-
     pruned_added: list[AddedEntry] = _prune_to_outermost(added_nodes)
-    pruned_updated_after = _prune_to_outermost([after for _, after in updated_nodes])
-    pruned_updated_ids = {id(node) for node in pruned_updated_after}
-    pruned_updated: list[UpdatedEntry] = [
-        (before, after)
-        for before, after in updated_nodes
-        if id(after) in pruned_updated_ids
-    ]
     pruned_deleted: list[DeletedEntry] = _prune_to_outermost(deleted_nodes)
 
-    return pruned_added, pruned_updated, pruned_deleted
+    return pruned_added, updated_nodes, pruned_deleted
