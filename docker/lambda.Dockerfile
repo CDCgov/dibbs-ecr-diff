@@ -34,9 +34,9 @@ COPY --from=builder ${LAMBDA_TASK_ROOT} ${LAMBDA_TASK_ROOT}
 COPY ./packages/core/src/core ${LAMBDA_TASK_ROOT}/core
 
 # copy main lambda app
-COPY ./packages/did_lambda/src/did_lambda ${LAMBDA_TASK_ROOT}/app
+COPY ./packages/did_lambda/src/did_lambda ${LAMBDA_TASK_ROOT}/app/lambda
 
 # used to satisfy scans since AWS Lambda will already run function as its own non-root user at runtime
 USER 1001:1001
 
-CMD ["app.lambda_function.lambda_handler"]
+CMD ["app.lambda.lambda_function.lambda_handler"]

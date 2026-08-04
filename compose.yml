@@ -7,7 +7,7 @@ services:
       - "${LAMBDA_HOST_PORT:-9000}:8080"
     volumes:
       - ./packages/core/src/core:/var/task/core:ro
-      - ./packages/did_lambda/src/did_lambda:/var/task/app:ro
+      - ./packages/did_lambda/src/did_lambda:/var/task/app/lambda:ro
     environment:
       - VERSION=local
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
