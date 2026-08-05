@@ -19,6 +19,7 @@ from core.constants import (
 from core.models import Change, ChangeType, DiffMode, Document, Rule
 from core.paths import structural_xpath
 from helpers import HL7_NS, elem, find_one
+from lxml import etree
 from pydantic import ValidationError
 
 RULE_ID = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
@@ -27,10 +28,10 @@ SECOND_RULE_ID = UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
 SECOND_RULE_NAME = "Second relevant clinical observation"
 
 
-def rule(
-    change_types=None,
-    rule_id=RULE_ID,
-    rule_name=RULE_NAME,
+def make_rule(
+    change_types: set[ChangeType] | None = None,
+    rule_id: UUID = RULE_ID,
+    rule_name: str = RULE_NAME,
 ) -> Rule:
     if change_types is None:
         change_types = {
@@ -49,32 +50,16 @@ def assert_change(
     change: Change,
     *,
     change_type: ChangeType,
-    node,
+    node: etree._Element,
     document_id: str,
-    rule_id: UUID,
-    rule_name: str,
-) -> None:
-    assert change.changeType == change_type
-    assert change.xpath == structural_xpath(node)
-    assert change.xpathDocumentId == document_id
-    assert change.isActionable is True
-    assert change.actionabilityRuleId == rule_id
-    assert change.actionabilityRuleDisplayName == rule_name
-
-
-def assert_nonactionable_change(
-    change: Change,
-    *,
-    change_type: ChangeType,
-    node,
-    document_id: str,
+    is_actionable: bool,
     rule_id: UUID | None = None,
     rule_name: str | None = None,
 ) -> None:
     assert change.changeType == change_type
     assert change.xpath == structural_xpath(node)
     assert change.xpathDocumentId == document_id
-    assert change.isActionable is False
+    assert change.isActionable is is_actionable
     assert change.actionabilityRuleId == rule_id
     assert change.actionabilityRuleDisplayName == rule_name
 
@@ -126,10 +111,10 @@ def test_process_additions_watch_list_emits_change_for_watched_descendant():
     watched_observation = find_one(added_section, ".//hl7:observation")
 
     changes = _process_additions(
-        [added_section],
-        DiffMode.WATCH_LIST,
-        {watched_observation: [rule()]},
-        Document(documentId="current-document-id", versionNumber="2"),
+        added=[added_section],
+        mode=DiffMode.WATCH_LIST,
+        right_rule_match_cache={watched_observation: [make_rule()]},
+        current_document=Document(documentId="current-document-id", versionNumber="2"),
     )
 
     assert len(changes) == 1
@@ -138,12 +123,13 @@ def test_process_additions_watch_list_emits_change_for_watched_descendant():
         change_type=ChangeType.ADDED,
         node=added_section,
         document_id="current-document-id",
+        is_actionable=True,
         rule_id=RULE_ID,
         rule_name=RULE_NAME,
     )
 
 
-def test_process_additions_watch_list_uses_all_rules_matching_a_node():
+def test_process_additions_watch_list_uses_only_rules_applicable_to_additions():
     root = elem(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}">
@@ -170,10 +156,10 @@ def test_process_additions_watch_list_uses_all_rules_matching_a_node():
     )
 
     changes = _process_additions(
-        [added_observation],
-        DiffMode.WATCH_LIST,
-        rule_match_cache,
-        Document(documentId="current-document-id", versionNumber="2"),
+        added=[added_observation],
+        mode=DiffMode.WATCH_LIST,
+        right_rule_match_cache=rule_match_cache,
+        current_document=Document(documentId="current-document-id", versionNumber="2"),
     )
 
     assert rule_match_cache[added_observation] == [added_rule, updated_rule]
@@ -183,6 +169,7 @@ def test_process_additions_watch_list_uses_all_rules_matching_a_node():
         change_type=ChangeType.ADDED,
         node=added_observation,
         document_id="current-document-id",
+        is_actionable=True,
         rule_id=added_rule.id,
         rule_name=added_rule.displayName,
     )
@@ -215,10 +202,10 @@ def test_process_additions_watch_list_emits_once_per_applicable_rule():
     )
 
     changes = _process_additions(
-        [added_observation],
-        DiffMode.WATCH_LIST,
-        rule_match_cache,
-        Document(documentId="current-document-id", versionNumber="2"),
+        added=[added_observation],
+        mode=DiffMode.WATCH_LIST,
+        right_rule_match_cache=rule_match_cache,
+        current_document=Document(documentId="current-document-id", versionNumber="2"),
     )
 
     assert len(changes) == 2
@@ -232,6 +219,7 @@ def test_process_additions_watch_list_emits_once_per_applicable_rule():
             change_type=ChangeType.ADDED,
             node=added_observation,
             document_id="current-document-id",
+            is_actionable=True,
             rule_id=matching_rule.id,
             rule_name=matching_rule.displayName,
         )
@@ -244,18 +232,19 @@ def test_process_additions_watch_list_retains_unmatched_change():
     added_observation = find_one(root, ".//hl7:observation")
 
     changes = _process_additions(
-        [added_observation],
-        DiffMode.WATCH_LIST,
-        {},
-        Document(documentId="current-document-id", versionNumber="2"),
+        added=[added_observation],
+        mode=DiffMode.WATCH_LIST,
+        right_rule_match_cache={},
+        current_document=Document(documentId="current-document-id", versionNumber="2"),
     )
 
     assert len(changes) == 1
-    assert_nonactionable_change(
+    assert_change(
         changes[0],
         change_type=ChangeType.ADDED,
         node=added_observation,
         document_id="current-document-id",
+        is_actionable=False,
     )
 
 
@@ -272,15 +261,15 @@ def test_process_additions_ignore_list_retains_direct_match_as_nonactionable():
     ignored_addition = find_one(root, ".//hl7:observation")
 
     changes = _process_additions(
-        [ignored_addition],
-        DiffMode.IGNORE_LIST,
-        {
+        added=[ignored_addition],
+        mode=DiffMode.IGNORE_LIST,
+        right_rule_match_cache={
             ignored_addition: [
-                rule(),
-                rule(rule_id=SECOND_RULE_ID, rule_name=SECOND_RULE_NAME),
+                make_rule(),
+                make_rule(rule_id=SECOND_RULE_ID, rule_name=SECOND_RULE_NAME),
             ]
         },
-        Document(documentId="current-document-id", versionNumber="2"),
+        current_document=Document(documentId="current-document-id", versionNumber="2"),
     )
 
     assert len(changes) == 2
@@ -290,11 +279,12 @@ def test_process_additions_ignore_list_retains_direct_match_as_nonactionable():
         (RULE_NAME, SECOND_RULE_NAME),
         strict=True,
     ):
-        assert_nonactionable_change(
+        assert_change(
             change,
             change_type=ChangeType.ADDED,
             node=ignored_addition,
             document_id="current-document-id",
+            is_actionable=False,
             rule_id=rule_id,
             rule_name=rule_name,
         )
@@ -320,18 +310,19 @@ def test_process_additions_ignore_list_retains_ignored_descendant():
     included_addition = find_one(root, ".//hl7:observation[@ID='included-addition']")
 
     changes = _process_additions(
-        [ignored_addition, included_addition],
-        DiffMode.IGNORE_LIST,
-        {ignored_section: [rule()]},
-        Document(documentId="current-document-id", versionNumber="2"),
+        added=[ignored_addition, included_addition],
+        mode=DiffMode.IGNORE_LIST,
+        right_rule_match_cache={ignored_section: [make_rule()]},
+        current_document=Document(documentId="current-document-id", versionNumber="2"),
     )
 
     assert len(changes) == 2
-    assert_nonactionable_change(
+    assert_change(
         changes[0],
         change_type=ChangeType.ADDED,
         node=ignored_addition,
         document_id="current-document-id",
+        is_actionable=False,
         rule_id=RULE_ID,
         rule_name=RULE_NAME,
     )
@@ -340,12 +331,13 @@ def test_process_additions_ignore_list_retains_ignored_descendant():
         change_type=ChangeType.ADDED,
         node=included_addition,
         document_id="current-document-id",
+        is_actionable=True,
         rule_id=DEFAULT_ACTIONABLE_RULE_ID,
         rule_name=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
     )
 
 
-def test_process_additions_ignore_list_includes_match_for_other_change_type():
+def test_process_additions_ignore_list_treats_inapplicable_rule_as_unmatched():
     root = elem(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}">
@@ -358,16 +350,16 @@ def test_process_additions_ignore_list_includes_match_for_other_change_type():
     included_addition = find_one(root, ".//hl7:observation")
 
     changes = _process_additions(
-        [included_addition],
-        DiffMode.IGNORE_LIST,
-        {
+        added=[included_addition],
+        mode=DiffMode.IGNORE_LIST,
+        right_rule_match_cache={
             included_addition: [
-                rule(
-                    change_types=frozenset({ChangeType.UPDATED}),
+                make_rule(
+                    change_types={ChangeType.UPDATED},
                 )
             ]
         },
-        Document(documentId="current-document-id", versionNumber="2"),
+        current_document=Document(documentId="current-document-id", versionNumber="2"),
     )
 
     assert len(changes) == 1
@@ -376,6 +368,7 @@ def test_process_additions_ignore_list_includes_match_for_other_change_type():
         change_type=ChangeType.ADDED,
         node=included_addition,
         document_id="current-document-id",
+        is_actionable=True,
         rule_id=DEFAULT_ACTIONABLE_RULE_ID,
         rule_name=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
     )
@@ -400,11 +393,11 @@ def test_process_updates_watch_list_emits_change_for_direct_match():
     after = find_one(after_root, ".//hl7:observation")
 
     changes = _process_updates(
-        [(before, after)],
-        DiffMode.WATCH_LIST,
-        {},
-        {after: [rule()]},
-        Document(documentId="current-document-id", versionNumber="2"),
+        updated=[(before, after)],
+        mode=DiffMode.WATCH_LIST,
+        left_rule_match_cache={},
+        right_rule_match_cache={after: [make_rule()]},
+        current_document=Document(documentId="current-document-id", versionNumber="2"),
     )
 
     assert len(changes) == 1
@@ -413,6 +406,7 @@ def test_process_updates_watch_list_emits_change_for_direct_match():
         change_type=ChangeType.UPDATED,
         node=after,
         document_id="current-document-id",
+        is_actionable=True,
         rule_id=RULE_ID,
         rule_name=RULE_NAME,
     )
@@ -423,19 +417,20 @@ def test_process_updates_watch_list_retains_unmatched_change():
     after = elem(f'<observation xmlns="{HL7_NS}" value="new"/>')
 
     changes = _process_updates(
-        [(before, after)],
-        DiffMode.WATCH_LIST,
-        {},
-        {},
-        Document(documentId="current-document-id", versionNumber="2"),
+        updated=[(before, after)],
+        mode=DiffMode.WATCH_LIST,
+        left_rule_match_cache={},
+        right_rule_match_cache={},
+        current_document=Document(documentId="current-document-id", versionNumber="2"),
     )
 
     assert len(changes) == 1
-    assert_nonactionable_change(
+    assert_change(
         changes[0],
         change_type=ChangeType.UPDATED,
         node=after,
         document_id="current-document-id",
+        is_actionable=False,
     )
 
 
@@ -474,16 +469,16 @@ def test_process_updates_ignore_list_retains_matches_as_nonactionable():
     ignored_after = find_one(after_root, ".//hl7:section[@ID='ignored-after']")
 
     changes = _process_updates(
-        list(zip(before_nodes, after_nodes, strict=True)),
-        DiffMode.IGNORE_LIST,
-        {
+        updated=list(zip(before_nodes, after_nodes, strict=True)),
+        mode=DiffMode.IGNORE_LIST,
+        left_rule_match_cache={
             ignored_before: [
-                rule(),
-                rule(rule_id=SECOND_RULE_ID, rule_name=SECOND_RULE_NAME),
+                make_rule(),
+                make_rule(rule_id=SECOND_RULE_ID, rule_name=SECOND_RULE_NAME),
             ]
         },
-        {ignored_after: [rule()]},
-        Document(documentId="current-document-id", versionNumber="2"),
+        right_rule_match_cache={ignored_after: [make_rule()]},
+        current_document=Document(documentId="current-document-id", versionNumber="2"),
     )
 
     assert len(changes) == 4
@@ -493,19 +488,21 @@ def test_process_updates_ignore_list_retains_matches_as_nonactionable():
         (RULE_NAME, SECOND_RULE_NAME),
         strict=True,
     ):
-        assert_nonactionable_change(
+        assert_change(
             change,
             change_type=ChangeType.UPDATED,
             node=after_nodes[0],
             document_id="current-document-id",
+            is_actionable=False,
             rule_id=rule_id,
             rule_name=rule_name,
         )
-    assert_nonactionable_change(
+    assert_change(
         changes[2],
         change_type=ChangeType.UPDATED,
         node=after_nodes[1],
         document_id="current-document-id",
+        is_actionable=False,
         rule_id=RULE_ID,
         rule_name=RULE_NAME,
     )
@@ -514,6 +511,7 @@ def test_process_updates_ignore_list_retains_matches_as_nonactionable():
         change_type=ChangeType.UPDATED,
         node=after_nodes[2],
         document_id="current-document-id",
+        is_actionable=True,
         rule_id=DEFAULT_ACTIONABLE_RULE_ID,
         rule_name=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
     )
@@ -535,10 +533,12 @@ def test_process_deletions_watch_list_emits_change_for_watched_descendant():
     watched_observation = find_one(deleted_section, ".//hl7:observation")
 
     changes = _process_deletions(
-        [deleted_section],
-        DiffMode.WATCH_LIST,
-        {watched_observation: [rule()]},
-        Document(documentId="previous-document-id", versionNumber="1"),
+        deleted=[deleted_section],
+        mode=DiffMode.WATCH_LIST,
+        left_rule_match_cache={watched_observation: [make_rule()]},
+        previous_document=Document(
+            documentId="previous-document-id", versionNumber="1"
+        ),
     )
 
     assert len(changes) == 1
@@ -547,6 +547,7 @@ def test_process_deletions_watch_list_emits_change_for_watched_descendant():
         change_type=ChangeType.DELETED,
         node=deleted_section,
         document_id="previous-document-id",
+        is_actionable=True,
         rule_id=RULE_ID,
         rule_name=RULE_NAME,
     )
@@ -559,18 +560,21 @@ def test_process_deletions_watch_list_retains_unmatched_change():
     deleted_observation = find_one(root, ".//hl7:observation")
 
     changes = _process_deletions(
-        [deleted_observation],
-        DiffMode.WATCH_LIST,
-        {},
-        Document(documentId="previous-document-id", versionNumber="1"),
+        deleted=[deleted_observation],
+        mode=DiffMode.WATCH_LIST,
+        left_rule_match_cache={},
+        previous_document=Document(
+            documentId="previous-document-id", versionNumber="1"
+        ),
     )
 
     assert len(changes) == 1
-    assert_nonactionable_change(
+    assert_change(
         changes[0],
         change_type=ChangeType.DELETED,
         node=deleted_observation,
         document_id="previous-document-id",
+        is_actionable=False,
     )
 
 
@@ -594,15 +598,17 @@ def test_process_deletions_ignore_list_retains_ignored_ancestry():
     included_deletion = find_one(root, ".//hl7:observation[@ID='included-deletion']")
 
     changes = _process_deletions(
-        [ignored_deletion, included_deletion],
-        DiffMode.IGNORE_LIST,
-        {
+        deleted=[ignored_deletion, included_deletion],
+        mode=DiffMode.IGNORE_LIST,
+        left_rule_match_cache={
             ignored_section: [
-                rule(),
-                rule(rule_id=SECOND_RULE_ID, rule_name=SECOND_RULE_NAME),
+                make_rule(),
+                make_rule(rule_id=SECOND_RULE_ID, rule_name=SECOND_RULE_NAME),
             ]
         },
-        Document(documentId="previous-document-id", versionNumber="1"),
+        previous_document=Document(
+            documentId="previous-document-id", versionNumber="1"
+        ),
     )
 
     assert len(changes) == 3
@@ -612,11 +618,12 @@ def test_process_deletions_ignore_list_retains_ignored_ancestry():
         (RULE_NAME, SECOND_RULE_NAME),
         strict=True,
     ):
-        assert_nonactionable_change(
+        assert_change(
             change,
             change_type=ChangeType.DELETED,
             node=ignored_deletion,
             document_id="previous-document-id",
+            is_actionable=False,
             rule_id=rule_id,
             rule_name=rule_name,
         )
@@ -625,6 +632,7 @@ def test_process_deletions_ignore_list_retains_ignored_ancestry():
         change_type=ChangeType.DELETED,
         node=included_deletion,
         document_id="previous-document-id",
+        is_actionable=True,
         rule_id=DEFAULT_ACTIONABLE_RULE_ID,
         rule_name=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
     )
@@ -666,7 +674,7 @@ def test_unique_rule_matches_keeps_one_match_per_rule():
         </entry>
         """
     )
-    rule = Rule(
+    entry_rule = Rule(
         displayName="Entry",
         changeTypes={
             ChangeType.ADDED,
@@ -675,7 +683,7 @@ def test_unique_rule_matches_keeps_one_match_per_rule():
         },
         xpaths=["//hl7:entry/descendant-or-self::*"],
     )
-    rule_match_cache = build_rule_match_cache(entry.getroottree(), [rule])
+    rule_match_cache = build_rule_match_cache(entry.getroottree(), [entry_rule])
     observation = find_one(entry, "./hl7:observation")
     identifier = find_one(observation, "./hl7:id")
 
