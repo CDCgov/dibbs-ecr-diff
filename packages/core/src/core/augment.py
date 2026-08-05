@@ -9,7 +9,7 @@ from lxml.etree import _Element
 
 from core.cda.clinical_statement import CDA_CLINICAL_STATEMENT_TAGS
 from core.cda.xsd_sequence import (
-    insert_sequenced_child_of_clinical_statement_parent,
+    insert_sequenced_child_of_parent,
 )
 from core.models import Change, ChangeType, DiffOutput
 from core.xml_utils import (
@@ -762,9 +762,7 @@ def _process_diff_output_changes(diff_output: DiffOutput, timestamp: str) -> Non
         # If there are multiple changes on the same element, only add one diff author child
         if not _contains_diff_author_direct_child(author_allowed_element):
             author = _create_diff_author_element(change, timestamp)
-            insert_sequenced_child_of_clinical_statement_parent(
-                author_allowed_element, author
-            )
+            insert_sequenced_child_of_parent(author_allowed_element, author)
 
 
 def _find_best_author_allowed_element(anchor: _Element) -> _Element | None:
@@ -772,7 +770,7 @@ def _find_best_author_allowed_element(anchor: _Element) -> _Element | None:
 
     In order, checks anchor node itself, then ancestors, finally descendants.
     """
-    author_allowed_tags = [*CDA_CLINICAL_STATEMENT_TAGS]
+    author_allowed_tags = [*CDA_CLINICAL_STATEMENT_TAGS, hl7_clark_tag("section")]
     # First check anchor node itself, then ancestors, finally descendants
     for el in [anchor, *anchor.iterancestors(), *anchor.iterdescendants()]:
         if el.tag in author_allowed_tags:

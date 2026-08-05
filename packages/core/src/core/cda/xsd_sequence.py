@@ -228,7 +228,24 @@ SEQUENCE_ORDER_SUPPLY_CHILDREN = [
     "inFulfillmentOf1",
 ]
 
-CDA_CLINICAL_STATEMENT_LOCALNAME_SEQUENCES = {
+SEQUENCE_ORDER_SECTION_CHILDREN = [
+    "realmCode",
+    "typeId",
+    "templateId",
+    "id",
+    "code",
+    "title",
+    "text",
+    "confidentialityCode",
+    "languageCode",
+    "subject",
+    "author",
+    "informant",
+    "entry",
+    "component",
+]
+
+KNOWN_CDA_LOCALNAME_SEQUENCES = {
     "act": SEQUENCE_ORDER_ACT_CHILDREN,
     "encounter": SEQUENCE_ORDER_ENCOUNTER_CHILDREN,
     "observation": SEQUENCE_ORDER_OBSERVATION_CHILDREN,
@@ -236,12 +253,13 @@ CDA_CLINICAL_STATEMENT_LOCALNAME_SEQUENCES = {
     "organizer": SEQUENCE_ORDER_ORGANZIER_CHILDREN,
     "procedure": SEQUENCE_ORDER_PROCEDURE_CHILDREN,
     "regionOfInterest": SEQUENCE_ORDER_REGION_OF_INTEREST_CHILDREN,
+    "section": SEQUENCE_ORDER_SECTION_CHILDREN,
     "substanceAdministration": SEQUENCE_ORDER_SUBSTANCE_ADMINISTRATION_CHILDREN,
     "supply": SEQUENCE_ORDER_SUPPLY_CHILDREN,
 }
 
 
-def insert_sequenced_child_of_clinical_statement_parent(
+def insert_sequenced_child_of_parent(
     parent: etree._Element, new_child: etree._Element
 ) -> None:
     """Inserts child element into the correct XSD sequence position based on parent's existing children elements.
@@ -249,7 +267,7 @@ def insert_sequenced_child_of_clinical_statement_parent(
     Raises ValueError if parent does not have a known sequence order.
     """
     # In the future we could pull in the XSD to programmatically insert author at the correct sequence location.
-    sequence_order = CDA_CLINICAL_STATEMENT_LOCALNAME_SEQUENCES.get(localname(parent))
+    sequence_order = KNOWN_CDA_LOCALNAME_SEQUENCES.get(localname(parent))
 
     if sequence_order is None:
         raise ValueError(f"'{parent.tag}' does not have a known sequence order")

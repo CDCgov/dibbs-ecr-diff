@@ -776,14 +776,14 @@ def test_find_best_author_allowed_element_closest_ancestor_wins():
 
 
 def test_find_best_author_allowed_element_returns_descendant_when_only_descendant_allowed():
-    anchor = etree.Element(hl7_clark_tag("section"))
+    anchor = etree.Element(hl7_clark_tag("body"))
     child = etree.SubElement(anchor, hl7_clark_tag("entry"))
     grandchild = etree.SubElement(child, hl7_clark_tag("observation"))
     assert _find_best_author_allowed_element(anchor) is grandchild
 
 
 def test_find_best_author_allowed_element_closest_descendant_in_document_order_wins():
-    anchor = etree.Element(hl7_clark_tag("section"))
+    anchor = etree.Element(hl7_clark_tag("body"))
     branch = etree.SubElement(anchor, hl7_clark_tag("entry"))
     first_match = etree.SubElement(branch, hl7_clark_tag("observation"))
     etree.SubElement(anchor, hl7_clark_tag("act"))  # second match
@@ -800,7 +800,7 @@ def test_find_best_author_allowed_element_anchor_takes_priority():
 
 def test_find_best_author_allowed_element_ancestor_takes_priority_over_descendant():
     parent = etree.Element(hl7_clark_tag("act"))
-    anchor = etree.SubElement(parent, hl7_clark_tag("section"))
+    anchor = etree.SubElement(parent, hl7_clark_tag("body"))
     etree.SubElement(anchor, hl7_clark_tag("observation"))
     assert _find_best_author_allowed_element(anchor) is parent
 
