@@ -129,7 +129,7 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
             <input name="rr-file" type="file" accept=".xml,application/xml,text/xml" required />
           </label>
           <label>
-            Upload directory after the eICR or RR persistence ID (optional)
+            Jurisdiction ID path after the eICR or RR persistence ID (optional)
             <input name="upload-path" type="text" placeholder="SDDH/COVID19/" />
           </label>
 
@@ -143,12 +143,12 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
       document.querySelector('.preact-app')
     );
 
-    function normalizeS3KeyPath(path = '') {
+    function normalizeS3Key(path = '') {
       if (!path || !path.trim()) return '';
 
       return path.replace(/\/+/g, '/') // replace duplicate slashes
-        .replace(/^\//, '') // remove trailing slash
-        .replace(/(.+)/, '$1/'); // append trailing slash if string is not empty
+        .replace(/^\/+/, '')    // remove all leading slashes
+        .replace(/\/+$/, '');   // remove all trailing slashes
     }
 
     function parseXML(text, filename) {
@@ -189,12 +189,12 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
     async function buildUpload(row, persistenceId) {
       const eicr = row.elements.namedItem('eicr-file').files[0];
       const rr = row.elements.namedItem('rr-file').files[0];
-      const uploadPath = normalizeS3KeyPath(row.elements.namedItem('upload-path').value)
+      const uploadPath = row.elements.namedItem('upload-path').value;
 
       if (!eicr) throw new Error('Each document needs an eICR XML file.');
 
       const eicrDoc = parseXML(await eicr.text(), eicr.name);
-      const eicrKey = `${REFINER_INPUT_PREFIX}${persistenceId}/${uploadPath}${eicr.name}`;
+      const eicrKey = normalizeS3Key(`${REFINER_INPUT_PREFIX}${persistenceId}/${uploadPath}/${eicr.name}`);
       const metadata = getMetadata(eicrDoc, eicr.name);
 
       const manifestRecord = { eicr: eicrKey, ...metadata };
@@ -202,7 +202,7 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
 
       if (rr) {
         parseXML(await rr.text(), rr.name);
-        const rrKey = `${REFINER_INPUT_PREFIX}${persistenceId}/${uploadPath}${rr.name}`;
+        const rrKey = normalizeS3Key(`${REFINER_INPUT_PREFIX}${persistenceId}/${uploadPath}/${rr.name}`);
         manifestRecord.rr = rrKey;
         objects.push({ key: rrKey, file: rr });
       }

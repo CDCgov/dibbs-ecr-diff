@@ -1,20 +1,10 @@
 """Utilities for the Difference in Docs Lambda."""
 
 from datetime import UTC, datetime
-from io import BytesIO
-
-from lxml import etree
-
-parser = etree.XMLParser(remove_blank_text=True, huge_tree=True)
 
 
 class InfraError(Exception):
     """Raised for failures that should trigger an automated SQS retry or DLQ."""
-
-
-def parse_xml(source: bytes) -> etree._ElementTree:
-    """Parse an XML file using its filepath or bytes."""
-    return etree.parse(BytesIO(source), parser)
 
 
 def get_timestamp() -> str:

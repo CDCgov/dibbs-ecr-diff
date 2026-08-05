@@ -29,14 +29,13 @@ from .models import (
     DIDInputManifest,
     DIDOutputFile,
 )
-from .s3 import get_object, put_object
+from .s3 import get_object, get_object_xml_tree, put_object
 from .utils import (
     InfraError,
     get_did_output_key,
     get_did_output_prefix,
     get_timestamp,
     jurisdiction_id_from_key,
-    parse_xml,
     persistence_id_from_key,
 )
 
@@ -96,13 +95,6 @@ def process_manifest_entry(
     set_id = entry.setId
     version_number = entry.versionNumber
 
-    eicr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, entry.eicr)
-    rr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, entry.rr)
-    jurisdiction_id = jurisdiction_id_from_key(persistence_id, entry.eicr)
-
-    eicr_tree = parse_xml(get_object(bucket_name, entry.eicr))
-    rr_tree = parse_xml(get_object(bucket_name, entry.rr))
-
     before_record = get_before_actionable_record(set_id, version_number)
     compared_to_version = before_record.versionNumber if before_record else None
     is_actionable = before_record is None
@@ -110,10 +102,13 @@ def process_manifest_entry(
     diff_output: DiffOutput | None = None
     diff_output_key: str | None = None
 
+    eicr_tree = get_object_xml_tree(bucket_name, entry.eicr)
+    rr_tree = get_object_xml_tree(bucket_name, entry.rr)
+
     if before_record:
         output_prefix = get_did_output_prefix(DID_OUTPUT_PREFIX, entry.eicr)
         diff_output_key = f"{output_prefix}/{set_id}_eicr_diff"
-        before_tree = parse_xml(get_object(bucket_name, before_record.s3Key))
+        before_tree = get_object_xml_tree(bucket_name, before_record.s3Key)
 
         logger.info(
             f"Diffing version {version_number} against version {before_record.versionNumber} of {set_id}"
@@ -122,6 +117,7 @@ def process_manifest_entry(
         diff_output = diff_xml(before_tree, eicr_tree, config)
         is_actionable = diff_output.hasActionableChanges
 
+    jurisdiction_id = jurisdiction_id_from_key(persistence_id, entry.eicr)
     augmented_eicr = get_augmented_eicr(eicr_tree, jurisdiction_id, diff_output)
     augmented_rr = get_augmented_rr(rr_tree, jurisdiction_id)
 
@@ -147,9 +143,11 @@ def process_manifest_entry(
     )
 
     # write augmented eicr to DIDOutput/
+    eicr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, entry.eicr)
     put_object(bucket_name, eicr_out_key, augmented_eicr)
 
     # write augmented rr to DIDOutput/
+    rr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, entry.rr)
     put_object(bucket_name, rr_out_key, augmented_rr)
 
     return DIDOutputFile(
