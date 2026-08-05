@@ -167,7 +167,7 @@ def _process_additions(
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
                         actionabilityRuleDisplayName=rule_match.displayName,
-                        anchor_node=added_element,
+                        augmentation_anchor_node=added_element,
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
@@ -188,7 +188,7 @@ def _process_additions(
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
                     actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
-                    anchor_node=added_element,
+                    augmentation_anchor_node=added_element,
                 )
             )
     return actionable_changes
@@ -224,7 +224,7 @@ def _process_updates(
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
                         actionabilityRuleDisplayName=rule_match.displayName,
-                        anchor_node=after,
+                        augmentation_anchor_node=after,
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
@@ -251,7 +251,7 @@ def _process_updates(
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
                     actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
-                    anchor_node=after,
+                    augmentation_anchor_node=after,
                 )
             )
     return actionable_changes
