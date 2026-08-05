@@ -1,6 +1,7 @@
 """Ingest manifests delivered through S3 and SQS."""
 
 import os
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from urllib.parse import unquote_plus
 
@@ -12,19 +13,34 @@ from aws_lambda_powertools.utilities.data_classes import (
     event_source,
 )
 from aws_lambda_powertools.utilities.typing import LambdaContext
+from boto3.dynamodb.conditions import Attr, Key
+from core import DiffingOptions, DiffOutput, diff_xml
+from core.configurations import load_configuration
 from pydantic import ValidationError
 
-from .models import DIDCompleteManifest, DIDInputManifest, DIDOutputFile
+from .models import (
+    DIDCompleteManifest,
+    DIDInputManifest,
+    DIDOutputFile,
+    EICRStorageRecord,
+)
 
 if TYPE_CHECKING:
+    from types_boto3_dynamodb import DynamoDBServiceResource
     from types_boto3_s3 import S3Client
 
 DID_OUTPUT_PREFIX = os.environ.get("DID_OUTPUT_PREFIX", "DIDOutput/")
 DID_COMPLETE_PREFIX = os.environ.get("DID_COMPLETE_PREFIX", "DIDComplete/")
+DYNAMODB_TABLE = os.environ.get("DYNAMODB_TABLE", "did-eicr-record")
 ENVIRONMENT = os.environ.get("ENVIRONMENT", "prod")
+CONFIGURATION_FILE = "aphl_baseline.json"
 
 s3: "S3Client" = boto3.client("s3")
-logger = Logger(service="difference-in-docs")
+dynamodb: "DynamoDBServiceResource" = boto3.resource("dynamodb")
+
+db = dynamodb.Table(DYNAMODB_TABLE)
+logger = Logger("difference-in-docs")
+config = load_configuration(CONFIGURATION_FILE)
 
 
 class InfraError(Exception):
@@ -46,9 +62,9 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
 
         persistence_id = persistence_id_from_key(did_input_manifest_key)
         did_input_manifest = get_input_manifest(bucket_name, did_input_manifest_key)
+        did_complete_output_files: list[DIDOutputFile] = []
 
-        did_complete_output_records: list[DIDOutputFile] = []
-
+        # process every DIDInputFile in the batch
         for entry in did_input_manifest.files:
             set_id = entry.setId
             version_number = entry.versionNumber
@@ -56,25 +72,79 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
             eicr_out_key = get_did_output_key(entry.eicr)
             rr_out_key = get_did_output_key(entry.rr)
 
-            # write eICR to DIDOutput/
-            put_object(bucket_name, eicr_out_key, get_object(bucket_name, entry.eicr))
+            after_xml = get_object(bucket_name, entry.eicr)
+            before_record = get_before_actionable_record(set_id, version_number)
 
-            # write RR to DIDOutput/
-            put_object(bucket_name, rr_out_key, get_object(bucket_name, entry.rr))
+            compared_to_version = before_record.versionNumber if before_record else None
+            is_actionable = before_record is None
+            diff_output: DiffOutput | None = None
+            diff_output_key: str | None = None
 
-            did_complete_output_records.append(
+            if before_record:
+                output_prefix = get_did_output_prefix(entry.eicr)
+                diff_output_key = f"{output_prefix}/{set_id}_eicr_diff"
+
+                before_xml = get_object(bucket_name, before_record.s3Key)
+
+                logger.info(
+                    f"Diffing version {version_number} against version {before_record.versionNumber} of {set_id}"
+                )
+
+                diff_output = diff_xml(
+                    DiffingOptions(file1=before_xml, file2=after_xml), config
+                )
+
+                is_actionable = diff_output.hasActionableChanges
+
+            # TODO: use actual augmentation methods when merged
+            augmented_eicr = get_augmented_eicr(after_xml, diff_output)
+            augmented_rr = get_augmented_rr(
+                get_object(bucket_name, entry.rr), diff_output
+            )
+
+            if diff_output_key is not None and diff_output is not None:
+                put_object(
+                    bucket_name,
+                    diff_output_key,
+                    diff_output.model_dump_json(indent=2).encode("utf-8"),
+                )
+
+            # write eICR metadata to DB
+            db.put_item(
+                Item={
+                    "setId": set_id,
+                    "versionNumber": version_number,
+                    "s3Key": entry.eicr,
+                    "s3KeyRR": entry.rr,
+                    "s3KeyDiffOutput": diff_output_key,
+                    "processedAt": get_timestamp(),
+                    "isActionable": is_actionable,
+                    "comparedToVersion": compared_to_version,
+                }
+            )
+
+            # write augmented eicr to DIDOutput/
+            put_object(bucket_name, eicr_out_key, augmented_eicr)
+
+            # write augmented rr to DIDOutput/
+            put_object(bucket_name, rr_out_key, augmented_rr)
+
+            if entry.rr and rr_out_key:
+                put_object(bucket_name, rr_out_key, get_object(bucket_name, entry.rr))
+
+            did_complete_output_files.append(
                 DIDOutputFile(
                     setId=set_id,
                     versionNumber=version_number,
                     eicr=eicr_out_key,
                     rr=rr_out_key,
-                    eicr_diff_output=None,  # TODO: add this once we're actually diffing
-                    is_actionable=True,  # TODO: add this once we're actually diffing
+                    eicr_diff_output=diff_output_key,
+                    is_actionable=is_actionable,
                 )
             )
 
         # write to DIDComplete/
-        did_complete_manifest = DIDCompleteManifest(Files=did_complete_output_records)
+        did_complete_manifest = DIDCompleteManifest(Files=did_complete_output_files)
         did_complete_manifest_key = f"{DID_COMPLETE_PREFIX}{persistence_id}"
         put_object(
             bucket_name,
@@ -85,6 +155,40 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
         )
 
     return {"statusCode": 200, "message": "OK"}
+
+
+def get_augmented_eicr(eicr: bytes, _diff_output: DiffOutput | None) -> bytes:
+    """TODO: stub for augmenting the eicr."""
+    return eicr
+
+
+def get_augmented_rr(rr: bytes, _diff_output: DiffOutput | None) -> bytes:
+    """TODO: stub for augmenting the rr."""
+    return rr
+
+
+def get_before_actionable_record(
+    set_id: str, version_number: int
+) -> EICRStorageRecord | None:
+    """Retrieves the latest earlier actionable record for a given setId and versionNumber."""
+    results = db.query(
+        KeyConditionExpression=(
+            Key("setId").eq(set_id) & Key("versionNumber").lt(version_number)
+        ),
+        FilterExpression=Attr("isActionable").eq(True),
+        ScanIndexForward=False,  # force descending order
+    )
+
+    return (
+        EICRStorageRecord.model_validate(results["Items"][0])
+        if results["Items"]
+        else None
+    )
+
+
+def get_timestamp() -> str:
+    """Generate a new ISO-8601 timestamp."""
+    return datetime.now(UTC).isoformat()
 
 
 def get_input_manifest(bucket: str, key: str) -> DIDInputManifest:
