@@ -249,7 +249,7 @@ def augment_eicr_in_place(
     eicr_root: _Element,
     run: AugmentationRun,
     jurisdiction_id: str,
-    diff_output: DiffOutput,
+    diff_output: DiffOutput | None,
     tool_code: str = DIFF_TOOL_CODE,
     tool_display: str = DIFF_TOOL_DISPLAY,
 ) -> AugmentedResult:
