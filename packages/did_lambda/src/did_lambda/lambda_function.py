@@ -2,6 +2,7 @@
 
 import os
 from datetime import UTC, datetime
+from io import BytesIO
 from typing import TYPE_CHECKING
 from urllib.parse import unquote_plus
 
@@ -81,8 +82,8 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
             rr_out_key = get_did_output_key(entry.rr)
             jurisdiction_id = jurisdiction_id_from_key(persistence_id, entry.eicr)
 
-            eicr_tree = etree.parse(get_object(bucket_name, entry.eicr), parser)
-            rr_tree = etree.parse(get_object(bucket_name, entry.rr), parser)
+            eicr_tree = parse_xml(get_object(bucket_name, entry.eicr))
+            rr_tree = parse_xml(get_object(bucket_name, entry.rr))
 
             before_record = get_before_actionable_record(set_id, version_number)
             compared_to_version = before_record.versionNumber if before_record else None
@@ -93,10 +94,7 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
             if before_record:
                 output_prefix = get_did_output_prefix(entry.eicr)
                 diff_output_key = f"{output_prefix}/{set_id}_eicr_diff"
-
-                before_tree = etree.parse(
-                    get_object(bucket_name, before_record.s3Key), parser
-                )
+                before_tree = parse_xml(get_object(bucket_name, before_record.s3Key))
 
                 logger.info(
                     f"Diffing version {version_number} against version {before_record.versionNumber} of {set_id}"
@@ -161,6 +159,14 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
         )
 
     return {"statusCode": 200, "message": "OK"}
+
+
+def parse_xml(source: bytes) -> etree._ElementTree:
+    """Parse an XML file using its filepath or bytes."""
+    return etree.parse(
+        BytesIO(source) if isinstance(source, bytes) else source,
+        parser,
+    )
 
 
 def get_augmented_eicr(
