@@ -8,7 +8,6 @@ from core import (
     _process_deletions,
     _process_updates,
     build_rule_match_cache,
-    has_ignore_rule_for_change_type,
     rule_matches_for_node_and_ancestors,
     rule_matches_for_node_and_descendants,
     unique_rule_matches_for_change_type,
@@ -725,8 +724,6 @@ def test_unique_rule_matches_filters_by_change_type():
     ]
     assert unique_rule_matches_for_change_type(matches, ChangeType.UPDATED) == []
     assert unique_rule_matches_for_change_type(matches, ChangeType.DELETED) == []
-    assert has_ignore_rule_for_change_type(matches, ChangeType.ADDED)
-    assert not has_ignore_rule_for_change_type(matches, ChangeType.UPDATED)
 
 
 def test_rule_requires_at_least_one_change_type():

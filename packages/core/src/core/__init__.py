@@ -105,11 +105,18 @@ def unique_rule_matches_for_change_type(
     rule_matches: Iterable[Rule],
     change_type: ChangeType,
 ) -> list[Rule]:
-    """Return one match per rule for the current XML change.
+    """Return each applicable rule once, identified by its UUID.
 
-    Ignore rules that do not apply to the change type. A change can match an
-    applicable rule through several related XML elements, so keep its first
-    match.
+    For example, ``//hl7:entry/descendant-or-self::*`` associates one rule
+    with an ``<entry>`` and all of its descendant elements. Evaluating an entire
+    added or deleted ``<entry>`` therefore finds that rule once for the
+    ``<entry>`` itself and once for each descendant element. The same
+    duplication can occur when multiple rule XPaths match related nodes or
+    when ignore-mode update matching searches both documents' ancestries.
+
+    All occurrences with the same UUID represent the same configured rule,
+    and the matched node is not used to build the output Change. Keeping the
+    first applicable occurrence therefore emits the change only once per rule.
     """
     first_match_by_rule: dict[UUID, Rule] = {}
 
@@ -123,16 +130,71 @@ def unique_rule_matches_for_change_type(
     return list(first_match_by_rule.values())
 
 
-def has_ignore_rule_for_change_type(
-    rule_matches: Iterable[Rule],
+def build_changes_for_rule_matches(
+    element: etree._Element,
     change_type: ChangeType,
-) -> bool:
-    """Return true if any of the ignore-rule matches has the change type."""
-    for rule_match in rule_matches:
-        if change_type in rule_match.changeTypes:
-            return True
+    document_id: str,
+    rule_matches: Iterable[Rule],
+    mode: DiffMode,
+) -> list[Change]:
+    """Build changes for applicable rule matches using the configured mode."""
+    xpath = structural_xpath(element)
+    applicable_rules = unique_rule_matches_for_change_type(
+        rule_matches,
+        change_type,
+    )
 
-    return False
+    if mode == DiffMode.WATCH_LIST:
+        if applicable_rules:
+            return [
+                Change(
+                    changeType=change_type,
+                    xpath=xpath,
+                    xpathDocumentId=document_id,
+                    isActionable=True,
+                    actionabilityRuleId=rule.id,
+                    actionabilityRuleDisplayName=rule.displayName,
+                )
+                for rule in applicable_rules
+            ]
+        else:
+            return [
+                Change(
+                    changeType=change_type,
+                    xpath=xpath,
+                    xpathDocumentId=document_id,
+                    isActionable=False,
+                    actionabilityRuleId=None,
+                    actionabilityRuleDisplayName=None,
+                )
+            ]
+
+    if mode == DiffMode.IGNORE_LIST:
+        if applicable_rules:
+            return [
+                Change(
+                    changeType=change_type,
+                    xpath=xpath,
+                    xpathDocumentId=document_id,
+                    isActionable=False,
+                    actionabilityRuleId=rule.id,
+                    actionabilityRuleDisplayName=rule.displayName,
+                )
+                for rule in applicable_rules
+            ]
+        else:
+            return [
+                Change(
+                    changeType=change_type,
+                    xpath=xpath,
+                    xpathDocumentId=document_id,
+                    isActionable=True,
+                    actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
+                    actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
+                )
+            ]
+
+    raise ValueError(f"Unsupported diff mode: {mode}")
 
 
 def _process_additions(
@@ -151,68 +213,27 @@ def _process_additions(
     changes: list[Change] = []
     for added_element in added:
         if mode == DiffMode.WATCH_LIST:
-            applicable_rules = unique_rule_matches_for_change_type(
-                rule_matches_for_node_and_descendants(
-                    added_element,
-                    right_rule_match_cache,
-                ),
-                ChangeType.ADDED,
+            rule_matches = rule_matches_for_node_and_descendants(
+                added_element,
+                right_rule_match_cache,
             )
-            for rule_match in applicable_rules:
-                changes.append(
-                    Change(
-                        changeType=ChangeType.ADDED,
-                        xpath=structural_xpath(added_element),
-                        xpathDocumentId=current_document.documentId,
-                        isActionable=True,
-                        actionabilityRuleId=rule_match.id,
-                        actionabilityRuleDisplayName=rule_match.displayName,
-                    )
-                )
-
-            if not applicable_rules:
-                changes.append(
-                    Change(
-                        changeType=ChangeType.ADDED,
-                        xpath=structural_xpath(added_element),
-                        xpathDocumentId=current_document.documentId,
-                        isActionable=False,
-                        actionabilityRuleId=None,
-                        actionabilityRuleDisplayName=None,
-                    )
-                )
         elif mode == DiffMode.IGNORE_LIST:
-            ignore_rules = unique_rule_matches_for_change_type(
-                rule_matches_for_node_and_ancestors(
-                    added_element,
-                    right_rule_match_cache,
-                ),
-                ChangeType.ADDED,
+            rule_matches = rule_matches_for_node_and_ancestors(
+                added_element,
+                right_rule_match_cache,
             )
-            if ignore_rules:
-                for ignore_rule in ignore_rules:
-                    changes.append(
-                        Change(
-                            changeType=ChangeType.ADDED,
-                            xpath=structural_xpath(added_element),
-                            xpathDocumentId=current_document.documentId,
-                            isActionable=False,
-                            actionabilityRuleId=ignore_rule.id,
-                            actionabilityRuleDisplayName=ignore_rule.displayName,
-                        )
-                    )
-                continue
+        else:
+            raise ValueError(f"Unsupported diff mode: {mode}")
 
-            changes.append(
-                Change(
-                    changeType=ChangeType.ADDED,
-                    xpath=structural_xpath(added_element),
-                    xpathDocumentId=current_document.documentId,
-                    isActionable=True,
-                    actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
-                    actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
-                )
+        changes.extend(
+            build_changes_for_rule_matches(
+                element=added_element,
+                change_type=ChangeType.ADDED,
+                document_id=current_document.documentId,
+                rule_matches=rule_matches,
+                mode=mode,
             )
+        )
     return changes
 
 
@@ -233,33 +254,7 @@ def _process_updates(
     changes: list[Change] = []
     for before, after in updated:
         if mode == DiffMode.WATCH_LIST:
-            applicable_rules = unique_rule_matches_for_change_type(
-                right_rule_match_cache.get(after, []),
-                ChangeType.UPDATED,
-            )
-            for rule_match in applicable_rules:
-                changes.append(
-                    Change(
-                        changeType=ChangeType.UPDATED,
-                        xpath=structural_xpath(after),
-                        xpathDocumentId=current_document.documentId,
-                        isActionable=True,
-                        actionabilityRuleId=rule_match.id,
-                        actionabilityRuleDisplayName=rule_match.displayName,
-                    )
-                )
-
-            if not applicable_rules:
-                changes.append(
-                    Change(
-                        changeType=ChangeType.UPDATED,
-                        xpath=structural_xpath(after),
-                        xpathDocumentId=current_document.documentId,
-                        isActionable=False,
-                        actionabilityRuleId=None,
-                        actionabilityRuleDisplayName=None,
-                    )
-                )
+            rule_matches = right_rule_match_cache.get(after, [])
         elif mode == DiffMode.IGNORE_LIST:
             rule_matches = [
                 *rule_matches_for_node_and_ancestors(
@@ -271,33 +266,18 @@ def _process_updates(
                     right_rule_match_cache,
                 ),
             ]
-            ignore_rules = unique_rule_matches_for_change_type(
-                rule_matches,
-                ChangeType.UPDATED,
+        else:
+            raise ValueError(f"Unsupported diff mode: {mode}")
+
+        changes.extend(
+            build_changes_for_rule_matches(
+                element=after,
+                change_type=ChangeType.UPDATED,
+                document_id=current_document.documentId,
+                rule_matches=rule_matches,
+                mode=mode,
             )
-            if ignore_rules:
-                for ignore_rule in ignore_rules:
-                    changes.append(
-                        Change(
-                            changeType=ChangeType.UPDATED,
-                            xpath=structural_xpath(after),
-                            xpathDocumentId=current_document.documentId,
-                            isActionable=False,
-                            actionabilityRuleId=ignore_rule.id,
-                            actionabilityRuleDisplayName=ignore_rule.displayName,
-                        )
-                    )
-                continue
-            changes.append(
-                Change(
-                    changeType=ChangeType.UPDATED,
-                    xpath=structural_xpath(after),
-                    xpathDocumentId=current_document.documentId,
-                    isActionable=True,
-                    actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
-                    actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
-                )
-            )
+        )
     return changes
 
 
@@ -317,67 +297,27 @@ def _process_deletions(
     changes: list[Change] = []
     for deleted_element in deleted:
         if mode == DiffMode.WATCH_LIST:
-            applicable_rules = unique_rule_matches_for_change_type(
-                rule_matches_for_node_and_descendants(
-                    deleted_element,
-                    left_rule_match_cache,
-                ),
-                ChangeType.DELETED,
+            rule_matches = rule_matches_for_node_and_descendants(
+                deleted_element,
+                left_rule_match_cache,
             )
-            for rule_match in applicable_rules:
-                changes.append(
-                    Change(
-                        changeType=ChangeType.DELETED,
-                        xpath=structural_xpath(deleted_element),
-                        xpathDocumentId=previous_document.documentId,
-                        isActionable=True,
-                        actionabilityRuleId=rule_match.id,
-                        actionabilityRuleDisplayName=rule_match.displayName,
-                    )
-                )
-
-            if not applicable_rules:
-                changes.append(
-                    Change(
-                        changeType=ChangeType.DELETED,
-                        xpath=structural_xpath(deleted_element),
-                        xpathDocumentId=previous_document.documentId,
-                        isActionable=False,
-                        actionabilityRuleId=None,
-                        actionabilityRuleDisplayName=None,
-                    )
-                )
         elif mode == DiffMode.IGNORE_LIST:
-            ignore_rules = unique_rule_matches_for_change_type(
-                rule_matches_for_node_and_ancestors(
-                    deleted_element,
-                    left_rule_match_cache,
-                ),
-                ChangeType.DELETED,
+            rule_matches = rule_matches_for_node_and_ancestors(
+                deleted_element,
+                left_rule_match_cache,
             )
-            if ignore_rules:
-                for ignore_rule in ignore_rules:
-                    changes.append(
-                        Change(
-                            changeType=ChangeType.DELETED,
-                            xpath=structural_xpath(deleted_element),
-                            xpathDocumentId=previous_document.documentId,
-                            isActionable=False,
-                            actionabilityRuleId=ignore_rule.id,
-                            actionabilityRuleDisplayName=ignore_rule.displayName,
-                        )
-                    )
-                continue
-            changes.append(
-                Change(
-                    changeType=ChangeType.DELETED,
-                    xpath=structural_xpath(deleted_element),
-                    xpathDocumentId=previous_document.documentId,
-                    isActionable=True,
-                    actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
-                    actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
-                )
+        else:
+            raise ValueError(f"Unsupported diff mode: {mode}")
+
+        changes.extend(
+            build_changes_for_rule_matches(
+                element=deleted_element,
+                change_type=ChangeType.DELETED,
+                document_id=previous_document.documentId,
+                rule_matches=rule_matches,
+                mode=mode,
             )
+        )
     return changes
 
 
