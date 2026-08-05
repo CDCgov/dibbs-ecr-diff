@@ -1,10 +1,8 @@
 """Ingest manifests delivered through S3 and SQS."""
 
 import os
-from typing import TYPE_CHECKING
 from urllib.parse import unquote_plus
 
-import boto3
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.data_classes import (
     S3EventBridgeNotificationEvent,
@@ -13,7 +11,6 @@ from aws_lambda_powertools.utilities.data_classes import (
     event_source,
 )
 from aws_lambda_powertools.utilities.typing import LambdaContext
-from boto3.dynamodb.conditions import Attr, Key
 from core import DiffOutput, diff_xml
 from core.augment import (
     augment_eicr_in_place,
@@ -25,13 +22,14 @@ from lxml import etree
 from lxml.etree import ElementTree
 from pydantic import ValidationError
 
+from .dynamodb import get_before_actionable_record, put_eicr_record
 from .models import (
     DIDCompleteManifest,
     DIDInputFile,
     DIDInputManifest,
     DIDOutputFile,
-    EICRStorageRecord,
 )
+from .s3 import get_object, put_object
 from .utils import (
     InfraError,
     get_did_output_key,
@@ -42,20 +40,11 @@ from .utils import (
     persistence_id_from_key,
 )
 
-if TYPE_CHECKING:
-    from types_boto3_dynamodb import DynamoDBServiceResource
-    from types_boto3_s3 import S3Client
-
 DID_OUTPUT_PREFIX = os.environ.get("DID_OUTPUT_PREFIX", "DIDOutput/")
 DID_COMPLETE_PREFIX = os.environ.get("DID_COMPLETE_PREFIX", "DIDComplete/")
-DYNAMODB_TABLE = os.environ.get("DYNAMODB_TABLE", "did-eicr-record")
 ENVIRONMENT = os.environ.get("ENVIRONMENT", "prod")
 CONFIGURATION_FILE = os.environ.get("CONFIGURATION_FILE", "aphl_baseline.json")
 
-s3: "S3Client" = boto3.client("s3")
-dynamodb: "DynamoDBServiceResource" = boto3.resource("dynamodb")
-
-db = dynamodb.Table(DYNAMODB_TABLE)
 logger = Logger("difference-in-docs")
 config = load_configuration(CONFIGURATION_FILE)
 
@@ -117,6 +106,7 @@ def process_manifest_entry(
     before_record = get_before_actionable_record(set_id, version_number)
     compared_to_version = before_record.versionNumber if before_record else None
     is_actionable = before_record is None
+
     diff_output: DiffOutput | None = None
     diff_output_key: str | None = None
 
@@ -143,8 +133,8 @@ def process_manifest_entry(
         )
 
     # write eICR metadata to DB
-    db.put_item(
-        Item={
+    put_eicr_record(
+        {
             "setId": set_id,
             "versionNumber": version_number,
             "s3Key": entry.eicr,
@@ -205,41 +195,9 @@ def get_augmented_rr(rr_tree: ElementTree, jurisdiction_id: str) -> bytes:
     )
 
 
-def get_before_actionable_record(
-    set_id: str, version_number: int
-) -> EICRStorageRecord | None:
-    """Retrieves the latest earlier actionable record for a given setId and versionNumber."""
-    items = db.query(
-        KeyConditionExpression=(
-            Key("setId").eq(set_id) & Key("versionNumber").lt(version_number)
-        ),
-        FilterExpression=Attr("isActionable").eq(True),
-        ScanIndexForward=False,  # force descending order
-    )["Items"]
-
-    return EICRStorageRecord.model_validate(items[0]) if items else None
-
-
 def get_input_manifest(bucket: str, key: str) -> DIDInputManifest:
     """Reads and validates manifest file from S3."""
     try:
         return DIDInputManifest.model_validate_json(get_object(bucket, key))
     except ValidationError as exc:
         raise InfraError(f"Invalid manifest s3://{bucket}/{key}") from exc
-
-
-def get_object(bucket: str, key: str) -> bytes:
-    """Utility to get object from S3."""
-    try:
-        obj = s3.get_object(Bucket=bucket, Key=key)
-        return obj["Body"].read()
-    except Exception as exc:
-        raise InfraError(f"S3 get_object failed s3://{bucket}/{key}: {exc}") from exc
-
-
-def put_object(bucket: str, key: str, data: bytes) -> None:
-    """Utility to put object to S3."""
-    try:
-        s3.put_object(Bucket=bucket, Key=key, Body=data)
-    except Exception as exc:
-        raise InfraError(f"S3 put_object failed s3://{bucket}/{key}: {exc}") from exc
