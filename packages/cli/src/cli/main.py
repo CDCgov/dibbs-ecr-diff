@@ -4,8 +4,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from core import diff_xml
+from core.augment import augment_eicr, create_augmentation_run
 from core.configurations import load_configuration
 from core.models import Configuration, DiffingOptions
+from core.performance import measure_time
+from lxml import etree
 
 DEFAULT_CONFIGURATION_FILE = "aphl_baseline.json"
 
@@ -30,6 +33,7 @@ def main() -> None:
     )
 
     args = ap.parse_args()
+    opts = DiffingOptions(file1=args.file1, file2=args.file2)
 
     if args.config is None:
         config = load_configuration(DEFAULT_CONFIGURATION_FILE)
@@ -37,14 +41,47 @@ def main() -> None:
         with open(args.config) as f:
             config = Configuration(**json.load(f))
 
-    opts = DiffingOptions(file1=args.file1, file2=args.file2)
-    diff_output = diff_xml(opts, config)
+    parser = etree.XMLParser(remove_blank_text=True, huge_tree=True)
+
+    with measure_time("Parse XML files"):
+        before_tree = etree.parse(opts.file1, parser)
+        after_tree = etree.parse(opts.file2, parser)
+
+    diff_output = diff_xml(before_tree, after_tree, config)
     diff_output_json = diff_output.model_dump_json(indent=2)
 
     if args.output_diff_file:
         json_out_path = Path(args.output_diff_file)
         json_out_path.write_text(diff_output_json, encoding="utf-8")
         print(f"Wrote {json_out_path.resolve()}")
+
+    eicr_root = after_tree.getroot()
+    augmentation_run = create_augmentation_run(eicr_root)
+
+    # TODO: extract jurisdiction id
+    jurisdiction_id = "12345678-1234-5678-1234-567812345678"
+
+    augmented_eicr_result = augment_eicr(
+        eicr_root,
+        augmentation_run,
+        jurisdiction_id=jurisdiction_id,
+        diff_output=diff_output,
+    )
+
+    output_bytes = etree.tostring(
+        eicr_root,
+        pretty_print=True,
+        xml_declaration=True,
+        encoding="UTF-8",
+    )
+
+    print(f"Original document id: {augmented_eicr_result.original_doc_id}")
+    print(f"Augmented document id: {augmented_eicr_result.augmented_doc_id}")
+
+    eicr_out_path = Path("temp/augmented_eicr_with_diff.xml")
+    eicr_out_path.parent.mkdir(parents=True, exist_ok=True)
+    eicr_out_path.write_bytes(output_bytes)
+    print(f"Wrote {eicr_out_path.resolve()} ({len(output_bytes)} bytes)")
 
 
 if __name__ == "__main__":

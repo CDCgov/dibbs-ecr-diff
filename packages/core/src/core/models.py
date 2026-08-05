@@ -2,7 +2,8 @@ from datetime import datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from lxml.etree import _Element
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DiffMode(StrEnum):
@@ -30,12 +31,17 @@ class ChangeType(StrEnum):
 class Change(BaseModel):
     """Single changed node reported in the diff output."""
 
+    # Arbitrary types allowed so that lxml Element can be included without being serialized
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     changeType: ChangeType
     xpath: str
     xpathDocumentId: str
     isActionable: bool = True
     actionabilityRuleId: UUID
     actionabilityRuleDisplayName: str
+    anchor_node: _Element | None = Field(
+        exclude=True, default=None
+    )  # needed for entry-level augmentation
 
 
 class Document(BaseModel):

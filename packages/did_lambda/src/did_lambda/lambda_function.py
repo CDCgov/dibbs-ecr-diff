@@ -14,8 +14,11 @@ from aws_lambda_powertools.utilities.data_classes import (
 )
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from boto3.dynamodb.conditions import Attr, Key
-from core import DiffingOptions, DiffOutput, diff_xml
+from core import DiffOutput, diff_xml
+from core.augment import augment_eicr, augment_rr, create_augmentation_run
 from core.configurations import load_configuration
+from lxml import etree
+from lxml.etree import ElementTree
 from pydantic import ValidationError
 
 from .models import (
@@ -41,6 +44,7 @@ dynamodb: "DynamoDBServiceResource" = boto3.resource("dynamodb")
 db = dynamodb.Table(DYNAMODB_TABLE)
 logger = Logger("difference-in-docs")
 config = load_configuration(CONFIGURATION_FILE)
+parser = etree.XMLParser(remove_blank_text=True, huge_tree=True)
 
 
 class InfraError(Exception):
@@ -71,10 +75,12 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
 
             eicr_out_key = get_did_output_key(entry.eicr)
             rr_out_key = get_did_output_key(entry.rr)
+            jurisdiction_id = jurisdiction_id_from_key(persistence_id, entry.eicr)
 
-            after_xml = get_object(bucket_name, entry.eicr)
+            eicr_tree = etree.parse(get_object(bucket_name, entry.eicr), parser)
+            rr_tree = etree.parse(get_object(bucket_name, entry.rr), parser)
+
             before_record = get_before_actionable_record(set_id, version_number)
-
             compared_to_version = before_record.versionNumber if before_record else None
             is_actionable = before_record is None
             diff_output: DiffOutput | None = None
@@ -84,23 +90,19 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
                 output_prefix = get_did_output_prefix(entry.eicr)
                 diff_output_key = f"{output_prefix}/{set_id}_eicr_diff"
 
-                before_xml = get_object(bucket_name, before_record.s3Key)
+                before_tree = etree.parse(
+                    get_object(bucket_name, before_record.s3Key), parser
+                )
 
                 logger.info(
                     f"Diffing version {version_number} against version {before_record.versionNumber} of {set_id}"
                 )
 
-                diff_output = diff_xml(
-                    DiffingOptions(file1=before_xml, file2=after_xml), config
-                )
-
+                diff_output = diff_xml(before_tree, eicr_tree, config)
                 is_actionable = diff_output.hasActionableChanges
 
-            # TODO: use actual augmentation methods when merged
-            augmented_eicr = get_augmented_eicr(after_xml, diff_output)
-            augmented_rr = get_augmented_rr(
-                get_object(bucket_name, entry.rr), diff_output
-            )
+            augmented_eicr = get_augmented_eicr(eicr_tree, jurisdiction_id, diff_output)
+            augmented_rr = get_augmented_rr(rr_tree, jurisdiction_id)
 
             if diff_output_key is not None and diff_output is not None:
                 put_object(
@@ -157,14 +159,35 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
     return {"statusCode": 200, "message": "OK"}
 
 
-def get_augmented_eicr(eicr: bytes, _diff_output: DiffOutput | None) -> bytes:
-    """TODO: stub for augmenting the eicr."""
-    return eicr
+def get_augmented_eicr(
+    eicr_tree: ElementTree, jurisdiction_id: str, diff_output: DiffOutput | None
+) -> bytes:
+    """Return augmented eICR."""
+    eicr_root = eicr_tree.getroot()
+    augmentation_run = create_augmentation_run(eicr_root)
+
+    augment_eicr(
+        eicr_root=eicr_root,
+        run=augmentation_run,
+        jurisdiction_id=jurisdiction_id,
+        diff_output=diff_output,
+    )
+
+    return etree.tostring(
+        eicr_root, pretty_print=True, xml_declaration=True, encoding="utf-8"
+    )
 
 
-def get_augmented_rr(rr: bytes, _diff_output: DiffOutput | None) -> bytes:
-    """TODO: stub for augmenting the rr."""
-    return rr
+def get_augmented_rr(rr_tree: ElementTree, jurisdiction_id: str) -> bytes:
+    """Return augmented RR."""
+    rr_root = rr_tree.getroot()
+    augmentation_run = create_augmentation_run(rr_root)
+
+    augment_rr(rr_root=rr_root, run=augmentation_run, jurisdiction_id=jurisdiction_id)
+
+    return etree.tostring(
+        rr_root, pretty_print=True, xml_declaration=True, encoding="utf-8"
+    )
 
 
 def get_before_actionable_record(
@@ -227,6 +250,18 @@ def persistence_id_from_key(key: str) -> str:
     if len(parts) != 2 or not parts[1]:
         raise InfraError(f"S3 key has no persistence_id after prefix: {key}")
     return parts[1]
+
+
+def jurisdiction_id_from_key(persistence_id: str, key: str) -> str:
+    """Extract the jurisdiction ID between the persistence ID and filename."""
+    persistence_id_part = f"/{persistence_id.strip('/')}/"
+    parts = key.strip("/").split(persistence_id_part, 1)
+
+    if len(parts) != 2:
+        raise InfraError(f"S3 key does not contain persistence_id: {key}")
+
+    jurisdiction_id_parts = parts[1].split("/")[:-1]
+    return "/".join(jurisdiction_id_parts)
 
 
 def get_did_output_key(source_key: str) -> str:

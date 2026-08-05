@@ -2,10 +2,10 @@
 
 from collections.abc import Iterable
 from datetime import UTC, datetime
-from io import BytesIO
 from uuid import UUID
 
 from lxml import etree
+from lxml.etree import ElementTree
 
 from .constants import (
     DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
@@ -17,7 +17,6 @@ from .models import (
     Change,
     ChangeType,
     Configuration,
-    DiffingOptions,
     DiffMode,
     DiffOutput,
     Document,
@@ -168,6 +167,7 @@ def _process_additions(
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
                         actionabilityRuleDisplayName=rule_match.displayName,
+                        anchor_node=added_element,
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
@@ -188,6 +188,7 @@ def _process_additions(
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
                     actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
+                    anchor_node=added_element,
                 )
             )
     return actionable_changes
@@ -223,6 +224,7 @@ def _process_updates(
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
                         actionabilityRuleDisplayName=rule_match.displayName,
+                        anchor_node=after,
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
@@ -249,6 +251,7 @@ def _process_updates(
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
                     actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
+                    anchor_node=after,
                 )
             )
     return actionable_changes
@@ -310,33 +313,20 @@ def _process_deletions(
     return actionable_changes
 
 
-def parse_xml(source: str | bytes, parser: etree.XMLParser) -> etree._ElementTree:
-    """Parse an XML file using its filepath or bytes."""
-    return etree.parse(
-        BytesIO(source) if isinstance(source, bytes) else source,
-        parser,
-    )
-
-
-def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
+def diff_xml(
+    before_tree: ElementTree, after_tree: ElementTree, config: Configuration
+) -> DiffOutput:
     """Diff two XML documents and collect the changes into a DiffOutput.
 
-    Compares the two files named in ``opts`` (file1 = previous, file2 =
-    current) and records every added, updated, and deleted node. The
+    Compares the two trees and records every added, updated, and deleted node. The
     configuration mode decides which changes are reported: WATCH_LIST
     includes only nodes matching the configured rules, while IGNORE_LIST
     includes everything except nodes under an ignored ancestor.
     """
-    parser = etree.XMLParser(remove_blank_text=True, huge_tree=True)
+    previous_document = _get_document_metadata(before_tree.getroot())
+    current_document = _get_document_metadata(after_tree.getroot())
 
-    with measure_time("Parse XML files"):
-        left_tree = parse_xml(opts.file1, parser)
-        right_tree = parse_xml(opts.file2, parser)
-
-    previous_document = _get_document_metadata(left_tree.getroot())
-    current_document = _get_document_metadata(right_tree.getroot())
-
-    set_id = right_tree.xpath(
+    set_id = after_tree.xpath(
         "string(/hl7:ClinicalDocument/hl7:setId/@root)",
         namespaces=NAMESPACES,
     )
@@ -352,12 +342,12 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
     )
 
     with measure_time("Execute XPaths"):
-        left_rule_match_cache = build_rule_match_cache(left_tree, config.rules)
-        right_rule_match_cache = build_rule_match_cache(right_tree, config.rules)
+        left_rule_match_cache = build_rule_match_cache(before_tree, config.rules)
+        right_rule_match_cache = build_rule_match_cache(after_tree, config.rules)
 
     with measure_time("Perform diff and collect changes"):
         added, updated, deleted = collect_additions_updates_deletes(
-            left_tree.getroot(), right_tree.getroot()
+            before_tree.getroot(), after_tree.getroot()
         )
 
     with measure_time("Process additions"):
