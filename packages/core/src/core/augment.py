@@ -751,7 +751,7 @@ def _process_diff_output_changes(diff_output: DiffOutput, timestamp: str) -> Non
     ]
 
     for change in filtered_changes:
-        anchor = change.anchor_node
+        anchor = change.augmentation_anchor_node
         if anchor is None:
             continue
 

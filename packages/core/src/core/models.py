@@ -41,7 +41,7 @@ class Change(BaseModel):
     isActionable: bool = True
     actionabilityRuleId: UUID
     actionabilityRuleDisplayName: str
-    anchor_node: _Element | None = Field(
+    augmentation_anchor_node: _Element | None = Field(
         exclude=True, default=None
     )  # needed for entry-level augmentation
 
