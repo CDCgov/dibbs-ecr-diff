@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from core import diff_xml
-from core.augment import augment_eicr, create_augmentation_run
+from core.augment import augment_eicr_in_place, create_augmentation_run
 from core.configurations import load_configuration
 from core.models import Configuration, DiffingOptions
 from core.performance import measure_time
@@ -61,7 +61,7 @@ def main() -> None:
     # TODO: extract jurisdiction id
     jurisdiction_id = "12345678-1234-5678-1234-567812345678"
 
-    augmented_eicr_result = augment_eicr(
+    augmented_eicr_result = augment_eicr_in_place(
         eicr_root,
         augmentation_run,
         jurisdiction_id=jurisdiction_id,
