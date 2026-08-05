@@ -14,10 +14,12 @@ class DiffMode(StrEnum):
 
 
 class DiffingOptions(BaseModel):
-    """XML inputs supplied to the diff operation."""
+    """Runtime options supplied to the diff command."""
 
-    file1: str | bytes
-    file2: str | bytes
+    file1: str
+    file2: str
+    config: str | None = None
+    output_dir: str | None = None
 
 
 class ChangeType(StrEnum):

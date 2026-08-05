@@ -15,7 +15,11 @@ from aws_lambda_powertools.utilities.data_classes import (
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from boto3.dynamodb.conditions import Attr, Key
 from core import DiffOutput, diff_xml
-from core.augment import augment_eicr, augment_rr, create_augmentation_run
+from core.augment import (
+    augment_eicr_in_place,
+    augment_rr_in_place,
+    create_augmentation_run,
+)
 from core.configurations import load_configuration
 from lxml import etree
 from lxml.etree import ElementTree
@@ -166,7 +170,7 @@ def get_augmented_eicr(
     eicr_root = eicr_tree.getroot()
     augmentation_run = create_augmentation_run(eicr_root)
 
-    augment_eicr(
+    augment_eicr_in_place(
         eicr_root=eicr_root,
         run=augmentation_run,
         jurisdiction_id=jurisdiction_id,
@@ -183,7 +187,9 @@ def get_augmented_rr(rr_tree: ElementTree, jurisdiction_id: str) -> bytes:
     rr_root = rr_tree.getroot()
     augmentation_run = create_augmentation_run(rr_root)
 
-    augment_rr(rr_root=rr_root, run=augmentation_run, jurisdiction_id=jurisdiction_id)
+    augment_rr_in_place(
+        rr_root=rr_root, run=augmentation_run, jurisdiction_id=jurisdiction_id
+    )
 
     return etree.tostring(
         rr_root, pretty_print=True, xml_declaration=True, encoding="utf-8"

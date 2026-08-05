@@ -12,8 +12,8 @@ from core.augment import (
     _derive_augmented_rr_id,
     _derive_augmented_rr_setid,
     _find_best_author_allowed_element,
-    augment_eicr,
-    augment_rr,
+    augment_eicr_in_place,
+    augment_rr_in_place,
     create_augmentation_run,
 )
 from core.cda.clinical_statement import CDA_CLINICAL_STATEMENT_TAGS
@@ -43,10 +43,10 @@ def _make_run(**overrides) -> AugmentationRun:
     versionNumber, and the source eICR's setId root (used as the seed
     for RR-side setId derivations). Per-call discriminators —
     jurisdiction_id and tool identity travel as direct arguments to
-    augment_eicr / augment_rr, not on the run.
+    augment_eicr_in_place / augment_rr_in_place, not on the run.
 
     Augmented identifiers are NOT on the run; they are derived inside
-    augment_eicr / augment_rr from (run, jurisdiction, captured
+    augment_eicr_in_place / augment_rr_in_place from (run, jurisdiction, captured
     input identity). Tests that need to assert against specific
     augmented values compute them via _derive_* using the fixture's
     original identifiers.
@@ -81,13 +81,13 @@ def _make_empty_diff_output() -> DiffOutput:
 # =============================================================================
 
 
-def test_augment_eicr_adds_template_id(eicr_1_root_v3_1_1: etree.Element):
+def test_augment_eicr_in_place_adds_template_id(eicr_1_root_v3_1_1: etree.Element):
     """
     The eICR augmentation templateId should be added before the document id.
     """
 
     run = _make_run()
-    augment_eicr(
+    augment_eicr_in_place(
         eicr_1_root_v3_1_1,
         run,
         jurisdiction_id=_TEST_JURISDICTION_ID,
@@ -102,7 +102,7 @@ def test_augment_eicr_adds_template_id(eicr_1_root_v3_1_1: etree.Element):
     assert template_ids[0].get("extension") == "2025-11-01"
 
 
-def test_augment_eicr_replaces_document_id(eicr_1_root_v3_1_1: etree.Element):
+def test_augment_eicr_in_place_replaces_document_id(eicr_1_root_v3_1_1: etree.Element):
     """
     The document id should be replaced with the derived augmented eICR
     id (seeded from the input eICR's id and the jurisdiction),
@@ -120,7 +120,7 @@ def test_augment_eicr_replaces_document_id(eicr_1_root_v3_1_1: etree.Element):
     )
 
     run = _make_run()
-    augment_eicr(
+    augment_eicr_in_place(
         eicr_1_root_v3_1_1,
         run,
         jurisdiction_id=_TEST_JURISDICTION_ID,
@@ -133,7 +133,9 @@ def test_augment_eicr_replaces_document_id(eicr_1_root_v3_1_1: etree.Element):
     assert doc_id.get("assigningAuthorityName") == "ecr-difference-in-docs"
 
 
-def test_augment_eicr_replaces_set_id_and_version(eicr_1_root_v3_1_1: etree.Element):
+def test_augment_eicr_in_place_replaces_set_id_and_version(
+    eicr_1_root_v3_1_1: etree.Element,
+):
     """
     setId should get the derived augmented eICR setId (seeded from the
     run's original_eicr_setid_root, which the pipeline supplies from
@@ -157,7 +159,7 @@ def test_augment_eicr_replaces_set_id_and_version(eicr_1_root_v3_1_1: etree.Elem
         version_number="3",
         original_eicr_setid_root=original_eicr_setid_root,
     )
-    augment_eicr(
+    augment_eicr_in_place(
         eicr_1_root_v3_1_1,
         run,
         jurisdiction_id=_TEST_JURISDICTION_ID,
@@ -173,7 +175,7 @@ def test_augment_eicr_replaces_set_id_and_version(eicr_1_root_v3_1_1: etree.Elem
     assert version.get("value") == "3"
 
 
-def test_augment_eicr_adds_author(eicr_1_root_v3_1_1: etree.Element):
+def test_augment_eicr_in_place_adds_author(eicr_1_root_v3_1_1: etree.Element):
     """
     A new author should be added with the v4 shape:
       - NO functionCode (removed per Vol 1 change log 2026-03-10)
@@ -187,7 +189,7 @@ def test_augment_eicr_adds_author(eicr_1_root_v3_1_1: etree.Element):
     # count existing authors before augmentation
     authors_before = len(eicr_1_root_v3_1_1.findall("hl7:author", NAMESPACES))
 
-    augment_eicr(
+    augment_eicr_in_place(
         eicr_1_root_v3_1_1,
         run,
         jurisdiction_id=_TEST_JURISDICTION_ID,
@@ -230,7 +232,7 @@ def test_augment_eicr_adds_author(eicr_1_root_v3_1_1: etree.Element):
     assert aa_telecom.get("nullFlavor") == "NA"
 
 
-def test_augment_eicr_adds_related_document(eicr_1_root_v3_1_1: etree.Element):
+def test_augment_eicr_in_place_adds_related_document(eicr_1_root_v3_1_1: etree.Element):
     """
     For an original-input eICR, exactly one relatedDocument sibling
     should be added with typeCode XFRM. Its parentDocument should
@@ -254,7 +256,7 @@ def test_augment_eicr_adds_related_document(eicr_1_root_v3_1_1: etree.Element):
     starting_related_doc_len = len(original_related_docs)
 
     run = _make_run()
-    augment_eicr(
+    augment_eicr_in_place(
         eicr_1_root_v3_1_1,
         run,
         jurisdiction_id=_TEST_JURISDICTION_ID,
@@ -284,13 +286,15 @@ def test_augment_eicr_adds_related_document(eicr_1_root_v3_1_1: etree.Element):
     assert parent_version.get("value") == original_version.get("value")
 
 
-def test_augment_eicr_replaces_effective_time(eicr_1_root_v3_1_1: etree.Element):
+def test_augment_eicr_in_place_replaces_effective_time(
+    eicr_1_root_v3_1_1: etree.Element,
+):
     """
     effectiveTime should be replaced with the augmentation timestamp.
     """
 
     run = _make_run()
-    augment_eicr(
+    augment_eicr_in_place(
         eicr_1_root_v3_1_1,
         run,
         jurisdiction_id=_TEST_JURISDICTION_ID,
@@ -307,7 +311,9 @@ def test_augment_eicr_replaces_effective_time(eicr_1_root_v3_1_1: etree.Element)
 # =============================================================================
 
 
-def test_augment_rr_adds_rr_augmentation_template_id(rr_1_root_v1_1: etree.Element):
+def test_augment_rr_in_place_adds_rr_augmentation_template_id(
+    rr_1_root_v1_1: etree.Element,
+):
     """
     Under v4, the RR gets its own augmentation header template
     (Vol 1 §2, Vol 2 §1.2), distinct from the eICR's. The RR
@@ -316,7 +322,7 @@ def test_augment_rr_adds_rr_augmentation_template_id(rr_1_root_v1_1: etree.Eleme
     """
 
     run = _make_run()
-    augment_rr(
+    augment_rr_in_place(
         rr_1_root_v1_1,
         run,
         jurisdiction_id=_TEST_JURISDICTION_ID,
@@ -339,7 +345,7 @@ def test_augment_rr_adds_rr_augmentation_template_id(rr_1_root_v1_1: etree.Eleme
     assert len(eicr_aug_template) == 0
 
 
-def test_augment_rr_replaces_set_id_and_version_unconditionally(
+def test_augment_rr_in_place_replaces_set_id_and_version_unconditionally(
     rr_1_root_v1_1: etree.Element,
 ):
     """
@@ -363,7 +369,7 @@ def test_augment_rr_replaces_set_id_and_version_unconditionally(
         version_number="3",
         original_eicr_setid_root=original_eicr_setid_root,
     )
-    augment_rr(
+    augment_rr_in_place(
         rr_1_root_v1_1,
         run,
         jurisdiction_id=_TEST_JURISDICTION_ID,
@@ -378,7 +384,7 @@ def test_augment_rr_replaces_set_id_and_version_unconditionally(
     assert version.get("value") == "3"
 
 
-def test_augment_rr_replaces_document_id(rr_1_root_v1_1: etree.Element):
+def test_augment_rr_in_place_replaces_document_id(rr_1_root_v1_1: etree.Element):
     """
     The RR's document id should be the derived augmented RR id
     (seeded from the input RR's id and the jurisdiction),
@@ -395,7 +401,7 @@ def test_augment_rr_replaces_document_id(rr_1_root_v1_1: etree.Element):
     )
 
     run = _make_run()
-    augment_rr(
+    augment_rr_in_place(
         rr_1_root_v1_1,
         run,
         jurisdiction_id=_TEST_JURISDICTION_ID,
@@ -407,7 +413,9 @@ def test_augment_rr_replaces_document_id(rr_1_root_v1_1: etree.Element):
     assert doc_id.get("assigningAuthorityName") == "ecr-difference-in-docs"
 
 
-def test_augment_rr_adds_author_and_related_document(rr_1_root_v1_1: etree.Element):
+def test_augment_rr_in_place_adds_author_and_related_document(
+    rr_1_root_v1_1: etree.Element,
+):
     """
     The RR should get a v4-shape author and relatedDocument: author
     has no functionCode, softwareName has coded attrs, and the
@@ -426,7 +434,7 @@ def test_augment_rr_adds_author_and_related_document(rr_1_root_v1_1: etree.Eleme
     assert original_doc_id is not None
 
     run = _make_run()
-    augment_rr(
+    augment_rr_in_place(
         rr_1_root_v1_1,
         run,
         jurisdiction_id=_TEST_JURISDICTION_ID,
@@ -466,7 +474,7 @@ def test_augment_rr_adds_author_and_related_document(rr_1_root_v1_1: etree.Eleme
     assert result_input_doc_id.get("assigningAuthorityName") == "ecr-refiner"
 
 
-def test_augment_rr_relatedDocument_carries_setId_and_version_when_input_has_them(
+def test_augment_rr_in_place_relatedDocument_carries_setId_and_version_when_input_has_them(
     rr_1_root_v1_1: etree.Element,
 ):
     """
@@ -474,7 +482,7 @@ def test_augment_rr_relatedDocument_carries_setId_and_version_when_input_has_the
     augmented RR's relatedDocument/parentDocument carries both into
     the lineage — faithfully, not synthesized.
 
-    This is the diff-of-an-already-augmented-document case: augment_rr
+    This is the diff-of-an-already-augmented-document case: augment_rr_in_place
     writes setId/versionNumber unconditionally under v4, so feeding an
     augmented RR back through diffing produces an input that has
     them. The omission in the sibling test is input-conditional, not a
@@ -490,7 +498,7 @@ def test_augment_rr_relatedDocument_carries_setId_and_version_when_input_has_the
     assert input_version is not None
 
     run = _make_run()
-    augment_rr(
+    augment_rr_in_place(
         rr_1_root_v1_1,
         run,
         jurisdiction_id=_TEST_JURISDICTION_ID,
@@ -530,7 +538,7 @@ def test_augment_rr_relatedDocument_carries_setId_and_version_when_input_has_the
 # =============================================================================
 
 
-def test_augment_eicr_chains_prior_relatedDocs_as_siblings(
+def test_augment_eicr_in_place_chains_prior_relatedDocs_as_siblings(
     eicr_1_root_v3_1_1: etree.Element,
 ):
     """
@@ -553,11 +561,11 @@ def test_augment_eicr_chains_prior_relatedDocs_as_siblings(
     assert original_id is not None
 
     # first augmentation simulates a prior tool (e.g., ecr-refiner).
-    # tool_code/tool_display travel as kwargs on augment_eicr — they
+    # tool_code/tool_display travel as kwargs on augment_eicr_in_place — they
     # default to the Difference in Docs's identity in production but tests can
     # override to simulate other tools in the chain.
 
-    augment_eicr(
+    augment_eicr_in_place(
         eicr_1_root_v3_1_1,
         _make_run(),
         diff_output=_make_empty_diff_output(),
@@ -576,7 +584,7 @@ def test_augment_eicr_chains_prior_relatedDocs_as_siblings(
 
     # second augmentation simulates Difference in Docs running
     # on the prior output
-    augment_eicr(
+    augment_eicr_in_place(
         eicr_1_root_v3_1_1,
         _make_run(),
         diff_output=_make_empty_diff_output(),
@@ -643,7 +651,7 @@ def test_create_augmentation_run_captures_eicr_setid_for_rr_seeding(
     """
     The run carries original_eicr_setid_root because the RR-side setId
     derivation seeds from the eICR's setId, not the RR's. Keeping the
-    value on the run means augment_rr does not need the eICR tree
+    value on the run means augment_rr_in_place does not need the eICR tree
     in scope to derive its setId.
     """
 
@@ -726,7 +734,7 @@ def test_derive_augmented_rr_setid_distinct_from_eicr_setid():
 def test_no_diff_augmentation_with_no_diff_output_changes(
     eicr_1_root_v3_1_1: etree.Element,
 ):
-    augment_eicr(
+    augment_eicr_in_place(
         eicr_1_root_v3_1_1,
         _make_run(),
         diff_output=_make_empty_diff_output(),

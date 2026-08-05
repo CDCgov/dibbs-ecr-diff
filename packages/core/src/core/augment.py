@@ -140,7 +140,7 @@ def _derive_augmented_rr_setid(
 class AugmentationRun:
     """Run related metadata captured once and used across augmentation from a single eICR/RR pair.
 
-    Both augment_eicr and augment_rr read from this single object,
+    Both augment_eicr_in_place and augment_rr_in_place read from this single object,
     which guarantees the augmented documents share effectiveTime
     and inherit versionNumber from the source eICR.
 
@@ -151,13 +151,13 @@ class AugmentationRun:
 
     original_eicr_setid_root is captured here because the RR-side
     setId derivation seeds from the eICR's setId, not the RR's.
-    Keeping the value on the run means augment_rr does not need the
+    Keeping the value on the run means augment_rr_in_place does not need the
     eICR tree in scope to derive its setId.
 
     Per-call inputs that vary across augmentations within a run:
     jurisdiction_id and the tool identity kwargs are NOT on
-    the run. They travel as direct arguments to augment_eicr and
-    augment_rr. Production callers always use the Difference in Docs tool
+    the run. They travel as direct arguments to augment_eicr_in_place and
+    augment_rr_in_place. Production callers always use the Difference in Docs tool
     defaults; tests can override to simulate prior augmentations by
     other tools.
     """
@@ -245,7 +245,7 @@ class AugmentedResult:
     augmented_doc_id: str
 
 
-def augment_eicr(
+def augment_eicr_in_place(
     eicr_root: _Element,
     run: AugmentationRun,
     jurisdiction_id: str,
@@ -320,7 +320,7 @@ def augment_eicr(
 # =============================================================================
 
 
-def augment_rr(
+def augment_rr_in_place(
     rr_root: _Element,
     run: AugmentationRun,
     jurisdiction_id: str,
@@ -332,7 +332,7 @@ def augment_rr(
     Mutates `rr_root` in place. Implements the RR Data Augmentation
     Header template (Vol 2 §1.2), introduced in IG v4.
 
-    Mirrors augment_eicr's structure with RR-specific
+    Mirrors augment_eicr_in_place's structure with RR-specific
     identifiers and templateId. setId and versionNumber are
     replaced unconditionally — under v4 they are 1..1 SHALL on the
     augmented document, regardless of whether the input RR had them.
