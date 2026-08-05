@@ -1,3 +1,4 @@
+import json
 from uuid import UUID
 
 import pytest
@@ -23,10 +24,14 @@ from pydantic import ValidationError
 
 RULE_ID = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 RULE_NAME = "Relevant clinical observation"
+SECOND_RULE_ID = UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+SECOND_RULE_NAME = "Second relevant clinical observation"
 
 
 def rule(
     change_types=None,
+    rule_id=RULE_ID,
+    rule_name=RULE_NAME,
 ) -> Rule:
     if change_types is None:
         change_types = {
@@ -35,8 +40,8 @@ def rule(
             ChangeType.DELETED,
         }
     return Rule(
-        id=RULE_ID,
-        displayName=RULE_NAME,
+        id=rule_id,
+        displayName=rule_name,
         changeTypes=change_types,
     )
 
@@ -54,6 +59,23 @@ def assert_change(
     assert change.xpath == structural_xpath(node)
     assert change.xpathDocumentId == document_id
     assert change.isActionable is True
+    assert change.actionabilityRuleId == rule_id
+    assert change.actionabilityRuleDisplayName == rule_name
+
+
+def assert_nonactionable_change(
+    change: Change,
+    *,
+    change_type: ChangeType,
+    node,
+    document_id: str,
+    rule_id: UUID | None = None,
+    rule_name: str | None = None,
+) -> None:
+    assert change.changeType == change_type
+    assert change.xpath == structural_xpath(node)
+    assert change.xpathDocumentId == document_id
+    assert change.isActionable is False
     assert change.actionabilityRuleId == rule_id
     assert change.actionabilityRuleDisplayName == rule_name
 
@@ -216,7 +238,29 @@ def test_process_additions_watch_list_emits_once_per_applicable_rule():
         )
 
 
-def test_process_additions_ignore_list_skips_directly_matched_element():
+def test_process_additions_watch_list_retains_unmatched_change():
+    root = elem(
+        f'<ClinicalDocument xmlns="{HL7_NS}"><component><observation/></component></ClinicalDocument>'
+    )
+    added_observation = find_one(root, ".//hl7:observation")
+
+    changes = _process_additions(
+        [added_observation],
+        DiffMode.WATCH_LIST,
+        {},
+        Document(documentId="current-document-id", versionNumber="2"),
+    )
+
+    assert len(changes) == 1
+    assert_nonactionable_change(
+        changes[0],
+        change_type=ChangeType.ADDED,
+        node=added_observation,
+        document_id="current-document-id",
+    )
+
+
+def test_process_additions_ignore_list_retains_direct_match_as_nonactionable():
     root = elem(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}">
@@ -231,14 +275,33 @@ def test_process_additions_ignore_list_skips_directly_matched_element():
     changes = _process_additions(
         [ignored_addition],
         DiffMode.IGNORE_LIST,
-        {ignored_addition: [rule()]},
+        {
+            ignored_addition: [
+                rule(),
+                rule(rule_id=SECOND_RULE_ID, rule_name=SECOND_RULE_NAME),
+            ]
+        },
         Document(documentId="current-document-id", versionNumber="2"),
     )
 
-    assert changes == []
+    assert len(changes) == 2
+    for change, rule_id, rule_name in zip(
+        changes,
+        (RULE_ID, SECOND_RULE_ID),
+        (RULE_NAME, SECOND_RULE_NAME),
+        strict=True,
+    ):
+        assert_nonactionable_change(
+            change,
+            change_type=ChangeType.ADDED,
+            node=ignored_addition,
+            document_id="current-document-id",
+            rule_id=rule_id,
+            rule_name=rule_name,
+        )
 
 
-def test_process_additions_ignore_list_skips_descendant_of_matched_element():
+def test_process_additions_ignore_list_retains_ignored_descendant():
     root = elem(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}">
@@ -264,9 +327,17 @@ def test_process_additions_ignore_list_skips_descendant_of_matched_element():
         Document(documentId="current-document-id", versionNumber="2"),
     )
 
-    assert len(changes) == 1
-    assert_change(
+    assert len(changes) == 2
+    assert_nonactionable_change(
         changes[0],
+        change_type=ChangeType.ADDED,
+        node=ignored_addition,
+        document_id="current-document-id",
+        rule_id=RULE_ID,
+        rule_name=RULE_NAME,
+    )
+    assert_change(
+        changes[1],
         change_type=ChangeType.ADDED,
         node=included_addition,
         document_id="current-document-id",
@@ -348,7 +419,28 @@ def test_process_updates_watch_list_emits_change_for_direct_match():
     )
 
 
-def test_process_updates_ignore_list_skips_matches_in_either_document():
+def test_process_updates_watch_list_retains_unmatched_change():
+    before = elem(f'<observation xmlns="{HL7_NS}" value="old"/>')
+    after = elem(f'<observation xmlns="{HL7_NS}" value="new"/>')
+
+    changes = _process_updates(
+        [(before, after)],
+        DiffMode.WATCH_LIST,
+        {},
+        {},
+        Document(documentId="current-document-id", versionNumber="2"),
+    )
+
+    assert len(changes) == 1
+    assert_nonactionable_change(
+        changes[0],
+        change_type=ChangeType.UPDATED,
+        node=after,
+        document_id="current-document-id",
+    )
+
+
+def test_process_updates_ignore_list_retains_matches_as_nonactionable():
     before_root = elem(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}">
@@ -385,14 +477,41 @@ def test_process_updates_ignore_list_skips_matches_in_either_document():
     changes = _process_updates(
         list(zip(before_nodes, after_nodes, strict=True)),
         DiffMode.IGNORE_LIST,
-        {ignored_before: [rule()]},
+        {
+            ignored_before: [
+                rule(),
+                rule(rule_id=SECOND_RULE_ID, rule_name=SECOND_RULE_NAME),
+            ]
+        },
         {ignored_after: [rule()]},
         Document(documentId="current-document-id", versionNumber="2"),
     )
 
-    assert len(changes) == 1
+    assert len(changes) == 4
+    for change, rule_id, rule_name in zip(
+        changes[:2],
+        (RULE_ID, SECOND_RULE_ID),
+        (RULE_NAME, SECOND_RULE_NAME),
+        strict=True,
+    ):
+        assert_nonactionable_change(
+            change,
+            change_type=ChangeType.UPDATED,
+            node=after_nodes[0],
+            document_id="current-document-id",
+            rule_id=rule_id,
+            rule_name=rule_name,
+        )
+    assert_nonactionable_change(
+        changes[2],
+        change_type=ChangeType.UPDATED,
+        node=after_nodes[1],
+        document_id="current-document-id",
+        rule_id=RULE_ID,
+        rule_name=RULE_NAME,
+    )
     assert_change(
-        changes[0],
+        changes[3],
         change_type=ChangeType.UPDATED,
         node=after_nodes[2],
         document_id="current-document-id",
@@ -434,7 +553,29 @@ def test_process_deletions_watch_list_emits_change_for_watched_descendant():
     )
 
 
-def test_process_deletions_ignore_list_skips_ignored_ancestry():
+def test_process_deletions_watch_list_retains_unmatched_change():
+    root = elem(
+        f'<ClinicalDocument xmlns="{HL7_NS}"><component><observation/></component></ClinicalDocument>'
+    )
+    deleted_observation = find_one(root, ".//hl7:observation")
+
+    changes = _process_deletions(
+        [deleted_observation],
+        DiffMode.WATCH_LIST,
+        {},
+        Document(documentId="previous-document-id", versionNumber="1"),
+    )
+
+    assert len(changes) == 1
+    assert_nonactionable_change(
+        changes[0],
+        change_type=ChangeType.DELETED,
+        node=deleted_observation,
+        document_id="previous-document-id",
+    )
+
+
+def test_process_deletions_ignore_list_retains_ignored_ancestry():
     root = elem(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}">
@@ -456,13 +597,32 @@ def test_process_deletions_ignore_list_skips_ignored_ancestry():
     changes = _process_deletions(
         [ignored_deletion, included_deletion],
         DiffMode.IGNORE_LIST,
-        {ignored_section: [rule()]},
+        {
+            ignored_section: [
+                rule(),
+                rule(rule_id=SECOND_RULE_ID, rule_name=SECOND_RULE_NAME),
+            ]
+        },
         Document(documentId="previous-document-id", versionNumber="1"),
     )
 
-    assert len(changes) == 1
+    assert len(changes) == 3
+    for change, rule_id, rule_name in zip(
+        changes[:2],
+        (RULE_ID, SECOND_RULE_ID),
+        (RULE_NAME, SECOND_RULE_NAME),
+        strict=True,
+    ):
+        assert_nonactionable_change(
+            change,
+            change_type=ChangeType.DELETED,
+            node=ignored_deletion,
+            document_id="previous-document-id",
+            rule_id=rule_id,
+            rule_name=rule_name,
+        )
     assert_change(
-        changes[0],
+        changes[2],
         change_type=ChangeType.DELETED,
         node=included_deletion,
         document_id="previous-document-id",
@@ -575,3 +735,17 @@ def test_rule_requires_at_least_one_change_type():
             displayName="Invalid rule",
             changeTypes=set(),
         )
+
+
+def test_nonactionable_change_serializes_missing_rule_fields_as_null():
+    change = Change(
+        changeType=ChangeType.UPDATED,
+        xpath="/hl7:ClinicalDocument[1]",
+        xpathDocumentId="current-document-id",
+        isActionable=False,
+    )
+
+    serialized_change = json.loads(change.model_dump_json())
+
+    assert serialized_change["actionabilityRuleId"] is None
+    assert serialized_change["actionabilityRuleDisplayName"] is None

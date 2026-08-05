@@ -143,23 +143,23 @@ def _process_additions(
 ) -> list[Change]:
     """Build ADDED change list for nodes present in the new document only.
 
-    In WATCH_LIST mode, emits one change per rule match found within each
-    added node's subtree. In IGNORE_LIST mode, emits one change per added
-    node unless the node or one of its ancestors matches an ignore rule.
-    Added nodes live in the new tree, so xpathDocumentId is taken from
-    ``current_document``.
+    WATCH_LIST additions are actionable when an applicable rule matches the
+    added subtree. IGNORE_LIST additions are nonactionable when an applicable
+    rule matches the node or an ancestor. All other additions are retained
+    with the mode's default actionability.
     """
-    actionable_changes: list[Change] = []
+    changes: list[Change] = []
     for added_element in added:
         if mode == DiffMode.WATCH_LIST:
-            for rule_match in unique_rule_matches_for_change_type(
+            applicable_rules = unique_rule_matches_for_change_type(
                 rule_matches_for_node_and_descendants(
                     added_element,
                     right_rule_match_cache,
                 ),
                 ChangeType.ADDED,
-            ):
-                actionable_changes.append(
+            )
+            for rule_match in applicable_rules:
+                changes.append(
                     Change(
                         changeType=ChangeType.ADDED,
                         xpath=structural_xpath(added_element),
@@ -169,17 +169,41 @@ def _process_additions(
                         actionabilityRuleDisplayName=rule_match.displayName,
                     )
                 )
+
+            if not applicable_rules:
+                changes.append(
+                    Change(
+                        changeType=ChangeType.ADDED,
+                        xpath=structural_xpath(added_element),
+                        xpathDocumentId=current_document.documentId,
+                        isActionable=False,
+                        actionabilityRuleId=None,
+                        actionabilityRuleDisplayName=None,
+                    )
+                )
         elif mode == DiffMode.IGNORE_LIST:
-            if has_ignore_rule_for_change_type(
+            ignore_rules = unique_rule_matches_for_change_type(
                 rule_matches_for_node_and_ancestors(
                     added_element,
                     right_rule_match_cache,
                 ),
                 ChangeType.ADDED,
-            ):
+            )
+            if ignore_rules:
+                for ignore_rule in ignore_rules:
+                    changes.append(
+                        Change(
+                            changeType=ChangeType.ADDED,
+                            xpath=structural_xpath(added_element),
+                            xpathDocumentId=current_document.documentId,
+                            isActionable=False,
+                            actionabilityRuleId=ignore_rule.id,
+                            actionabilityRuleDisplayName=ignore_rule.displayName,
+                        )
+                    )
                 continue
 
-            actionable_changes.append(
+            changes.append(
                 Change(
                     changeType=ChangeType.ADDED,
                     xpath=structural_xpath(added_element),
@@ -189,7 +213,7 @@ def _process_additions(
                     actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
                 )
             )
-    return actionable_changes
+    return changes
 
 
 def _process_updates(
@@ -201,20 +225,20 @@ def _process_updates(
 ) -> list[Change]:
     """Build UPDATED change list for nodes that differ between the two documents.
 
-    Each item in ``updated`` is a (before, after) pair. In WATCH_LIST mode,
-    emits a change when the after node directly matches an applicable rule. In
-    IGNORE_LIST mode, emits one change per updated node unless that node or one
-    of its ancestors matches an applicable rule in either the previous or
-    current document. xpathDocumentId is taken from ``current_document``.
+    WATCH_LIST updates are actionable when the after node directly matches an
+    applicable rule. IGNORE_LIST updates are nonactionable when an applicable
+    rule matches the node or an ancestor in either document. All other updates
+    are retained with the mode's default actionability.
     """
-    actionable_changes: list[Change] = []
+    changes: list[Change] = []
     for before, after in updated:
         if mode == DiffMode.WATCH_LIST:
-            for rule_match in unique_rule_matches_for_change_type(
+            applicable_rules = unique_rule_matches_for_change_type(
                 right_rule_match_cache.get(after, []),
                 ChangeType.UPDATED,
-            ):
-                actionable_changes.append(
+            )
+            for rule_match in applicable_rules:
+                changes.append(
                     Change(
                         changeType=ChangeType.UPDATED,
                         xpath=structural_xpath(after),
@@ -222,6 +246,18 @@ def _process_updates(
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
                         actionabilityRuleDisplayName=rule_match.displayName,
+                    )
+                )
+
+            if not applicable_rules:
+                changes.append(
+                    Change(
+                        changeType=ChangeType.UPDATED,
+                        xpath=structural_xpath(after),
+                        xpathDocumentId=current_document.documentId,
+                        isActionable=False,
+                        actionabilityRuleId=None,
+                        actionabilityRuleDisplayName=None,
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
@@ -235,12 +271,24 @@ def _process_updates(
                     right_rule_match_cache,
                 ),
             ]
-            if has_ignore_rule_for_change_type(
+            ignore_rules = unique_rule_matches_for_change_type(
                 rule_matches,
                 ChangeType.UPDATED,
-            ):
+            )
+            if ignore_rules:
+                for ignore_rule in ignore_rules:
+                    changes.append(
+                        Change(
+                            changeType=ChangeType.UPDATED,
+                            xpath=structural_xpath(after),
+                            xpathDocumentId=current_document.documentId,
+                            isActionable=False,
+                            actionabilityRuleId=ignore_rule.id,
+                            actionabilityRuleDisplayName=ignore_rule.displayName,
+                        )
+                    )
                 continue
-            actionable_changes.append(
+            changes.append(
                 Change(
                     changeType=ChangeType.UPDATED,
                     xpath=structural_xpath(after),
@@ -250,7 +298,7 @@ def _process_updates(
                     actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
                 )
             )
-    return actionable_changes
+    return changes
 
 
 def _process_deletions(
@@ -261,23 +309,23 @@ def _process_deletions(
 ) -> list[Change]:
     """Build DELETED change list for nodes present in the old document only.
 
-    In WATCH_LIST mode, emits one change per rule match found within each
-    deleted node's subtree. In IGNORE_LIST mode, emits one change per deleted
-    node unless the node or one of its ancestors matches an ignore rule.
-    Deleted nodes live in the old tree, so xpathDocumentId is taken from
-    ``previous_document``.
+    WATCH_LIST deletions are actionable when an applicable rule matches the
+    deleted subtree. IGNORE_LIST deletions are nonactionable when an applicable
+    rule matches the node or an ancestor. All other deletions are retained with
+    the mode's default actionability.
     """
-    actionable_changes: list[Change] = []
+    changes: list[Change] = []
     for deleted_element in deleted:
         if mode == DiffMode.WATCH_LIST:
-            for rule_match in unique_rule_matches_for_change_type(
+            applicable_rules = unique_rule_matches_for_change_type(
                 rule_matches_for_node_and_descendants(
                     deleted_element,
                     left_rule_match_cache,
                 ),
                 ChangeType.DELETED,
-            ):
-                actionable_changes.append(
+            )
+            for rule_match in applicable_rules:
+                changes.append(
                     Change(
                         changeType=ChangeType.DELETED,
                         xpath=structural_xpath(deleted_element),
@@ -287,16 +335,40 @@ def _process_deletions(
                         actionabilityRuleDisplayName=rule_match.displayName,
                     )
                 )
+
+            if not applicable_rules:
+                changes.append(
+                    Change(
+                        changeType=ChangeType.DELETED,
+                        xpath=structural_xpath(deleted_element),
+                        xpathDocumentId=previous_document.documentId,
+                        isActionable=False,
+                        actionabilityRuleId=None,
+                        actionabilityRuleDisplayName=None,
+                    )
+                )
         elif mode == DiffMode.IGNORE_LIST:
-            if has_ignore_rule_for_change_type(
+            ignore_rules = unique_rule_matches_for_change_type(
                 rule_matches_for_node_and_ancestors(
                     deleted_element,
                     left_rule_match_cache,
                 ),
                 ChangeType.DELETED,
-            ):
+            )
+            if ignore_rules:
+                for ignore_rule in ignore_rules:
+                    changes.append(
+                        Change(
+                            changeType=ChangeType.DELETED,
+                            xpath=structural_xpath(deleted_element),
+                            xpathDocumentId=previous_document.documentId,
+                            isActionable=False,
+                            actionabilityRuleId=ignore_rule.id,
+                            actionabilityRuleDisplayName=ignore_rule.displayName,
+                        )
+                    )
                 continue
-            actionable_changes.append(
+            changes.append(
                 Change(
                     changeType=ChangeType.DELETED,
                     xpath=structural_xpath(deleted_element),
@@ -306,17 +378,15 @@ def _process_deletions(
                     actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
                 )
             )
-    return actionable_changes
+    return changes
 
 
 def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
     """Diff two XML documents and collect the changes into a DiffOutput.
 
     Compares the two files named in ``opts`` (file1 = previous, file2 =
-    current) and records every added, updated, and deleted node. The
-    configuration mode decides which changes are reported: WATCH_LIST
-    includes only nodes matching the configured rules, while IGNORE_LIST
-    includes everything except nodes under an ignored ancestor.
+    current) and records every detected added, updated, and deleted node. The
+    configuration mode determines whether each reported change is actionable.
     """
     parser = etree.XMLParser(remove_blank_text=True, huge_tree=True)
 
@@ -350,6 +420,8 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
         added, updated, deleted = collect_additions_updates_deletes(
             left_tree.getroot(), right_tree.getroot()
         )
+
+    diff_output.hasDetectedChanges = bool(added or updated or deleted)
 
     with measure_time("Process additions"):
         diff_output.changes.extend(

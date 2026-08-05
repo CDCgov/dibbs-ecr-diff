@@ -35,9 +35,9 @@ class Change(BaseModel):
     changeType: ChangeType
     xpath: str
     xpathDocumentId: str
-    isActionable: bool = True
-    actionabilityRuleId: UUID
-    actionabilityRuleDisplayName: str
+    isActionable: bool
+    actionabilityRuleId: UUID | None = None
+    actionabilityRuleDisplayName: str | None = None
 
 
 class Document(BaseModel):
@@ -58,6 +58,7 @@ class DiffOutput(BaseModel):
     setId: str
     currentDocument: Document
     previousDocument: Document
+    hasDetectedChanges: bool = True
     hasActionableChanges: bool = True
     changes: list[Change] = Field(default_factory=list)
 
