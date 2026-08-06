@@ -58,8 +58,8 @@ class DiffOutput(BaseModel):
     setId: str
     currentDocument: Document
     previousDocument: Document
-    hasDetectedChanges: bool = True
-    hasActionableChanges: bool = True
+    hasDetectedChanges: bool
+    hasActionableChanges: bool = True  # defensive default to allow eICRs through
     changes: list[Change] = Field(default_factory=list)
 
 
