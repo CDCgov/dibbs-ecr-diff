@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from lxml import etree
+from lxml.etree import ElementTree
 
 from .constants import (
     DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
@@ -16,7 +17,6 @@ from .models import (
     Change,
     ChangeType,
     Configuration,
-    DiffingOptions,
     DiffMode,
     DiffOutput,
     Document,
@@ -143,6 +143,10 @@ def build_changes_for_rule_matches(
         rule_matches,
         change_type,
     )
+    if change_type in [ChangeType.ADDED, ChangeType.UPDATED]:
+        augmentation_anchor_node = element
+    else:
+        augmentation_anchor_node = None
 
     if mode == DiffMode.WATCH_LIST:
         if applicable_rules:
@@ -154,6 +158,7 @@ def build_changes_for_rule_matches(
                     isActionable=True,
                     actionabilityRuleId=rule.id,
                     actionabilityRuleDisplayName=rule.displayName,
+                    augmentation_anchor_node=augmentation_anchor_node,
                 )
                 for rule in applicable_rules
             ]
@@ -166,6 +171,7 @@ def build_changes_for_rule_matches(
                     isActionable=False,
                     actionabilityRuleId=None,
                     actionabilityRuleDisplayName=None,
+                    augmentation_anchor_node=augmentation_anchor_node,
                 )
             ]
 
@@ -179,6 +185,7 @@ def build_changes_for_rule_matches(
                     isActionable=False,
                     actionabilityRuleId=rule.id,
                     actionabilityRuleDisplayName=rule.displayName,
+                    augmentation_anchor_node=augmentation_anchor_node,
                 )
                 for rule in applicable_rules
             ]
@@ -191,6 +198,7 @@ def build_changes_for_rule_matches(
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
                     actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
+                    augmentation_anchor_node=augmentation_anchor_node,
                 )
             ]
 
@@ -321,50 +329,36 @@ def _process_deletions(
     return changes
 
 
-def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
+def diff_xml(
+    before_tree: ElementTree, after_tree: ElementTree, config: Configuration
+) -> DiffOutput:
     """Diff two XML documents and collect the changes into a DiffOutput.
 
-    Compares the two files named in ``opts`` (file1 = previous, file2 =
-    current) and records every detected added, updated, and deleted node. The
-    configuration mode determines whether each reported change is actionable.
+    Compares the two trees and detects every added, updated, and deleted node. The
+    configuration determines whether each detected change is actionable or
+    non-actionable.
     """
-    parser = etree.XMLParser(remove_blank_text=True, huge_tree=True)
+    previous_document = _get_document_metadata(before_tree.getroot())
+    current_document = _get_document_metadata(after_tree.getroot())
 
-    with measure_time("Parse XML files"):
-        left_tree = etree.parse(opts.file1, parser)
-        right_tree = etree.parse(opts.file2, parser)
-
-    previous_document = _get_document_metadata(left_tree.getroot())
-    current_document = _get_document_metadata(right_tree.getroot())
-
-    set_id = right_tree.xpath(
+    set_id = after_tree.xpath(
         "string(/hl7:ClinicalDocument/hl7:setId/@root)",
         namespaces=NAMESPACES,
     )
 
-    diff_output = DiffOutput(
-        generatedAt=datetime.now(UTC),
-        configurationId=config.id,
-        configurationVersion=config.configVersion,
-        configurationDisplayName=config.displayName,
-        setId=set_id,
-        currentDocument=current_document,
-        previousDocument=previous_document,
-    )
-
     with measure_time("Execute XPaths"):
-        left_rule_match_cache = build_rule_match_cache(left_tree, config.rules)
-        right_rule_match_cache = build_rule_match_cache(right_tree, config.rules)
+        left_rule_match_cache = build_rule_match_cache(before_tree, config.rules)
+        right_rule_match_cache = build_rule_match_cache(after_tree, config.rules)
 
     with measure_time("Perform diff and collect changes"):
         added, updated, deleted = collect_additions_updates_deletes(
-            left_tree.getroot(), right_tree.getroot()
+            before_tree.getroot(), after_tree.getroot()
         )
 
-    diff_output.hasDetectedChanges = bool(added or updated or deleted)
+    processed_changes: list[Change] = []
 
     with measure_time("Process additions"):
-        diff_output.changes.extend(
+        processed_changes.extend(
             _process_additions(
                 added,
                 config.mode,
@@ -374,7 +368,7 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
         )
 
     with measure_time("Process updates"):
-        diff_output.changes.extend(
+        processed_changes.extend(
             _process_updates(
                 updated,
                 config.mode,
@@ -385,14 +379,21 @@ def diff_xml(opts: DiffingOptions, config: Configuration) -> DiffOutput:
         )
 
     with measure_time("Process deletions"):
-        diff_output.changes.extend(
+        processed_changes.extend(
             _process_deletions(
                 deleted, config.mode, left_rule_match_cache, previous_document
             )
         )
 
-    diff_output.hasActionableChanges = any(
-        change.isActionable for change in diff_output.changes
+    return DiffOutput(
+        generatedAt=datetime.now(UTC),
+        configurationId=config.id,
+        configurationVersion=config.configVersion,
+        configurationDisplayName=config.displayName,
+        setId=set_id,
+        currentDocument=current_document,
+        previousDocument=previous_document,
+        hasDetectedChanges=bool(added or updated or deleted),
+        hasActionableChanges=any(change.isActionable for change in processed_changes),
+        changes=processed_changes,
     )
-
-    return diff_output

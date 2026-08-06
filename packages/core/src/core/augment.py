@@ -2,15 +2,21 @@ import uuid
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Final, Literal
-from uuid import UUID
+from typing import Final
 
 from lxml import etree
-from lxml.etree import CDATA, _Element
+from lxml.etree import _Element
 
-from core.models import DiffOutput
+from core.cda.clinical_statement import CDA_CLINICAL_STATEMENT_TAGS
+from core.cda.xsd_sequence import (
+    insert_sequenced_child_of_parent,
+)
+from core.models import Change, ChangeType, DiffOutput
+from core.xml_utils import (
+    hl7_clark_tag,
+)
 
-from .constants import HL7_NS, NAMESPACES, XSI_NS
+from .constants import HL7_NS, NAMESPACES
 
 # NOTE:
 # CONSTANTS
@@ -48,116 +54,44 @@ DIFF_SECTION_DISPLAY_NAME: Final[str] = "Difference in Docs eCR Diff"
 #
 # deterministic UUIDv5-based augmented identifiers; seed string shape:
 #
-#     {jurisdiction_id}|{scope}|{prefix:}{source}
-#
-# TODO: update deterministic seeding for difference in docs
-# * scope is either a condition_grouper_uuid (for per-condition pair
-# outputs) or REMAINDER_SCOPE (for the remainder RR; the augmented
-# RR carrying reportable conditions that did not have an active
-# configuration and therefore produced no refined eICR for a
-# jurisdiction). only augment_rr accepts REMAINDER_SCOPE; the eICR
-# is always part of a per-condition pair, so augment_eicr takes a
-# condition_grouper_uuid directly
-# * condition_grouper_uuid is the UUID suffix extracted from the TES
-# condition grouper's canonical_url (e.g.,
-# https://tes.tools.aimsplatform.org/api/fhir/ValueSet/07221093-b8a1-4b1d-8678-259277bfba64
-# yields 07221093-b8a1-4b1d-8678-259277bfba64)
-# * seeding with the UUID alone--not the full URL--keeps the hash input stable against
-# operational changes to the host or path that don't change the identity of the grouper
-# * the UUID is the part TES guarantees will not change
+#     {jurisdiction_id}|{prefix:}{source}
 #
 # IMPORTANT:
 # the namespace UUID, the seed prefix labels, the field separator,
-# the field ordering, and the REMAINDER_SCOPE literal are all part of
-# the wire-protocol contract and cannot be changed without breaking
-# idempotency for every augmented document previously produced
+# and the field ordering are all part of the wire-protocol contract
+# and cannot be changed without breaking idempotency for
+# every augmented document previously produced
 #
-# * see DIBBs-eCR-Refiner-Augmentation-Guide.md for: the full
-# rationale, worked examples covering multi-jurisdiction and
+# * see https://github.com/CDCgov/dibbs-ecr-refiner/blob/main/refiner/app/services/ecr/DIBBs-eCR-Refiner-Augmentation-Guide.md
+# for the full rationale, worked examples covering multi-jurisdiction and
 # multi-condition cases, the wire-protocol contract details,
 # and open IG questions tracked against this design
 
-REFINER_DETERMINISTIC_NS: Final[uuid.UUID] = uuid.UUID(
-    "cdcd1bb5-ecdc-4cdc-8cdc-d1bb5ecdc0dc"
+DIFF_DETERMINISTIC_NS: Final[uuid.UUID] = uuid.UUID(
+    "c33d292a-3af2-4478-9246-f6af1259a7f3"
 )
 
 _SEED_PREFIX_EICR_SETID: Final[str] = "eicr-setid"
 _SEED_PREFIX_RR_SETID: Final[str] = "rr-setid"
 _SEED_FIELD_SEPARATOR: Final[str] = "|"
 
-# scope discriminator for the remainder RR
-# * occupies the same seed slot as the condition grouper UUID for the
-# per-condition pair case; the literal value distinguishes the two
-# families of output within a jurisdiction. cannot collide with any
-# real grouper UUID because UUIDs have a fixed 36-character hyphenated
-# shape that the literal does not satisfy
-REMAINDER_SCOPE: Final[Literal["remainder"]] = "remainder"
 
-# The within-jurisdiction scope discriminator for RR-side derivations:
-# either a condition grouper UUID (per-condition pair output) or the
-# remainder literal. The UUID *type* is the validator; callers
-# construct a UUID from the canonical_url's trailing segment (via
-# aws/s3_keys._extract_uuid_from_canonical_url), and a malformed URL
-# fails at UUID() construction rather than producing a silently-wrong
-# seed
-Scope = UUID | Literal["remainder"]
-
-
-def _scope_seed_value(scope: Scope) -> str:
-    """Normalize a Scope to its seed-string form.
-
-    The single place the UUID→str normalization happens for the seed.
-    str(UUID) yields canonical lowercase hyphenated form; the remainder
-    literal passes through unchanged. Centralized so the
-    wire-protocol-sensitive conversion is auditable in one spot.
-    """
-    return str(scope)
-
-
-def _derive_augmented_eicr_id(
-    original_eicr_id_root: str,
-    jurisdiction_id: str,
-    condition_grouper_uuid: UUID,
-) -> str:
-    """Deterministic id for the augmented eICR (per-condition pair output).
-
-    Same input pair + same (jurisdiction, condition) scope yields
-    the same output (idempotent). See the augmentation guide for the
-    seed derivation rationale and worked examples.
-
-    condition_grouper_uuid is a UUID--the type is the validator.
-    Callers convert the canonical_url to a UUID before calling; a
-    malformed URL fails at construction, not here.
-    """
+def _derive_augmented_eicr_id(original_eicr_id_root: str, jurisdiction_id: str) -> str:
+    """Deterministic id for the augmented eICR."""
     return str(
         uuid.uuid5(
-            REFINER_DETERMINISTIC_NS,
-            f"{jurisdiction_id}{_SEED_FIELD_SEPARATOR}"
-            f"{_scope_seed_value(condition_grouper_uuid)}{_SEED_FIELD_SEPARATOR}"
-            f"{original_eicr_id_root}",
+            DIFF_DETERMINISTIC_NS,
+            f"{jurisdiction_id}{_SEED_FIELD_SEPARATOR}{original_eicr_id_root}",
         )
     )
 
 
-def _derive_augmented_rr_id(
-    original_rr_id_root: str,
-    jurisdiction_id: str,
-    scope: Scope,
-) -> str:
-    """Deterministic id for the augmented RR.
-
-    Used for both the per-condition pair output (scope is the condition
-    grouper UUID) and the remainder RR (scope is REMAINDER_SCOPE).
-    Same input + same (jurisdiction, scope) yields the same output
-    (idempotent). See the augmentation guide for the seed derivation
-    rationale.
-    """
+def _derive_augmented_rr_id(original_rr_id_root: str, jurisdiction_id: str) -> str:
+    """Deterministic id for the augmented RR."""
     return str(
         uuid.uuid5(
-            REFINER_DETERMINISTIC_NS,
-            f"{jurisdiction_id}{_SEED_FIELD_SEPARATOR}"
-            f"{_scope_seed_value(scope)}{_SEED_FIELD_SEPARATOR}"
-            f"{original_rr_id_root}",
+            DIFF_DETERMINISTIC_NS,
+            f"{jurisdiction_id}{_SEED_FIELD_SEPARATOR}{original_rr_id_root}",
         )
     )
 
@@ -165,50 +99,33 @@ def _derive_augmented_rr_id(
 def _derive_augmented_eicr_setid(
     original_eicr_setid_root: str,
     jurisdiction_id: str,
-    condition_grouper_uuid: UUID,
 ) -> str:
-    """Deterministic setId for the augmented eICR (per-condition pair output).
-
-    PHAs grouping by setId see one augmented setId per (jurisdiction,
-    EHR conceptual document, condition) tuple, with versionNumber
-    distinguishing iterations within the case. See the augmentation
-    guide for the seed derivation rationale.
-
-    condition_grouper_uuid is a UUID; the type is the validator.
-    """
+    """Deterministic setId for the augmented eICR."""
     return str(
         uuid.uuid5(
-            REFINER_DETERMINISTIC_NS,
+            DIFF_DETERMINISTIC_NS,
             f"{jurisdiction_id}{_SEED_FIELD_SEPARATOR}"
-            f"{_scope_seed_value(condition_grouper_uuid)}{_SEED_FIELD_SEPARATOR}"
             f"{_SEED_PREFIX_EICR_SETID}:{original_eicr_setid_root}",
         )
     )
 
 
 def _derive_augmented_rr_setid(
-    original_eicr_setid_root: str,
-    jurisdiction_id: str,
-    scope: Scope,
+    original_eicr_setid_root: str, jurisdiction_id: str
 ) -> str:
     """Deterministic setId for the augmented RR.
 
     Seeds from the original *eICR's* setId, not the RR's. This gives
     PHAs pair recoverability — the augmented RR's setId is derivable
-    from eICR-side identity alone (plus the jurisdiction and scope).
-    The remainder RR follows the same rule, so the remainder is paired
-    to the same eICR-side identity family as the per-condition outputs.
+    from eICR-side identity alone (plus the jurisdiction).
 
-    Used for both the per-condition pair output (scope is the condition
-    grouper UUID) and the remainder RR (scope is REMAINDER_SCOPE). See
-    the augmentation guide §"Why both setIds seed from the eICR's
+    See the augmentation guide §"Why both setIds seed from the eICR's
     setId" for rationale.
     """
     return str(
         uuid.uuid5(
-            REFINER_DETERMINISTIC_NS,
+            DIFF_DETERMINISTIC_NS,
             f"{jurisdiction_id}{_SEED_FIELD_SEPARATOR}"
-            f"{_scope_seed_value(scope)}{_SEED_FIELD_SEPARATOR}"
             f"{_SEED_PREFIX_RR_SETID}:{original_eicr_setid_root}",
         )
     )
@@ -223,38 +140,26 @@ def _derive_augmented_rr_setid(
 class AugmentationRun:
     """Run related metadata captured once and used across augmentation from a single eICR/RR pair.
 
-    Created once per refinement run by the pipeline. Both augment_eicr
-    and augment_rr read from this single object, which guarantees the
-    augmented documents share effectiveTime and inherit versionNumber
-    from the source eICR. The remainder RR (when produced) uses the
-    same AugmentationRun, so its timestamp and versionNumber match the
-    per-condition outputs from the same run.
+    Both augment_eicr_in_place and augment_rr_in_place read from this single object,
+    which guarantees the augmented documents share effectiveTime
+    and inherit versionNumber from the source eICR.
 
     augmentation_time conforms to DTM.US.FIELDED
     (urn:oid:2.16.840.1.113883.10.20.22.5.4) and is stamped on every
     augmented document's <effectiveTime> and on the augmentation
-    author's <time>. It also propagates to the per-section provenance
-    footnote IDs built during eICR refinement, giving downstream
-    consumers a structural consistency check across all outputs of a
-    single run.
+    author's <time>.
 
     original_eicr_setid_root is captured here because the RR-side
-    setId derivations (both the per-condition pair and the remainder)
-    seed from the eICR's setId, not the RR's. Keeping the value on the
-    run means augment_rr does not need the eICR tree in scope to
-    derive its setId.
+    setId derivation seeds from the eICR's setId, not the RR's.
+    Keeping the value on the run means augment_rr_in_place does not need the
+    eICR tree in scope to derive its setId.
 
     Per-call inputs that vary across augmentations within a run:
-    jurisdiction_id, scope, and the tool identity kwargs are NOT on
-    the run. They travel as direct arguments to augment_eicr and
-    augment_rr. Production callers always use the Refiner tool
+    jurisdiction_id and the tool identity kwargs are NOT on
+    the run. They travel as direct arguments to augment_eicr_in_place and
+    augment_rr_in_place. Production callers always use the Difference in Docs tool
     defaults; tests can override to simulate prior augmentations by
     other tools.
-
-    See DIBBs-eCR-Refiner-Augmentation-Guide.md for the seed-derivation
-    rationale, the operational invariants this design rests on, and
-    worked examples covering multi-jurisdiction and multi-condition
-    cases.
     """
 
     augmentation_time: str
@@ -267,9 +172,6 @@ def create_augmentation_run(eicr_root: _Element) -> AugmentationRun:
 
     The pipeline's entry point for building an AugmentationRun. Captures
     versionNumber and setId from the source eICR and the current time.
-    Reads only what's actually shared across all augmentations in the
-    run — per-call discriminators (jurisdiction, scope) travel as direct
-    arguments to the augmentation functions.
 
     Args:
         eicr_root: The parsed eICR root element.
@@ -343,12 +245,11 @@ class AugmentedResult:
     augmented_doc_id: str
 
 
-def augment_eicr(
+def augment_eicr_in_place(
     eicr_root: _Element,
     run: AugmentationRun,
     jurisdiction_id: str,
-    condition_grouper_uuid: UUID,
-    diff_output: DiffOutput,
+    diff_output: DiffOutput | None,
     tool_code: str = DIFF_TOOL_CODE,
     tool_display: str = DIFF_TOOL_DISPLAY,
 ) -> AugmentedResult:
@@ -357,22 +258,10 @@ def augment_eicr(
     Mutates `eicr_root` in place. Implements the eICR Data
     Augmentation Header template (Vol 2 §1.1).
 
-    The steps execute in CDA R2 schema order: templateId → id →
-    effectiveTime → setId → versionNumber → author → relatedDocument.
-
     Augmented identifiers are derived inline from the input eICR's
-    own id/setId attributes, the jurisdiction, and the condition
-    grouper UUID. Same input + same (jurisdiction, condition) scope
-    yields the same output (idempotent).
+    own id/setId attributes and the jurisdiction.
 
-    The eICR is always augmented as part of a per-condition pair;
-    there is no remainder eICR. So this function takes
-    condition_grouper_uuid directly (a UUID) rather than the more
-    general `scope` parameter that augment_rr accepts. The UUID type
-    is the validator; the caller converts the canonical_url to a
-    UUID before calling.
-
-    tool_code and tool_display default to the Refiner's identity from
+    tool_code and tool_display default to Difference in Docs's identity from
     the Data Augmentation Tool value set (Vol 2 Table 2). Production
     callers always use the defaults; tests may override to simulate
     augmentations performed by other tools.
@@ -384,12 +273,10 @@ def augment_eicr(
     augmented_eicr_id_root = _derive_augmented_eicr_id(
         original_eicr_id_root=_get_attribute_value(original.id_element, "root"),
         jurisdiction_id=jurisdiction_id,
-        condition_grouper_uuid=condition_grouper_uuid,
     )
     augmented_eicr_setid_root = _derive_augmented_eicr_setid(
         original_eicr_setid_root=run.original_eicr_setid_root,
         jurisdiction_id=jurisdiction_id,
-        condition_grouper_uuid=condition_grouper_uuid,
     )
 
     # STEP 2: add eICR augmentation templateId (CONF:5573-18/19/20)
@@ -421,8 +308,9 @@ def augment_eicr(
     # STEP 8: restructure relatedDocument chain into v4-shape siblings
     _add_related_document(eicr_root, original)
 
-    # STEP 9: add diff summary
-    _insert_diff_summary(eicr_root, diff_output)
+    # STEP 9: add entry level diff info
+    if diff_output is not None:
+        _process_diff_output_changes(diff_output, run.augmentation_time)
 
     return augmented_result
 
@@ -432,11 +320,10 @@ def augment_eicr(
 # =============================================================================
 
 
-def augment_rr(
+def augment_rr_in_place(
     rr_root: _Element,
     run: AugmentationRun,
     jurisdiction_id: str,
-    scope: Scope,
     tool_code: str = DIFF_TOOL_CODE,
     tool_display: str = DIFF_TOOL_DISPLAY,
 ) -> AugmentedResult:
@@ -445,19 +332,12 @@ def augment_rr(
     Mutates `rr_root` in place. Implements the RR Data Augmentation
     Header template (Vol 2 §1.2), introduced in IG v4.
 
-    Mirrors augment_eicr's eight-step structure with RR-specific
+    Mirrors augment_eicr_in_place's structure with RR-specific
     identifiers and templateId. setId and versionNumber are
     replaced unconditionally — under v4 they are 1..1 SHALL on the
     augmented document, regardless of whether the input RR had them.
 
-    Used for both per-condition pair outputs (scope is the condition
-    grouper UUID) and the remainder RR (scope is REMAINDER_SCOPE).
-    The remainder RR's identifiers are guaranteed not to collide with
-    any per-condition output's identifiers because REMAINDER_SCOPE
-    cannot equal any real grouper UUID — UUIDs have a fixed
-    hyphenated 36-character shape that the literal does not satisfy.
-
-    tool_code and tool_display default to the Refiner's identity from
+    tool_code and tool_display default to the Difference in Docs's identity from
     the Data Augmentation Tool value set (Vol 2 Table 2). Production
     callers always use the defaults; tests may override to simulate
     augmentations performed by other tools.
@@ -468,18 +348,13 @@ def augment_rr(
     # derive augmented identifiers from the captured original values
     # * RR id seeds from the RR's own original id
     # * RR setId seeds from the eICR's setId for pair recoverability
-    #   (the remainder follows the same rule, so the remainder is
-    #   paired to the same eICR-side identity family as the
-    #   per-condition outputs)
     augmented_rr_id_root = _derive_augmented_rr_id(
         original_rr_id_root=_get_attribute_value(original.id_element, "root"),
         jurisdiction_id=jurisdiction_id,
-        scope=scope,
     )
     augmented_rr_setid_root = _derive_augmented_rr_setid(
         original_eicr_setid_root=run.original_eicr_setid_root,
         jurisdiction_id=jurisdiction_id,
-        scope=scope,
     )
 
     # STEP 2: add RR augmentation templateId (CONF:5573-66/80/81)
@@ -586,8 +461,8 @@ def _replace_document_id(
     """Replace the document <id> with a new id root and assigningAuthorityName.
 
     The assigningAuthorityName is drawn from the Data Augmentation
-    Document Source value set, we use "ecr-refiner" for
-    Refiner-produced documents.
+    Document Source value set, we use "ecr-difference-in-docs" for
+    DID-produced documents.
     """
     old_id = _find_required(doc_root, "hl7:id")
 
@@ -620,8 +495,8 @@ def _replace_set_id(
     """Replace or insert the document <setId>.
 
     The augmented setId carries assigningAuthorityName from the Data
-    Augmentation Document Source value set (we use "ecr-refiner"
-    for Refiner-produced documents).
+    Augmentation Document Source value set (we use "ecr-difference-in-docs"
+    for DID-produced documents).
 
     If <setId> doesn't exist (optional in CDA R2), inserts one in the
     correct schema position: after <languageCode> or
@@ -858,77 +733,111 @@ def _insert_related_document(doc_root: _Element, related_doc: _Element) -> None:
 
 
 # NOTE:
-# PRIVATE HELPERS — DIFF SUMMARY
+# PRIVATE HELPERS — DIFF
 # =============================================================================
 
 
-def _insert_diff_summary(doc_root: _Element, diff_output: DiffOutput) -> None:
-    """Insert diff summary as a new eICR section.
+def _process_diff_output_changes(diff_output: DiffOutput, timestamp: str) -> None:
+    """Adds entry-level augmentation (if able) to each change from the diff output.
 
-    We insert after the last existing <component> within <structuredBody>.
-
-    WIP
+    Currently does NOT add entry-level augmentation in the following cases:
+        - if the change is a "delete type" for elements that don't exist in the newer eICR.
+        - if the change does not have an appropriate element that can accept author
+        (i.e. recordTarget cannot accept author directly)
     """
-    structured_body = doc_root.find("hl7:component/hl7:structuredBody", NAMESPACES)
-    if structured_body is None:
-        raise ValueError(
-            "Cannot insert diff summary: eICR has no <component>/<structuredBody>."
-        )
+    # Can't add entry-level augmentation to a deleted element that doesn't exist in the new eICR
+    filtered_changes = [
+        # should we filter on "x.isActionable == True" in order to only augment actionable changes?
+        x
+        for x in diff_output.changes
+        if x.changeType != ChangeType.DELETED
+    ]
 
-    component = _make_element("component")
-    section = etree.SubElement(component, f"{{{HL7_NS}}}section")
+    for change in filtered_changes:
+        anchor = change.augmentation_anchor_node
+        if anchor is None:
+            continue
 
-    etree.SubElement(
-        section,
-        f"{{{HL7_NS}}}templateId",
-        root=DIFF_SECTION_TEMPLATE_ROOT,
+        author_allowed_element = _find_best_author_allowed_element(anchor)
+        if author_allowed_element is None:
+            continue
+
+        # If there are multiple changes on the same element, only add one diff author child
+        if not _contains_diff_author_direct_child(author_allowed_element):
+            author = _create_diff_author_element(change, timestamp)
+            insert_sequenced_child_of_parent(author_allowed_element, author)
+
+
+def _find_best_author_allowed_element(anchor: _Element) -> _Element | None:
+    """Returns the best element relative to anchor that allows a CDA author tag or None.
+
+    In order, checks anchor node itself, then ancestors, finally descendants.
+    """
+    author_allowed_tags = [*CDA_CLINICAL_STATEMENT_TAGS, hl7_clark_tag("section")]
+    # First check anchor node itself, then ancestors, finally descendants
+    for el in [anchor, *anchor.iterancestors(), *anchor.iterdescendants()]:
+        if el.tag in author_allowed_tags:
+            return el
+
+    return None
+
+
+def _contains_diff_author_direct_child(element: _Element) -> bool:
+    """Returns true if the element already contains a diff author direct child."""
+    software_name = element.find(
+        "./hl7:author/hl7:assignedAuthor/hl7:assignedAuthoringDevice/hl7:softwareName",
+        NAMESPACES,
+    )
+    if software_name is None:
+        return False
+
+    function_code = element.find("./hl7:author/hl7:functionCode", NAMESPACES)
+    if function_code is None:
+        return False
+
+    return (
+        software_name.get("code") == DIFF_TOOL_CODE
+        and software_name.get("codeSystem") == ECR_DATA_AUG_CODE_SYSTEM
+        and software_name.get("codeSystemName") == ECR_DATA_AUG_CODE_SYSTEM_NAME
+        and software_name.get("displayName") == DIFF_TOOL_DISPLAY
+        and function_code.get("codeSystem") == ECR_DATA_AUG_CODE_SYSTEM
+        and function_code.get("codeSystemName") == ECR_DATA_AUG_CODE_SYSTEM_NAME
     )
 
-    etree.SubElement(
-        section,
-        f"{{{HL7_NS}}}code",
-        code=DIFF_SECTION_CODE,
-        codeSystem=DIFF_CODE_SYSTEM_OID,
-        displayName=DIFF_SECTION_DISPLAY_NAME,
+
+def _create_diff_author_element(change: Change, timestamp: str) -> _Element:
+    """Returns a new author element populated with entry-level diff augmentation."""
+    author = etree.Element(hl7_clark_tag("author"))
+
+    function_code = etree.SubElement(author, hl7_clark_tag("functionCode"))
+    function_code.set("code", change.changeType)
+    function_code.set("codeSystem", ECR_DATA_AUG_CODE_SYSTEM)
+    function_code.set("codeSystemName", ECR_DATA_AUG_CODE_SYSTEM_NAME)
+
+    time = etree.SubElement(author, hl7_clark_tag("time"))
+    time.set("value", timestamp)
+
+    assigned_author = etree.SubElement(author, hl7_clark_tag("assignedAuthor"))
+
+    id = etree.SubElement(assigned_author, hl7_clark_tag("id"))
+    id.set("nullFlavor", "NA")
+
+    addr = etree.SubElement(assigned_author, hl7_clark_tag("addr"))
+    addr.set("nullFlavor", "NA")
+
+    telecom = etree.SubElement(assigned_author, hl7_clark_tag("telecom"))
+    telecom.set("nullFlavor", "NA")
+
+    authoring_device = etree.SubElement(
+        assigned_author, hl7_clark_tag("assignedAuthoringDevice")
     )
+    software_name = etree.SubElement(authoring_device, hl7_clark_tag("softwareName"))
+    software_name.set("code", DIFF_TOOL_CODE)
+    software_name.set("codeSystem", ECR_DATA_AUG_CODE_SYSTEM)
+    software_name.set("codeSystemName", ECR_DATA_AUG_CODE_SYSTEM_NAME)
+    software_name.set("displayName", DIFF_TOOL_DISPLAY)
 
-    title_el = etree.SubElement(section, f"{{{HL7_NS}}}title")
-    title_el.text = DIFF_SECTION_DISPLAY_NAME
-
-    text_el = etree.SubElement(section, f"{{{HL7_NS}}}text")
-    paragraph_el = etree.SubElement(text_el, f"{{{HL7_NS}}}paragraph")
-    paragraph_el.text = (
-        "This section contains the machine-readable diff produced by "
-        "Difference in Docs comparing the current eICR against its "
-        "prior version. See the <value> element below for the JSON "
-        "payload."
-    )
-
-    entry = etree.SubElement(section, f"{{{HL7_NS}}}entry")
-    observation = etree.SubElement(
-        entry,
-        f"{{{HL7_NS}}}observation",
-        classCode="OBS",
-        moodCode="EVN",
-    )
-
-    etree.SubElement(observation, f"{{{HL7_NS}}}id", nullFlavor="NA")
-
-    etree.SubElement(
-        observation,
-        f"{{{HL7_NS}}}code",
-        code=DIFF_SECTION_CODE,
-        codeSystem=DIFF_CODE_SYSTEM_OID,
-    )
-
-    etree.SubElement(observation, f"{{{HL7_NS}}}statusCode", code="completed")
-
-    value_el = etree.SubElement(observation, f"{{{HL7_NS}}}value")
-    value_el.set(f"{{{XSI_NS}}}type", "ED")
-    value_el.set("mediaType", "application/json")
-    value_el.text = CDATA(diff_output.model_dump_json(indent=2))
-
-    structured_body.append(component)
+    return author
 
 
 # NOTE:
