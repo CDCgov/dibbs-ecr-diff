@@ -8,8 +8,6 @@ def aws_creds(monkeypatch):
     """Mocked AWS credentials for integration tests."""
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test")
-    # monkeypatch.setenv("AWS_SECURITY_TOKEN", "test")
-    # monkeypatch.setenv("AWS_SESSION_TOKEN", "test")
     monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
 
 
