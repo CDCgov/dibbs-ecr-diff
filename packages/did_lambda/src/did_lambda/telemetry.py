@@ -1,5 +1,8 @@
 """Internal processing statistics and results for Lambda telemetry."""
 
+import hashlib
+import hmac
+import os
 import time
 from collections import Counter
 from dataclasses import dataclass, field
@@ -8,11 +11,37 @@ from core import Change, ChangeType
 
 from .models import DIDOutputFile
 
+DOCUMENT_CORRELATION_KEY_HEX_LENGTH = 32
+MIN_LOG_HASH_SALT_BYTES = 32
+
+
+class TelemetryConfigurationError(RuntimeError):
+    """Raised when required telemetry configuration is invalid."""
+
+
+def make_document_correlation_key(set_id: str, version_number: int) -> str:
+    """Create a deterministic pseudonymous document correlation key."""
+    salt_value = os.environ.get("LOG_HASH_SALT")
+    if salt_value is None:
+        raise TelemetryConfigurationError("LOG_HASH_SALT is required")
+
+    salt = salt_value.encode("utf-8")
+    if len(salt) < MIN_LOG_HASH_SALT_BYTES:
+        raise TelemetryConfigurationError(
+            "LOG_HASH_SALT must contain at least 32 bytes"
+        )
+
+    message = set_id.encode("utf-8") + b"\x00" + str(version_number).encode("ascii")
+    return hmac.new(salt, message, hashlib.sha256).hexdigest()[
+        :DOCUMENT_CORRELATION_KEY_HEX_LENGTH
+    ]
+
 
 @dataclass(frozen=True, slots=True)
 class DocumentTelemetry:
     """Privacy-limited document metadata available to telemetry consumers."""
 
+    document_correlation_key: str
     version_number: int
 
 

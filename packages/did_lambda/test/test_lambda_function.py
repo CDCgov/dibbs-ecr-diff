@@ -10,7 +10,16 @@ from did_lambda.telemetry import (
     BatchProcessingStats,
     DocumentTelemetry,
     ManifestEntryResult,
+    TelemetryConfigurationError,
+    make_document_correlation_key,
 )
+
+TEST_LOG_HASH_SALT = "a" * 32
+
+
+@pytest.fixture(autouse=True)
+def configure_log_hash_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LOG_HASH_SALT", TEST_LOG_HASH_SALT)
 
 
 def load_lambda_module():
@@ -40,7 +49,10 @@ def make_result() -> ManifestEntryResult:
             is_actionable=True,
         ),
         changes=(),
-        telemetry=DocumentTelemetry(version_number=1),
+        telemetry=DocumentTelemetry(
+            document_correlation_key=make_document_correlation_key("set-id", 1),
+            version_number=1,
+        ),
     )
 
 
@@ -192,7 +204,10 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
         is_actionable=True,
     )
     assert result.changes == ()
-    assert result.telemetry == DocumentTelemetry(version_number=1)
+    assert result.telemetry == DocumentTelemetry(
+        document_correlation_key=make_document_correlation_key("set-id", 1),
+        version_number=1,
+    )
     assert operations.mock_calls == [
         call.put_eicr_record(
             {
@@ -231,3 +246,29 @@ def test_process_manifest_entry_propagates_final_write_failure(
 
     assert raised.value is failure
     assert put_object.call_count == 2
+
+
+def test_process_manifest_entry_rejects_missing_salt_before_side_effects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lambda_module = load_lambda_module()
+    monkeypatch.delenv("LOG_HASH_SALT")
+    get_before_actionable_record = Mock()
+    get_object_xml_tree = Mock()
+    put_eicr_record = Mock()
+    put_object = Mock()
+    monkeypatch.setattr(
+        lambda_module, "get_before_actionable_record", get_before_actionable_record
+    )
+    monkeypatch.setattr(lambda_module, "get_object_xml_tree", get_object_xml_tree)
+    monkeypatch.setattr(lambda_module, "put_eicr_record", put_eicr_record)
+    monkeypatch.setattr(lambda_module, "put_object", put_object)
+
+    with pytest.raises(TelemetryConfigurationError) as raised:
+        lambda_module.process_manifest_entry("bucket", "2026/id", make_entry())
+
+    assert str(raised.value) == "LOG_HASH_SALT is required"
+    get_before_actionable_record.assert_not_called()
+    get_object_xml_tree.assert_not_called()
+    put_eicr_record.assert_not_called()
+    put_object.assert_not_called()

@@ -47,6 +47,18 @@ just diff
 
 ### Local AWS pipeline
 
+The committed `.env.local` contains a local-only `LOG_HASH_SALT` for Docker
+Compose. Never use this value in deployed environments. Each deployment must
+provide an independently generated secret through its environment configuration.
+Generate that deployment-specific value with:
+
+```bash
+openssl rand -hex 32
+```
+
+Store the generated value in the deployment's secret manager. Do not commit it
+or replace the committed local-only value with it.
+
 Start the local S3, SQS, EventBridge, DynamoDB, Lambda, and uploader services:
 
 ```bash

@@ -34,6 +34,7 @@ from .telemetry import (
     BatchProcessingStats,
     DocumentTelemetry,
     ManifestEntryResult,
+    make_document_correlation_key,
 )
 from .utils import (
     InfraError,
@@ -116,6 +117,7 @@ def process_manifest_entry(
     """Process a single DID input manifest entry."""
     set_id = entry.setId
     version_number = entry.versionNumber
+    document_correlation_key = make_document_correlation_key(set_id, version_number)
 
     before_record = get_before_actionable_record(set_id, version_number)
     compared_to_version = before_record.versionNumber if before_record else None
@@ -178,7 +180,10 @@ def process_manifest_entry(
             is_actionable=is_actionable,
         ),
         changes=tuple(diff_output.changes) if diff_output is not None else (),
-        telemetry=DocumentTelemetry(version_number=version_number),
+        telemetry=DocumentTelemetry(
+            document_correlation_key=document_correlation_key,
+            version_number=version_number,
+        ),
     )
 
 

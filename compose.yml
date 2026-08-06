@@ -18,6 +18,7 @@ services:
       - DID_COMPLETE_PREFIX=${DID_COMPLETE_PREFIX:-DIDComplete/}
       - DYNAMODB_TABLE=${DYNAMODB_TABLE:-did-eicr-record}
       - ENVIRONMENT=${ENVIRONMENT:-dev}
+      - LOG_HASH_SALT=${LOG_HASH_SALT:?LOG_HASH_SALT must be set}
     depends_on:
       - localstack
     restart: unless-stopped
