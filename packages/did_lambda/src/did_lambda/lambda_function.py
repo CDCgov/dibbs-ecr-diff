@@ -37,7 +37,7 @@ from .utils import (
     get_did_output_path,
     get_timestamp,
     jurisdiction_id_from_key,
-    persistence_id_from_key,
+    persistence_id_from_manifest_key,
 )
 
 DID_OUTPUT_PREFIX = os.environ.get("DID_OUTPUT_PREFIX", "DIDOutput/")
@@ -69,7 +69,7 @@ def process_sqs_record(record: SQSRecord) -> None:
     bucket_name = s3_event.detail.bucket.name
     did_input_manifest_key = unquote_plus(s3_event.detail.object.key)
 
-    persistence_id = persistence_id_from_key(did_input_manifest_key)
+    persistence_id = persistence_id_from_manifest_key(did_input_manifest_key)
     did_input_manifest = get_input_manifest(bucket_name, did_input_manifest_key)
     did_complete_output_files: list[DIDOutputFile] = []
 

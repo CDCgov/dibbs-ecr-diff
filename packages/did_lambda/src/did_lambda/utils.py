@@ -12,7 +12,7 @@ def get_timestamp() -> datetime:
     return datetime.now(UTC)
 
 
-def persistence_id_from_key(key: str) -> str:
+def persistence_id_from_manifest_key(key: str) -> str:
     """Strip the first S3 key segment (prefix) form manifest key to leave the persistence_id.
 
     AIMS form: YYYY/MM/DD/{uuid}
@@ -33,8 +33,11 @@ def jurisdiction_id_from_key(persistence_id: str, key: str) -> str:
     if len(parts) != 2:
         raise InfraError(f"S3 key does not contain persistence_id: {key}")
 
-    jurisdiction_id_parts = parts[1].split("/")[:-1]
-    return "/".join(jurisdiction_id_parts)
+    jurisdiction_parts = parts[1].split("/", 1)
+    if len(jurisdiction_parts) != 2 or not all(jurisdiction_parts):
+        raise InfraError(f"S3 key has no jurisdiction or filename: {key}")
+
+    return jurisdiction_parts[0]
 
 
 def get_did_output_key(root_prefix: str, source_key: str) -> str:
@@ -44,7 +47,7 @@ def get_did_output_key(root_prefix: str, source_key: str) -> str:
 
 
 def get_did_output_path(root_prefix: str, source_key: str) -> str:
-    """Extract an full output path minus basename from a DIDInput S3 key."""
+    """Extract a full output path minus basename from a DIDInput S3 key."""
     parts = source_key.strip("/").split("/")
     if len(parts) <= 2:
         raise InfraError(f"S3 key has nothing after prefix: {source_key}")

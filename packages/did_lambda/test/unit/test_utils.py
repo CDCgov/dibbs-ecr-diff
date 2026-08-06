@@ -5,7 +5,7 @@ from did_lambda.utils import (
     get_did_output_path,
     get_key_basename,
     jurisdiction_id_from_key,
-    persistence_id_from_key,
+    persistence_id_from_manifest_key,
 )
 
 DID_OUTPUT_PREFIX = "DIDOutput/"
@@ -14,17 +14,17 @@ MANIFEST_KEY = f"DIDInput/{PERSISTENCE_ID}"
 EICR_KEY = f"DIDInput/{PERSISTENCE_ID}/SDDH/COVID19/eicr.xml"
 
 
-def test_persistence_id_from_key_removes_input_prefix():
-    assert persistence_id_from_key(MANIFEST_KEY) == PERSISTENCE_ID
+def test_persistence_id_from_manifest_key_removes_input_prefix():
+    assert persistence_id_from_manifest_key(MANIFEST_KEY) == PERSISTENCE_ID
 
 
-def test_persistence_id_from_key_requires_content_after_prefix():
+def test_persistence_id_from_manifest_key_requires_content_after_prefix():
     with pytest.raises(InfraError):
-        persistence_id_from_key("DIDInput/")
+        persistence_id_from_manifest_key("DIDInput/")
 
 
 def test_jurisdiction_id_from_key_returns_nested_jurisdiction_id():
-    assert jurisdiction_id_from_key(PERSISTENCE_ID, EICR_KEY) == "SDDH/COVID19"
+    assert jurisdiction_id_from_key(PERSISTENCE_ID, EICR_KEY) == "SDDH"
 
 
 def test_jurisdiction_id_from_key_requires_matching_persistence_id():
