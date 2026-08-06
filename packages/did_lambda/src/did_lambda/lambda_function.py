@@ -30,6 +30,11 @@ from .models import (
     DIDOutputFile,
 )
 from .s3 import get_object, get_object_xml_tree, put_object
+from .telemetry import (
+    BatchProcessingStats,
+    DocumentTelemetry,
+    ManifestEntryResult,
+)
 from .utils import (
     InfraError,
     get_did_output_key,
@@ -51,18 +56,30 @@ config = load_configuration(CONFIGURATION_FILE)
 @event_source(data_class=SQSEvent)
 def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
     """Difference in Docs Lambda Handler."""
+    stats = BatchProcessingStats()
     raw_records = event.get("Records")
     if not isinstance(raw_records, list) or not raw_records:
         raise InfraError("SQS event has no Records")
 
     for record in event.records:
-        process_sqs_record(record)
+        try:
+            process_sqs_record(record, stats)
+        except Exception:
+            stats.manifests_failed += 1
+            raise
+        else:
+            stats.manifests_processed += 1
 
     return {"statusCode": 200, "message": "OK"}
 
 
-def process_sqs_record(record: SQSRecord) -> None:
+def process_sqs_record(
+    record: SQSRecord, stats: BatchProcessingStats | None = None
+) -> None:
     """Process an SQS record containing an S3 event."""
+    if stats is None:
+        stats = BatchProcessingStats()
+
     s3_event = S3EventBridgeNotificationEvent(record.json_body)
 
     bucket_name = s3_event.detail.bucket.name
@@ -74,9 +91,14 @@ def process_sqs_record(record: SQSRecord) -> None:
 
     # process every DIDInputFile in the batch
     for entry in did_input_manifest.files:
-        did_complete_output_files.append(
-            process_manifest_entry(bucket_name, persistence_id, entry)
-        )
+        try:
+            result = process_manifest_entry(bucket_name, persistence_id, entry)
+        except Exception:
+            stats.documents_failed += 1
+            raise
+
+        stats.record_document_processed(result)
+        did_complete_output_files.append(result.output_file)
 
     # write to DIDComplete/
     did_complete_manifest = DIDCompleteManifest(Files=did_complete_output_files)
@@ -90,7 +112,7 @@ def process_sqs_record(record: SQSRecord) -> None:
 
 def process_manifest_entry(
     bucket_name: str, persistence_id: str, entry: DIDInputFile
-) -> DIDOutputFile:
+) -> ManifestEntryResult:
     """Process a single DID input manifest entry."""
     set_id = entry.setId
     version_number = entry.versionNumber
@@ -109,10 +131,6 @@ def process_manifest_entry(
         output_prefix = get_did_output_prefix(DID_OUTPUT_PREFIX, entry.eicr)
         diff_output_key = f"{output_prefix}/{set_id}_eicr_diff"
         before_tree = get_object_xml_tree(bucket_name, before_record.s3Key)
-
-        logger.info(
-            f"Diffing version {version_number} against version {before_record.versionNumber} of {set_id}"
-        )
 
         diff_output = diff_xml(before_tree, eicr_tree, config)
         is_actionable = diff_output.hasActionableChanges
@@ -150,13 +168,17 @@ def process_manifest_entry(
     rr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, entry.rr)
     put_object(bucket_name, rr_out_key, augmented_rr)
 
-    return DIDOutputFile(
-        setId=set_id,
-        versionNumber=version_number,
-        eicr=eicr_out_key,
-        rr=rr_out_key,
-        eicr_diff_output=diff_output_key,
-        is_actionable=is_actionable,
+    return ManifestEntryResult(
+        output_file=DIDOutputFile(
+            setId=set_id,
+            versionNumber=version_number,
+            eicr=eicr_out_key,
+            rr=rr_out_key,
+            eicr_diff_output=diff_output_key,
+            is_actionable=is_actionable,
+        ),
+        changes=tuple(diff_output.changes) if diff_output is not None else (),
+        telemetry=DocumentTelemetry(version_number=version_number),
     )
 
 
