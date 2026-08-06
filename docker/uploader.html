@@ -172,7 +172,7 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
 
       const setId = children
         .find((element) => element.localName === 'setId')
-        ?.getAttribute('extension')?.trim();
+        ?.getAttribute('root')?.trim();
 
       const versionValue = children
         .find((element) => element.localName === 'versionNumber')
