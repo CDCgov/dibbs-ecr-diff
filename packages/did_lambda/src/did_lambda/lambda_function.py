@@ -33,7 +33,7 @@ from .s3 import get_object, get_object_xml_tree, put_object
 from .utils import (
     InfraError,
     get_did_output_key,
-    get_did_output_prefix,
+    get_did_output_path,
     get_timestamp,
     jurisdiction_id_from_key,
     persistence_id_from_key,
@@ -106,8 +106,8 @@ def process_manifest_entry(
     rr_tree = get_object_xml_tree(bucket_name, entry.rr)
 
     if before_record:
-        output_prefix = get_did_output_prefix(DID_OUTPUT_PREFIX, entry.eicr)
-        diff_output_key = f"{output_prefix}/{set_id}_eicr_diff"
+        output_path = get_did_output_path(DID_OUTPUT_PREFIX, entry.eicr)
+        diff_output_key = f"{output_path}/{set_id}_eicr_diff"
         before_tree = get_object_xml_tree(bucket_name, before_record.s3Key)
 
         logger.info(
