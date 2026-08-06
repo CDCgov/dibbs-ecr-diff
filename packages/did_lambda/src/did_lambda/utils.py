@@ -7,9 +7,9 @@ class InfraError(Exception):
     """Raised for failures that should trigger an automated SQS retry or DLQ."""
 
 
-def get_timestamp() -> str:
+def get_timestamp() -> datetime:
     """Generate a new ISO-8601 timestamp."""
-    return datetime.now(UTC).isoformat()
+    return datetime.now(UTC)
 
 
 def persistence_id_from_key(key: str) -> str:

@@ -1,7 +1,7 @@
 """DynamoDB operations for the Difference in Docs Lambda."""
 
 import os
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import boto3
 from boto3.dynamodb.conditions import Attr, Key
@@ -32,6 +32,6 @@ def get_before_actionable_record(
     return EICRStorageRecord.model_validate(items[0]) if items else None
 
 
-def put_eicr_record(item: dict[str, Any]) -> None:
+def put_eicr_record(record: EICRStorageRecord) -> None:
     """Put an eICR record in DynamoDB."""
-    db.put_item(Item=item)
+    db.put_item(Item=record.model_dump(mode="json"))

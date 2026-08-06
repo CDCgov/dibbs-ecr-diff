@@ -17,6 +17,7 @@ services:
       - DID_OUTPUT_PREFIX=${DID_OUTPUT_PREFIX:-DIDOutput/}
       - DID_COMPLETE_PREFIX=${DID_COMPLETE_PREFIX:-DIDComplete/}
       - DID_DYNAMO_TABLE=${DYNAMODB_TABLE:-did-eicr-record}
+      - DID_CONFIGURATION_FILE=${DID_CONFIGURATION_FILE:-aphl_baseline.json}
       - ENVIRONMENT=${ENVIRONMENT:-dev}
     depends_on:
       - localstack

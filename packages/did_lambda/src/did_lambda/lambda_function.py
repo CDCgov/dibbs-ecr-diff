@@ -28,6 +28,7 @@ from .models import (
     DIDInputFile,
     DIDInputManifest,
     DIDOutputFile,
+    EICRStorageRecord,
 )
 from .s3 import get_object, get_object_xml_tree, put_object
 from .utils import (
@@ -41,11 +42,11 @@ from .utils import (
 
 DID_OUTPUT_PREFIX = os.environ.get("DID_OUTPUT_PREFIX", "DIDOutput/")
 DID_COMPLETE_PREFIX = os.environ.get("DID_COMPLETE_PREFIX", "DIDComplete/")
+DID_CONFIGURATION_FILE = os.environ.get("DID_CONFIGURATION_FILE", "aphl_baseline.json")
 ENVIRONMENT = os.environ.get("ENVIRONMENT", "prod")
-CONFIGURATION_FILE = os.environ.get("CONFIGURATION_FILE", "aphl_baseline.json")
 
 logger = Logger("difference-in-docs")
-config = load_configuration(CONFIGURATION_FILE)
+config = load_configuration(DID_CONFIGURATION_FILE)
 
 
 @event_source(data_class=SQSEvent)
@@ -121,6 +122,7 @@ def process_manifest_entry(
     augmented_eicr = get_augmented_eicr(eicr_tree, jurisdiction_id, diff_output)
     augmented_rr = get_augmented_rr(rr_tree, jurisdiction_id)
 
+    # write DiffOutput JSON if we performed a diff
     if diff_output_key is not None and diff_output is not None:
         put_object(
             bucket_name,
@@ -130,16 +132,16 @@ def process_manifest_entry(
 
     # write eICR metadata to DB
     put_eicr_record(
-        {
-            "setId": set_id,
-            "versionNumber": version_number,
-            "s3Key": entry.eicr,
-            "s3KeyRR": entry.rr,
-            "s3KeyDiffOutput": diff_output_key,
-            "processedAt": get_timestamp(),
-            "isActionable": is_actionable,
-            "comparedToVersion": compared_to_version,
-        }
+        EICRStorageRecord(
+            setId=set_id,
+            versionNumber=version_number,
+            s3Key=entry.eicr,
+            s3KeyRR=entry.rr,
+            s3KeyDiffOutput=diff_output_key,
+            processedAt=get_timestamp(),
+            isActionable=is_actionable,
+            comparedToVersion=compared_to_version,
+        )
     )
 
     # write augmented eicr to DIDOutput/
