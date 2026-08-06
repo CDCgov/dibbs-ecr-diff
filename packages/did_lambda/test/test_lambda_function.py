@@ -1,6 +1,7 @@
 import importlib
 import json
 import os
+import traceback
 from types import SimpleNamespace
 from unittest.mock import ANY, Mock, call
 
@@ -13,8 +14,17 @@ from did_lambda.telemetry import (
     TelemetryConfigurationError,
     make_document_correlation_key,
 )
+from did_lambda.utils import InfraError
 
 TEST_LOG_HASH_SALT = "a" * 32
+SENSITIVE_TEST_VALUES = (
+    "set-id",
+    "document-id",
+    "s3://bucket/patient.xml",
+    "<ClinicalDocument>secret</ClinicalDocument>",
+    '{"Records":["secret"]}',
+)
+SENSITIVE_FAILURE_TEXT = " ".join(SENSITIVE_TEST_VALUES)
 
 
 @pytest.fixture(autouse=True)
@@ -73,6 +83,38 @@ def configure_manifest_record(monkeypatch: pytest.MonkeyPatch, lambda_module) ->
     )
 
 
+def assert_safe_processing_failure(
+    caplog: pytest.LogCaptureFixture,
+    raised,
+    *,
+    stage: str,
+    error_type: str,
+    document_correlation_key: str | None,
+) -> None:
+    failure_logs = [
+        record for record in caplog.records if record.message == "processing_failure"
+    ]
+    assert len(failure_logs) == 1
+
+    log = failure_logs[0]
+    log_fields = vars(log)
+    assert log_fields["failure_stage"] == stage
+    assert log_fields["error_type"] == error_type
+    assert not log.exc_info
+    assert not log.stack_info
+
+    if document_correlation_key is None:
+        assert "document_correlation_key" not in log_fields
+    else:
+        assert log_fields["document_correlation_key"] == document_correlation_key
+
+    assert str(raised.value) == f"Processing failed during {stage}"
+    escaped_traceback = "".join(traceback.format_exception(raised.value))
+    for sensitive_value in SENSITIVE_TEST_VALUES:
+        assert sensitive_value not in caplog.text
+        assert sensitive_value not in escaped_traceback
+
+
 def test_lambda_handler_counts_successful_manifest_attempts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -100,7 +142,7 @@ def test_lambda_handler_counts_failure_and_rethrows_same_exception(
 ) -> None:
     lambda_module = load_lambda_module()
     observed_stats = []
-    failure = RuntimeError("manifest failed")
+    failure = InfraError("Processing failed during manifest_load")
 
     def fail_record(_record, stats):
         observed_stats.append(stats)
@@ -108,7 +150,7 @@ def test_lambda_handler_counts_failure_and_rethrows_same_exception(
 
     monkeypatch.setattr(lambda_module, "process_sqs_record", fail_record)
 
-    with pytest.raises(RuntimeError) as raised:
+    with pytest.raises(InfraError) as raised:
         lambda_module.lambda_handler({"Records": [{"body": "{}"}]}, None)
 
     assert raised.value is failure
@@ -156,7 +198,7 @@ def test_process_sqs_record_counts_failure_and_rethrows_same_exception(
 ) -> None:
     lambda_module = load_lambda_module()
     configure_manifest_record(monkeypatch, lambda_module)
-    failure = RuntimeError("entry failed")
+    failure = InfraError("Processing failed during output_write")
 
     def fail_entry(*_args):
         raise failure
@@ -166,7 +208,7 @@ def test_process_sqs_record_counts_failure_and_rethrows_same_exception(
     monkeypatch.setattr(lambda_module, "put_object", put_object)
     stats = BatchProcessingStats()
 
-    with pytest.raises(RuntimeError) as raised:
+    with pytest.raises(InfraError) as raised:
         lambda_module.process_sqs_record(SimpleNamespace(json_body={}), stats)
 
     assert raised.value is failure
@@ -228,6 +270,7 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
 
 def test_process_manifest_entry_propagates_final_write_failure(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     lambda_module = load_lambda_module()
     entry = make_entry()
@@ -237,19 +280,26 @@ def test_process_manifest_entry_propagates_final_write_failure(
     monkeypatch.setattr(lambda_module, "get_augmented_eicr", lambda *_: b"eicr")
     monkeypatch.setattr(lambda_module, "get_augmented_rr", lambda *_: b"rr")
     monkeypatch.setattr(lambda_module, "put_eicr_record", Mock())
-    failure = RuntimeError("RR write failed")
+    failure = RuntimeError(SENSITIVE_FAILURE_TEXT)
     put_object = Mock(side_effect=[None, failure])
     monkeypatch.setattr(lambda_module, "put_object", put_object)
 
-    with pytest.raises(RuntimeError) as raised:
+    with pytest.raises(InfraError) as raised:
         lambda_module.process_manifest_entry("bucket", "2026/id", entry)
 
-    assert raised.value is failure
     assert put_object.call_count == 2
+    assert_safe_processing_failure(
+        caplog,
+        raised,
+        stage="output_write",
+        error_type="RuntimeError",
+        document_correlation_key=make_document_correlation_key("set-id", 1),
+    )
 
 
 def test_process_manifest_entry_rejects_missing_salt_before_side_effects(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     lambda_module = load_lambda_module()
     monkeypatch.delenv("LOG_HASH_SALT")
@@ -264,11 +314,123 @@ def test_process_manifest_entry_rejects_missing_salt_before_side_effects(
     monkeypatch.setattr(lambda_module, "put_eicr_record", put_eicr_record)
     monkeypatch.setattr(lambda_module, "put_object", put_object)
 
-    with pytest.raises(TelemetryConfigurationError) as raised:
+    with pytest.raises(InfraError) as raised:
         lambda_module.process_manifest_entry("bucket", "2026/id", make_entry())
 
-    assert str(raised.value) == "LOG_HASH_SALT is required"
     get_before_actionable_record.assert_not_called()
     get_object_xml_tree.assert_not_called()
     put_eicr_record.assert_not_called()
     put_object.assert_not_called()
+    assert_safe_processing_failure(
+        caplog,
+        raised,
+        stage="telemetry_config",
+        error_type=TelemetryConfigurationError.__name__,
+        document_correlation_key=None,
+    )
+
+
+@pytest.mark.parametrize(
+    "stage",
+    ["document_load", "diff", "augmentation"],
+)
+def test_process_manifest_entry_sanitizes_each_processing_stage(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    stage: str,
+) -> None:
+    lambda_module = load_lambda_module()
+    before_record = SimpleNamespace(versionNumber=0, s3Key="sensitive-prior-key")
+    monkeypatch.setattr(lambda_module, "get_before_actionable_record", lambda *_: None)
+    monkeypatch.setattr(lambda_module, "get_object_xml_tree", lambda *_: object())
+    monkeypatch.setattr(lambda_module, "jurisdiction_id_from_key", lambda *_: "jur")
+    monkeypatch.setattr(lambda_module, "get_augmented_eicr", lambda *_: b"eicr")
+    monkeypatch.setattr(lambda_module, "get_augmented_rr", lambda *_: b"rr")
+    monkeypatch.setattr(lambda_module, "put_eicr_record", Mock())
+    monkeypatch.setattr(lambda_module, "put_object", Mock())
+
+    if stage == "document_load":
+        monkeypatch.setattr(
+            lambda_module,
+            "get_before_actionable_record",
+            Mock(side_effect=RuntimeError(SENSITIVE_FAILURE_TEXT)),
+        )
+    elif stage == "diff":
+        monkeypatch.setattr(
+            lambda_module, "get_before_actionable_record", lambda *_: before_record
+        )
+        monkeypatch.setattr(
+            lambda_module,
+            "diff_xml",
+            Mock(side_effect=RuntimeError(SENSITIVE_FAILURE_TEXT)),
+        )
+    else:
+        monkeypatch.setattr(
+            lambda_module,
+            "get_augmented_eicr",
+            Mock(side_effect=RuntimeError(SENSITIVE_FAILURE_TEXT)),
+        )
+
+    with pytest.raises(InfraError) as raised:
+        lambda_module.process_manifest_entry("bucket", "2026/id", make_entry())
+
+    assert_safe_processing_failure(
+        caplog,
+        raised,
+        stage=stage,
+        error_type="RuntimeError",
+        document_correlation_key=make_document_correlation_key("set-id", 1),
+    )
+
+
+def test_process_sqs_record_sanitizes_manifest_load_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    lambda_module = load_lambda_module()
+    monkeypatch.setattr(
+        lambda_module,
+        "S3EventBridgeNotificationEvent",
+        Mock(side_effect=RuntimeError(SENSITIVE_FAILURE_TEXT)),
+    )
+
+    with pytest.raises(InfraError) as raised:
+        lambda_module.process_sqs_record(SimpleNamespace(json_body={}))
+
+    assert_safe_processing_failure(
+        caplog,
+        raised,
+        stage="manifest_load",
+        error_type="RuntimeError",
+        document_correlation_key=None,
+    )
+
+
+def test_process_sqs_record_sanitizes_completion_write_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    lambda_module = load_lambda_module()
+    configure_manifest_record(monkeypatch, lambda_module)
+    monkeypatch.setattr(
+        lambda_module, "process_manifest_entry", lambda *_args: make_result()
+    )
+    monkeypatch.setattr(
+        lambda_module,
+        "put_object",
+        Mock(side_effect=RuntimeError(SENSITIVE_FAILURE_TEXT)),
+    )
+    stats = BatchProcessingStats()
+
+    with pytest.raises(InfraError) as raised:
+        lambda_module.process_sqs_record(SimpleNamespace(json_body={}), stats)
+
+    assert stats.documents_processed == 1
+    assert stats.documents_failed == 0
+    assert_safe_processing_failure(
+        caplog,
+        raised,
+        stage="completion_write",
+        error_type="RuntimeError",
+        document_correlation_key=None,
+    )
