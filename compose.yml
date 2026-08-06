@@ -16,7 +16,7 @@ services:
       - AWS_ENDPOINT_URL=http://localstack:4566
       - DID_OUTPUT_PREFIX=${DID_OUTPUT_PREFIX:-DIDOutput/}
       - DID_COMPLETE_PREFIX=${DID_COMPLETE_PREFIX:-DIDComplete/}
-      - DYNAMODB_TABLE=${DYNAMODB_TABLE:-did-eicr-record}
+      - DID_DYNAMO_TABLE=${DYNAMODB_TABLE:-did-eicr-record}
       - ENVIRONMENT=${ENVIRONMENT:-dev}
     depends_on:
       - localstack
