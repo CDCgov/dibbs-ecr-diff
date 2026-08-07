@@ -118,17 +118,15 @@ def process_manifest_entry(
         diff_output = diff_xml(before_tree, eicr_tree, config)
         is_actionable = diff_output.hasActionableChanges
 
-    jurisdiction_id = jurisdiction_id_from_key(persistence_id, entry.eicr)
-    augmented_eicr = get_augmented_eicr(eicr_tree, jurisdiction_id, diff_output)
-    augmented_rr = get_augmented_rr(rr_tree, jurisdiction_id)
-
-    # write DiffOutput JSON if we performed a diff
-    if diff_output_key is not None and diff_output is not None:
         put_object(
             bucket_name,
             diff_output_key,
             diff_output.model_dump_json(indent=2).encode("utf-8"),
         )
+
+    jurisdiction_id = jurisdiction_id_from_key(persistence_id, entry.eicr)
+    augmented_eicr = get_augmented_eicr(eicr_tree, jurisdiction_id, diff_output)
+    augmented_rr = get_augmented_rr(rr_tree, jurisdiction_id)
 
     # write eICR metadata to DB
     put_eicr_record(
