@@ -1,7 +1,9 @@
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from aws_lambda_powertools.utilities.data_classes import SQSRecord
 from did_lambda.models import DIDInputFile, DIDInputManifest
 
 
@@ -17,16 +19,31 @@ def build_persistence_id() -> str:
     return f"{datetime.now(UTC):%Y/%m/%d}/{uuid4()}"
 
 
-def build_doc(version_number: int, set_id: str, xml: str = "") -> bytes:
+def build_doc(version_number: int, set_id: str, body: str = "") -> bytes:
     return f"""
       <ClinicalDocument xmlns="urn:hl7-org:v3">
         <id root="{uuid4()}"/>
         <effectiveTime value="20201107094421-0500" />
         <setId root="{set_id}"/>
         <versionNumber value="{version_number}"/>
-        {xml}
+        {body}
       </ClinicalDocument>
     """.encode()
+
+
+def build_sqs_record(bucket_name: str, manifest_key: str) -> SQSRecord:
+    return SQSRecord(
+        {
+            "body": json.dumps(
+                {
+                    "detail": {
+                        "bucket": {"name": bucket_name},
+                        "object": {"key": manifest_key},
+                    }
+                }
+            )
+        }
+    )
 
 
 def send_input_files(
