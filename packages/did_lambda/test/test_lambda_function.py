@@ -115,6 +115,121 @@ def assert_safe_processing_failure(
         assert sensitive_value not in escaped_traceback
 
 
+def emitted_metrics(capsys: pytest.CaptureFixture[str]) -> list[dict]:
+    """Return CloudWatch EMF objects emitted to standard output."""
+    return [
+        payload
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("{") and "_aws" in (payload := json.loads(line))
+    ]
+
+
+def test_lambda_handler_emits_aggregate_and_section_metrics(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    lambda_module = load_lambda_module()
+
+    def process_record(_record, stats):
+        stats.documents_processed = 2
+        stats.documents_failed = 1
+        stats.changes_added = 3
+        stats.changes_updated = 4
+        stats.changes_deleted = 5
+        stats.section_changes.update({"18776-5": 3, "10160-0": 2})
+
+    monkeypatch.setattr(lambda_module, "process_sqs_record", process_record)
+
+    response = lambda_module.lambda_handler({"Records": [{"body": "{}"}]}, None)
+
+    assert response == {"statusCode": 200, "message": "OK"}
+    emf_objects = emitted_metrics(capsys)
+    aggregate = next(item for item in emf_objects if "BatchDurationMs" in item)
+    metric_definitions = aggregate["_aws"]["CloudWatchMetrics"][0]
+
+    assert metric_definitions["Namespace"] == lambda_module.METRICS_NAMESPACE
+    assert set(metric_definitions["Dimensions"][0]) == {"service", "environment"}
+    assert {
+        metric["Name"]: metric["Unit"] for metric in metric_definitions["Metrics"]
+    } == {
+        "ManifestsProcessed": "Count",
+        "ManifestsFailed": "Count",
+        "DocumentsProcessed": "Count",
+        "DocumentsFailed": "Count",
+        "ChangesAdded": "Count",
+        "ChangesUpdated": "Count",
+        "ChangesDeleted": "Count",
+        "ChangesTotal": "Count",
+        "BatchDurationMs": "Milliseconds",
+    }
+    assert aggregate["service"] == lambda_module.SERVICE_NAME
+    assert aggregate["environment"] == lambda_module.ENVIRONMENT
+    assert aggregate["ManifestsProcessed"] == [1.0]
+    assert aggregate["ManifestsFailed"] == [0.0]
+    assert aggregate["DocumentsProcessed"] == [2.0]
+    assert aggregate["DocumentsFailed"] == [1.0]
+    assert aggregate["ChangesAdded"] == [3.0]
+    assert aggregate["ChangesUpdated"] == [4.0]
+    assert aggregate["ChangesDeleted"] == [5.0]
+    assert aggregate["ChangesTotal"] == [12.0]
+    assert aggregate["BatchDurationMs"][0] >= 0
+
+    section_metrics = {
+        item["section_loinc_code"]: item
+        for item in emf_objects
+        if "SectionChanges" in item
+    }
+    assert set(section_metrics) == {"18776-5", "10160-0"}
+    assert section_metrics["18776-5"]["SectionChanges"] == [3.0]
+    assert section_metrics["10160-0"]["SectionChanges"] == [2.0]
+    for item in section_metrics.values():
+        metric_definition = item["_aws"]["CloudWatchMetrics"][0]
+        assert metric_definition["Namespace"] == lambda_module.METRICS_NAMESPACE
+        assert metric_definition["Metrics"] == [
+            {"Name": "SectionChanges", "Unit": "Count"}
+        ]
+        assert set(metric_definition["Dimensions"][0]) == {
+            "service",
+            "environment",
+            "section_loinc_code",
+        }
+        assert item["service"] == lambda_module.SERVICE_NAME
+        assert item["environment"] == lambda_module.ENVIRONMENT
+
+
+def test_lambda_handler_flushes_partial_metrics_and_preserves_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    lambda_module = load_lambda_module()
+    failure = InfraError("Processing failed during output_write")
+
+    def fail_record(_record, stats):
+        stats.documents_processed = 1
+        stats.documents_failed = 1
+        stats.changes_added = 2
+        stats.section_changes["18776-5"] = 2
+        raise failure
+
+    monkeypatch.setattr(lambda_module, "process_sqs_record", fail_record)
+
+    with pytest.raises(InfraError) as raised:
+        lambda_module.lambda_handler({"Records": [{"body": "{}"}]}, None)
+
+    assert raised.value is failure
+    emf_objects = emitted_metrics(capsys)
+    aggregate = next(item for item in emf_objects if "BatchDurationMs" in item)
+    assert aggregate["ManifestsProcessed"] == [0.0]
+    assert aggregate["ManifestsFailed"] == [1.0]
+    assert aggregate["DocumentsProcessed"] == [1.0]
+    assert aggregate["DocumentsFailed"] == [1.0]
+    assert aggregate["ChangesAdded"] == [2.0]
+    assert aggregate["ChangesTotal"] == [2.0]
+    section_metric = next(item for item in emf_objects if "SectionChanges" in item)
+    assert section_metric["section_loinc_code"] == "18776-5"
+    assert section_metric["SectionChanges"] == [2.0]
+
+
 def test_lambda_handler_counts_successful_manifest_attempts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

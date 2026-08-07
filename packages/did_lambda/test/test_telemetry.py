@@ -20,6 +20,7 @@ TEST_LOG_HASH_SALT = "a" * 32
 def make_change(
     change_type: ChangeType,
     xpath: str = "/ClinicalDocument/component",
+    section_loinc_code: str | None = None,
 ) -> Change:
     return Change(
         changeType=change_type,
@@ -27,6 +28,7 @@ def make_change(
         xpathDocumentId="document-id",
         actionabilityRuleId=UUID(int=0),
         actionabilityRuleDisplayName="test rule",
+        section_loinc_code=section_loinc_code,
     )
 
 
@@ -137,10 +139,10 @@ def test_records_processed_documents_and_reported_change_types() -> None:
 
     stats.record_document_processed(
         make_result(
-            make_change(ChangeType.ADDED),
+            make_change(ChangeType.ADDED, section_loinc_code="18776-5"),
+            make_change(ChangeType.UPDATED, section_loinc_code="18776-5"),
             make_change(ChangeType.UPDATED),
-            make_change(ChangeType.UPDATED),
-            make_change(ChangeType.DELETED),
+            make_change(ChangeType.DELETED, section_loinc_code="10160-0"),
         )
     )
     stats.record_document_processed(make_result())
@@ -150,6 +152,7 @@ def test_records_processed_documents_and_reported_change_types() -> None:
     assert stats.changes_updated == 2
     assert stats.changes_deleted == 1
     assert stats.changes_total == 4
+    assert stats.section_changes == {"18776-5": 2, "10160-0": 1}
 
 
 def test_duration_ms_uses_monotonic_elapsed_time(

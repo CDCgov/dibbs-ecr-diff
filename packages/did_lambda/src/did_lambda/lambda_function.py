@@ -4,7 +4,8 @@ import os
 from typing import Never
 from urllib.parse import unquote_plus
 
-from aws_lambda_powertools import Logger
+from aws_lambda_powertools import Logger, Metrics
+from aws_lambda_powertools.metrics import MetricUnit, single_metric
 from aws_lambda_powertools.utilities.data_classes import (
     S3EventBridgeNotificationEvent,
     SQSEvent,
@@ -50,8 +51,11 @@ DID_OUTPUT_PREFIX = os.environ.get("DID_OUTPUT_PREFIX", "DIDOutput/")
 DID_COMPLETE_PREFIX = os.environ.get("DID_COMPLETE_PREFIX", "DIDComplete/")
 ENVIRONMENT = os.environ.get("ENVIRONMENT", "prod")
 CONFIGURATION_FILE = os.environ.get("CONFIGURATION_FILE", "aphl_baseline.json")
+METRICS_NAMESPACE = os.environ.get("POWERTOOLS_METRICS_NAMESPACE", "eICRDiff")
+SERVICE_NAME = os.environ.get("POWERTOOLS_SERVICE_NAME", "difference-in-docs")
 
-logger = Logger("difference-in-docs")
+logger = Logger(SERVICE_NAME)
+metrics = Metrics(namespace=METRICS_NAMESPACE, service=SERVICE_NAME)
 config = load_configuration(CONFIGURATION_FILE)
 
 
@@ -77,26 +81,69 @@ def _raise_processing_failure(
     raise InfraError(f"Processing failed during {stage}") from None
 
 
+def _record_processing_metrics(stats: BatchProcessingStats) -> None:
+    """Record aggregate and section metrics for one batch processing attempt."""
+    metrics.add_dimension(name="environment", value=ENVIRONMENT)
+    count_metrics = {
+        "ManifestsProcessed": stats.manifests_processed,
+        "ManifestsFailed": stats.manifests_failed,
+        "DocumentsProcessed": stats.documents_processed,
+        "DocumentsFailed": stats.documents_failed,
+        "ChangesAdded": stats.changes_added,
+        "ChangesUpdated": stats.changes_updated,
+        "ChangesDeleted": stats.changes_deleted,
+        "ChangesTotal": stats.changes_total,
+    }
+    for name, value in count_metrics.items():
+        metrics.add_metric(name=name, unit=MetricUnit.Count, value=value)
+
+    metrics.add_metric(
+        name="BatchDurationMs",
+        unit=MetricUnit.Milliseconds,
+        value=stats.duration_ms,
+    )
+
+    default_dimensions = {
+        "service": SERVICE_NAME,
+        "environment": ENVIRONMENT,
+    }
+    for section_loinc_code, count in stats.section_changes.items():
+        with single_metric(
+            name="SectionChanges",
+            unit=MetricUnit.Count,
+            value=count,
+            namespace=METRICS_NAMESPACE,
+            default_dimensions=default_dimensions,
+        ) as section_metric:
+            section_metric.add_dimension(
+                name="section_loinc_code", value=section_loinc_code
+            )
+
+
+@metrics.log_metrics
 @event_source(data_class=SQSEvent)
 def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
     """Difference in Docs Lambda Handler."""
     stats = BatchProcessingStats()
-    raw_records = event.get("Records")
-    if not isinstance(raw_records, list) or not raw_records:
-        _raise_processing_failure(
-            "manifest_load", InfraError("SQS event has no Records")
-        )
+    try:
+        raw_records = event.get("Records")
+        if not isinstance(raw_records, list) or not raw_records:
+            _raise_processing_failure(
+                "manifest_load", InfraError("SQS event has no Records")
+            )
 
-    for record in event.records:
-        try:
-            process_sqs_record(record, stats)
-        except Exception:
-            stats.manifests_failed += 1
-            raise
-        else:
-            stats.manifests_processed += 1
+        for record in event.records:
+            try:
+                process_sqs_record(record, stats)
+            except Exception:
+                stats.manifests_failed += 1
+                raise
+            else:
+                stats.manifests_processed += 1
 
-    return {"statusCode": 200, "message": "OK"}
+        return {"statusCode": 200, "message": "OK"}
+    finally:
+        _record_processing_metrics(stats)
 
 
 def process_sqs_record(

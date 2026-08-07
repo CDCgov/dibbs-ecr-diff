@@ -77,6 +77,7 @@ class BatchProcessingStats:
     changes_added: int = 0
     changes_updated: int = 0
     changes_deleted: int = 0
+    section_changes: Counter[str] = field(default_factory=Counter)
 
     def record_document_processed(self, result: ManifestEntryResult) -> None:
         """Add a successfully processed document and its reported changes."""
@@ -86,6 +87,9 @@ class BatchProcessingStats:
         self.changes_added += counts[ChangeType.ADDED]
         self.changes_updated += counts[ChangeType.UPDATED]
         self.changes_deleted += counts[ChangeType.DELETED]
+        for change in result.changes:
+            if change.section_loinc_code is not None:
+                self.section_changes[change.section_loinc_code] += 1
 
     @property
     def changes_total(self) -> int:
