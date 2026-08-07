@@ -7,12 +7,15 @@ from core import Change, ChangeType
 from did_lambda.models import DIDOutputFile
 from did_lambda.telemetry import (
     BatchProcessingStats,
+    ConditionCode,
     DocumentTelemetry,
     ManifestEntryResult,
     TelemetryConfigurationError,
     change_path_for_logging,
+    condition_codes_from_rr,
     make_document_correlation_key,
 )
+from lxml import etree
 
 TEST_LOG_HASH_SALT = "a" * 32
 
@@ -32,7 +35,9 @@ def make_change(
     )
 
 
-def make_result(*changes: Change) -> ManifestEntryResult:
+def make_result(
+    *changes: Change,
+) -> ManifestEntryResult:
     return ManifestEntryResult(
         output_file=DIDOutputFile(
             eicr="DIDOutput/eicr.xml",
@@ -112,7 +117,7 @@ def test_document_correlation_key_rejects_short_salt_without_exposing_it(
     assert short_salt not in str(raised.value)
 
 
-def test_document_telemetry_exposes_only_safe_identifiers() -> None:
+def test_document_telemetry_exposes_only_privacy_limited_fields() -> None:
     assert tuple(signature(make_document_correlation_key).parameters) == (
         "set_id",
         "version_number",
@@ -120,6 +125,52 @@ def test_document_telemetry_exposes_only_safe_identifiers() -> None:
     assert tuple(field.name for field in fields(DocumentTelemetry)) == (
         "document_correlation_key",
         "version_number",
+        "unique_condition_count",
+    )
+    assert tuple(field.name for field in fields(ManifestEntryResult)) == (
+        "output_file",
+        "changes",
+        "telemetry",
+    )
+
+
+def test_extracts_unique_coded_conditions_from_rr_condition_observations() -> None:
+    rr_tree = etree.ElementTree(
+        etree.fromstring(
+            b"""
+            <ClinicalDocument xmlns="urn:hl7-org:v3">
+              <observation>
+                <templateId root="2.16.840.1.113883.10.20.15.2.3.12"/>
+                <value code="43692000" codeSystem="2.16.840.1.113883.6.96"/>
+              </observation>
+              <observation>
+                <templateId root="2.16.840.1.113883.10.20.15.2.3.12"/>
+                <value code="43692000" codeSystem="2.16.840.1.113883.6.96"/>
+              </observation>
+              <observation>
+                <templateId root="2.16.840.1.113883.10.20.15.2.3.12"/>
+                <value code="840539006" codeSystem="2.16.840.1.113883.6.96"/>
+              </observation>
+              <observation>
+                <templateId root="unrelated-template"/>
+                <value code="sensitive-unrelated-code" codeSystem="unknown"/>
+              </observation>
+              <observation>
+                <templateId root="2.16.840.1.113883.10.20.15.2.3.12"/>
+                <value code="missing-code-system"/>
+              </observation>
+              <observation>
+                <templateId root="2.16.840.1.113883.10.20.15.2.3.12"/>
+                <value code="patient name" codeSystem="not-an-oid"/>
+              </observation>
+            </ClinicalDocument>
+            """
+        )
+    )
+
+    assert condition_codes_from_rr(rr_tree) == (
+        ConditionCode(code_system="2.16.840.1.113883.6.96", code="43692000"),
+        ConditionCode(code_system="2.16.840.1.113883.6.96", code="840539006"),
     )
 
 
@@ -152,7 +203,7 @@ def test_records_processed_documents_and_reported_change_types() -> None:
     assert stats.changes_updated == 2
     assert stats.changes_deleted == 1
     assert stats.changes_total == 4
-    assert stats.section_changes == {"18776-5": 2, "10160-0": 1}
+    assert stats.section_change_counts == {"18776-5": 2, "10160-0": 1}
 
 
 def test_duration_ms_uses_monotonic_elapsed_time(

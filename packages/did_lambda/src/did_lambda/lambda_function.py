@@ -1,6 +1,7 @@
 """Ingest manifests delivered through S3 and SQS."""
 
 import os
+from collections import Counter
 from typing import Never
 from urllib.parse import unquote_plus
 
@@ -34,8 +35,11 @@ from .models import (
 from .s3 import get_object, get_object_xml_tree, put_object
 from .telemetry import (
     BatchProcessingStats,
+    ConditionCode,
     DocumentTelemetry,
     ManifestEntryResult,
+    change_path_for_logging,
+    condition_codes_from_rr,
     make_document_correlation_key,
 )
 from .utils import (
@@ -107,17 +111,61 @@ def _record_processing_metrics(stats: BatchProcessingStats) -> None:
         "service": SERVICE_NAME,
         "environment": ENVIRONMENT,
     }
-    for section_loinc_code, count in stats.section_changes.items():
+    for section_loinc_code, change_count in stats.section_change_counts.items():
         with single_metric(
             name="SectionChanges",
             unit=MetricUnit.Count,
-            value=count,
+            value=change_count,
             namespace=METRICS_NAMESPACE,
             default_dimensions=default_dimensions,
         ) as section_metric:
             section_metric.add_dimension(
                 name="section_loinc_code", value=section_loinc_code
             )
+
+
+def _log_doc_and_changes(result: ManifestEntryResult) -> None:
+    """Log one completed document and each of its reported changes."""
+    doc_fields = {
+        "document_correlation_key": result.telemetry.document_correlation_key,
+        "version_number": result.telemetry.version_number,
+    }
+    logger.info(
+        "document_processed",
+        extra={
+            **doc_fields,
+            "unique_condition_count": result.telemetry.unique_condition_count,
+        },
+    )
+
+    for change in result.changes:
+        logger.info(
+            "xml_change",
+            extra={
+                **doc_fields,
+                "change_type": change.changeType.value,
+                "change_path": change_path_for_logging(change),
+            },
+        )
+
+
+def _log_doc_processing_attempts_by_condition(stats: BatchProcessingStats) -> None:
+    """Log doc processing attempts by condition without correlation fields.
+
+    These batch records remain temporally linkable in the shared Lambda log stream;
+    their longer-term privacy boundary is pending external guidance.
+    """
+    for condition, processing_attempt_count in sorted(
+        stats.doc_processing_attempts_by_condition.items()
+    ):
+        logger.info(
+            "doc_processing_attempts_by_condition",
+            extra={
+                "condition_code": condition.code,
+                "condition_code_system": condition.code_system,
+                "doc_processing_attempt_count": processing_attempt_count,
+            },
+        )
 
 
 @metrics.log_metrics
@@ -144,6 +192,7 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
         return {"statusCode": 200, "message": "OK"}
     finally:
         _record_processing_metrics(stats)
+        _log_doc_processing_attempts_by_condition(stats)
 
 
 def process_sqs_record(
@@ -167,12 +216,18 @@ def process_sqs_record(
     # process every DIDInputFile in the batch
     for entry in did_input_manifest.files:
         try:
-            result = process_manifest_entry(bucket_name, persistence_id, entry)
+            result = process_manifest_entry(
+                bucket_name,
+                persistence_id,
+                entry,
+                stats.doc_processing_attempts_by_condition,
+            )
         except Exception:
             stats.documents_failed += 1
             raise
 
         stats.record_document_processed(result)
+        _log_doc_and_changes(result)
         did_complete_output_files.append(result.output_file)
 
     try:
@@ -191,7 +246,10 @@ def process_sqs_record(
 
 
 def process_manifest_entry(
-    bucket_name: str, persistence_id: str, entry: DIDInputFile
+    bucket_name: str,
+    persistence_id: str,
+    entry: DIDInputFile,
+    doc_processing_attempts_by_condition: Counter[ConditionCode] | None = None,
 ) -> ManifestEntryResult:
     """Process a single DID input manifest entry."""
     stage = "telemetry_config"
@@ -212,6 +270,7 @@ def process_manifest_entry(
 
         eicr_tree = get_object_xml_tree(bucket_name, entry.eicr)
         rr_tree = get_object_xml_tree(bucket_name, entry.rr)
+        condition_codes = condition_codes_from_rr(rr_tree)
 
         if before_record:
             before_tree = get_object_xml_tree(bucket_name, before_record.s3Key)
@@ -257,7 +316,7 @@ def process_manifest_entry(
         rr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, entry.rr)
         put_object(bucket_name, rr_out_key, augmented_rr)
 
-        return ManifestEntryResult(
+        result = ManifestEntryResult(
             output_file=DIDOutputFile(
                 setId=set_id,
                 versionNumber=version_number,
@@ -270,8 +329,12 @@ def process_manifest_entry(
             telemetry=DocumentTelemetry(
                 document_correlation_key=document_correlation_key,
                 version_number=version_number,
+                unique_condition_count=len(condition_codes),
             ),
         )
+        if doc_processing_attempts_by_condition is not None:
+            doc_processing_attempts_by_condition.update(condition_codes)
+        return result
     except Exception as exc:
         _raise_processing_failure(stage, exc, document_correlation_key)
 

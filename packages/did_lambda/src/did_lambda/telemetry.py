@@ -9,12 +9,23 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from core import Change, ChangeType
+from core.constants import NAMESPACES
+from lxml.etree import ElementTree
 
 from .models import DIDOutputFile
 
 DOCUMENT_CORRELATION_KEY_HEX_LENGTH = 32
 MIN_LOG_HASH_SALT_BYTES = 32
 _NUMERIC_POSITION_PREDICATE = re.compile(r"\[\d+\]")
+_RR_CONDITION_OBSERVATION_TEMPLATE_ID = "2.16.840.1.113883.10.20.15.2.3.12"
+_RR_CONDITION_VALUE_XPATH = (
+    ".//hl7:observation[hl7:templateId[@root="
+    f"'{_RR_CONDITION_OBSERVATION_TEMPLATE_ID}'"
+    "]]/hl7:value"
+)
+_CONDITION_CODE_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+_CODE_SYSTEM_OID_PATTERN = re.compile(r"\d+(?:\.\d+)+")
+_MAX_CODE_SYSTEM_OID_LENGTH = 128
 
 
 class TelemetryConfigurationError(RuntimeError):
@@ -44,12 +55,42 @@ def make_document_correlation_key(set_id: str, version_number: int) -> str:
     ]
 
 
+@dataclass(frozen=True, order=True, slots=True)
+class ConditionCode:
+    """A condition code without document-identifying context."""
+
+    code_system: str
+    code: str
+
+
+def condition_codes_from_rr(rr_tree: ElementTree) -> tuple[ConditionCode, ...]:
+    """Return unique coded conditions from RR condition observations."""
+    conditions: set[ConditionCode] = set()
+    for value in rr_tree.xpath(_RR_CONDITION_VALUE_XPATH, namespaces=NAMESPACES):
+        code = value.get("code")
+        code_system = value.get("codeSystem")
+        if code is None or code_system is None:
+            continue
+
+        code = code.strip()
+        code_system = code_system.strip()
+        if (
+            _CONDITION_CODE_PATTERN.fullmatch(code)
+            and len(code_system) <= _MAX_CODE_SYSTEM_OID_LENGTH
+            and _CODE_SYSTEM_OID_PATTERN.fullmatch(code_system)
+        ):
+            conditions.add(ConditionCode(code_system=code_system, code=code))
+
+    return tuple(sorted(conditions))
+
+
 @dataclass(frozen=True, slots=True)
 class DocumentTelemetry:
     """Privacy-limited document metadata available to telemetry consumers."""
 
     document_correlation_key: str
     version_number: int
+    unique_condition_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,7 +118,10 @@ class BatchProcessingStats:
     changes_added: int = 0
     changes_updated: int = 0
     changes_deleted: int = 0
-    section_changes: Counter[str] = field(default_factory=Counter)
+    section_change_counts: Counter[str] = field(default_factory=Counter)
+    doc_processing_attempts_by_condition: Counter[ConditionCode] = field(
+        default_factory=Counter
+    )
 
     def record_document_processed(self, result: ManifestEntryResult) -> None:
         """Add a successfully processed document and its reported changes."""
@@ -89,7 +133,7 @@ class BatchProcessingStats:
         self.changes_deleted += counts[ChangeType.DELETED]
         for change in result.changes:
             if change.section_loinc_code is not None:
-                self.section_changes[change.section_loinc_code] += 1
+                self.section_change_counts[change.section_loinc_code] += 1
 
     @property
     def changes_total(self) -> int:

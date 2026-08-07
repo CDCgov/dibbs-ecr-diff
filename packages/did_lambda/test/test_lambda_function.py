@@ -2,13 +2,17 @@ import importlib
 import json
 import os
 import traceback
+from collections import Counter
 from types import SimpleNamespace
 from unittest.mock import ANY, Mock, call
+from uuid import UUID
 
 import pytest
+from core import Change, ChangeType
 from did_lambda.models import DIDInputFile, DIDInputManifest, DIDOutputFile
 from did_lambda.telemetry import (
     BatchProcessingStats,
+    ConditionCode,
     DocumentTelemetry,
     ManifestEntryResult,
     TelemetryConfigurationError,
@@ -49,7 +53,10 @@ def make_entry() -> DIDInputFile:
     )
 
 
-def make_result() -> ManifestEntryResult:
+def make_result(
+    *changes: Change,
+    unique_condition_count: int = 0,
+) -> ManifestEntryResult:
     return ManifestEntryResult(
         output_file=DIDOutputFile(
             eicr="DIDOutput/2026/id/jurisdiction/eicr.xml",
@@ -58,11 +65,23 @@ def make_result() -> ManifestEntryResult:
             versionNumber=1,
             is_actionable=True,
         ),
-        changes=(),
+        changes=changes,
         telemetry=DocumentTelemetry(
             document_correlation_key=make_document_correlation_key("set-id", 1),
             version_number=1,
+            unique_condition_count=unique_condition_count,
         ),
+    )
+
+
+def make_change(change_type: ChangeType, xpath: str) -> Change:
+    return Change(
+        changeType=change_type,
+        xpath=xpath,
+        xpathDocumentId="document-id",
+        actionabilityRuleId=UUID(int=0),
+        actionabilityRuleDisplayName="test rule",
+        section_loinc_code="18776-5",
     )
 
 
@@ -136,7 +155,7 @@ def test_lambda_handler_emits_aggregate_and_section_metrics(
         stats.changes_added = 3
         stats.changes_updated = 4
         stats.changes_deleted = 5
-        stats.section_changes.update({"18776-5": 3, "10160-0": 2})
+        stats.section_change_counts.update({"18776-5": 3, "10160-0": 2})
 
     monkeypatch.setattr(lambda_module, "process_sqs_record", process_record)
 
@@ -197,6 +216,36 @@ def test_lambda_handler_emits_aggregate_and_section_metrics(
         assert item["environment"] == lambda_module.ENVIRONMENT
 
 
+def test_lambda_handler_logs_doc_processing_attempts_by_condition(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    lambda_module = load_lambda_module()
+    condition = ConditionCode(code_system="2.16.840.1.113883.6.96", code="840539006")
+    caplog.set_level("INFO")
+
+    def process_record(_record, stats):
+        stats.doc_processing_attempts_by_condition[condition] = 2
+
+    monkeypatch.setattr(lambda_module, "process_sqs_record", process_record)
+
+    response = lambda_module.lambda_handler({"Records": [{"body": "{}"}]}, None)
+
+    assert response == {"statusCode": 200, "message": "OK"}
+    condition_logs = [
+        record
+        for record in caplog.records
+        if record.message == "doc_processing_attempts_by_condition"
+    ]
+    assert len(condition_logs) == 1
+    condition_fields = vars(condition_logs[0])
+    assert condition_fields["condition_code"] == condition.code
+    assert condition_fields["condition_code_system"] == condition.code_system
+    assert condition_fields["doc_processing_attempt_count"] == 2
+    assert "document_correlation_key" not in condition_fields
+    assert "version_number" not in condition_fields
+
+
 def test_lambda_handler_flushes_partial_metrics_and_preserves_failure(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -208,7 +257,7 @@ def test_lambda_handler_flushes_partial_metrics_and_preserves_failure(
         stats.documents_processed = 1
         stats.documents_failed = 1
         stats.changes_added = 2
-        stats.section_changes["18776-5"] = 2
+        stats.section_change_counts["18776-5"] = 2
         raise failure
 
     monkeypatch.setattr(lambda_module, "process_sqs_record", fail_record)
@@ -276,8 +325,10 @@ def test_lambda_handler_counts_failure_and_rethrows_same_exception(
 
 def test_process_sqs_record_preserves_completion_manifest_schema(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     lambda_module = load_lambda_module()
+    caplog.set_level("INFO")
     configure_manifest_record(monkeypatch, lambda_module)
     monkeypatch.setattr(
         lambda_module, "process_manifest_entry", lambda *_args: make_result()
@@ -290,6 +341,11 @@ def test_process_sqs_record_preserves_completion_manifest_schema(
 
     assert stats.documents_processed == 1
     assert stats.documents_failed == 0
+    doc_log = next(
+        record for record in caplog.records if record.message == "document_processed"
+    )
+    assert vars(doc_log)["unique_condition_count"] == 0
+    assert all(record.message != "xml_change" for record in caplog.records)
     put_object.assert_called_once()
     bucket, key, body = put_object.call_args.args
     assert bucket == "bucket"
@@ -310,6 +366,7 @@ def test_process_sqs_record_preserves_completion_manifest_schema(
 
 def test_process_sqs_record_counts_failure_and_rethrows_same_exception(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     lambda_module = load_lambda_module()
     configure_manifest_record(monkeypatch, lambda_module)
@@ -330,6 +387,83 @@ def test_process_sqs_record_counts_failure_and_rethrows_same_exception(
     assert stats.documents_processed == 0
     assert stats.documents_failed == 1
     put_object.assert_not_called()
+    assert all(
+        record.message not in {"document_processed", "xml_change"}
+        for record in caplog.records
+    )
+
+
+def test_process_sqs_record_logs_completed_document_and_reported_changes(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    lambda_module = load_lambda_module()
+    configure_manifest_record(monkeypatch, lambda_module)
+    result = make_result(
+        make_change(
+            ChangeType.ADDED,
+            "/hl7:ClinicalDocument[1]/hl7:component[2]/hl7:section[1]",
+        ),
+        make_change(
+            ChangeType.UPDATED,
+            "/hl7:ClinicalDocument[1]/hl7:component[3]/hl7:section[2]",
+        ),
+        make_change(
+            ChangeType.DELETED,
+            "/hl7:ClinicalDocument[1]/hl7:component[4]/hl7:section[3]",
+        ),
+        unique_condition_count=1,
+    )
+    monkeypatch.setattr(lambda_module, "process_manifest_entry", lambda *_args: result)
+    monkeypatch.setattr(lambda_module, "put_object", Mock())
+    caplog.set_level("INFO")
+
+    lambda_module.process_sqs_record(
+        SimpleNamespace(json_body={}), BatchProcessingStats()
+    )
+
+    doc_logs = [
+        record for record in caplog.records if record.message == "document_processed"
+    ]
+    change_logs = [
+        record for record in caplog.records if record.message == "xml_change"
+    ]
+    assert len(doc_logs) == 1
+    doc_fields = vars(doc_logs[0])
+    assert doc_fields["document_correlation_key"] == (
+        result.telemetry.document_correlation_key
+    )
+    assert doc_fields["version_number"] == 1
+    assert doc_fields["unique_condition_count"] == 1
+    assert "condition_code" not in doc_fields
+    assert "condition_code_system" not in doc_fields
+
+    assert [vars(record)["change_type"] for record in change_logs] == [
+        "ADDED",
+        "UPDATED",
+        "DELETED",
+    ]
+    assert [vars(record)["change_path"] for record in change_logs] == [
+        "/hl7:ClinicalDocument/hl7:component/hl7:section",
+        "/hl7:ClinicalDocument/hl7:component/hl7:section",
+        "/hl7:ClinicalDocument/hl7:component/hl7:section",
+    ]
+    for record in change_logs:
+        fields = vars(record)
+        assert fields["document_correlation_key"] == (
+            result.telemetry.document_correlation_key
+        )
+        assert fields["version_number"] == 1
+        assert "unique_condition_count" not in fields
+        assert "condition_code" not in fields
+        assert "condition_code_system" not in fields
+        assert "section_loinc_code" not in fields
+
+    logged_fields = repr([vars(record) for record in doc_logs + change_logs])
+    assert "radioactive-condition-code" not in logged_fields
+    assert "document-id" not in logged_fields
+    assert "set-id" not in logged_fields
+    assert "[1]" not in logged_fields
 
 
 def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
@@ -337,8 +471,20 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
 ) -> None:
     lambda_module = load_lambda_module()
     entry = make_entry()
+    eicr_tree = object()
+    rr_tree = object()
+    condition_codes = (
+        ConditionCode(code_system="2.16.840.1.113883.6.96", code="840539006"),
+    )
+    doc_processing_attempts_by_condition: Counter[ConditionCode] = Counter()
     monkeypatch.setattr(lambda_module, "get_before_actionable_record", lambda *_: None)
-    monkeypatch.setattr(lambda_module, "get_object_xml_tree", lambda *_: object())
+    monkeypatch.setattr(
+        lambda_module,
+        "get_object_xml_tree",
+        Mock(side_effect=[eicr_tree, rr_tree]),
+    )
+    extract_conditions = Mock(return_value=condition_codes)
+    monkeypatch.setattr(lambda_module, "condition_codes_from_rr", extract_conditions)
     monkeypatch.setattr(lambda_module, "jurisdiction_id_from_key", lambda *_: "jur")
     monkeypatch.setattr(lambda_module, "get_augmented_eicr", lambda *_: b"eicr")
     monkeypatch.setattr(lambda_module, "get_augmented_rr", lambda *_: b"rr")
@@ -351,7 +497,9 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
     monkeypatch.setattr(lambda_module, "put_eicr_record", put_eicr_record)
     monkeypatch.setattr(lambda_module, "put_object", put_object)
 
-    result = lambda_module.process_manifest_entry("bucket", "2026/id", entry)
+    result = lambda_module.process_manifest_entry(
+        "bucket", "2026/id", entry, doc_processing_attempts_by_condition
+    )
 
     assert result.output_file == DIDOutputFile(
         eicr="DIDOutput/2026/id/jurisdiction/eicr.xml",
@@ -364,7 +512,11 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
     assert result.telemetry == DocumentTelemetry(
         document_correlation_key=make_document_correlation_key("set-id", 1),
         version_number=1,
+        unique_condition_count=1,
     )
+    assert not hasattr(result, "condition_codes")
+    assert doc_processing_attempts_by_condition == {condition_codes[0]: 1}
+    extract_conditions.assert_called_once_with(rr_tree)
     assert operations.mock_calls == [
         call.put_eicr_record(
             {
@@ -391,6 +543,7 @@ def test_process_manifest_entry_propagates_final_write_failure(
     entry = make_entry()
     monkeypatch.setattr(lambda_module, "get_before_actionable_record", lambda *_: None)
     monkeypatch.setattr(lambda_module, "get_object_xml_tree", lambda *_: object())
+    monkeypatch.setattr(lambda_module, "condition_codes_from_rr", lambda *_: ())
     monkeypatch.setattr(lambda_module, "jurisdiction_id_from_key", lambda *_: "jur")
     monkeypatch.setattr(lambda_module, "get_augmented_eicr", lambda *_: b"eicr")
     monkeypatch.setattr(lambda_module, "get_augmented_rr", lambda *_: b"rr")
@@ -458,6 +611,7 @@ def test_process_manifest_entry_sanitizes_each_processing_stage(
     before_record = SimpleNamespace(versionNumber=0, s3Key="sensitive-prior-key")
     monkeypatch.setattr(lambda_module, "get_before_actionable_record", lambda *_: None)
     monkeypatch.setattr(lambda_module, "get_object_xml_tree", lambda *_: object())
+    monkeypatch.setattr(lambda_module, "condition_codes_from_rr", lambda *_: ())
     monkeypatch.setattr(lambda_module, "jurisdiction_id_from_key", lambda *_: "jur")
     monkeypatch.setattr(lambda_module, "get_augmented_eicr", lambda *_: b"eicr")
     monkeypatch.setattr(lambda_module, "get_augmented_rr", lambda *_: b"rr")
