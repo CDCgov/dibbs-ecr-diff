@@ -41,7 +41,7 @@ class Change(BaseModel):
     isActionable: bool = True
     actionabilityRuleId: UUID
     actionabilityRuleDisplayName: str
-    closest_associated_loinc_code: str | None = Field(exclude=True, default=None)
+    section_loinc_code: str | None = Field(exclude=True, default=None)
     augmentation_anchor_node: _Element | None = Field(
         exclude=True, default=None
     )  # needed for entry-level augmentation

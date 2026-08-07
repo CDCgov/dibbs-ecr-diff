@@ -8,6 +8,7 @@ from uuid import UUID
 from lxml import etree
 from lxml.etree import ElementTree
 
+from .cda.tags import CODE_TAG, SECTION_TAG
 from .constants import (
     DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
     DEFAULT_ACTIONABLE_RULE_ID,
@@ -25,7 +26,6 @@ from .models import (
 )
 from .paths import structural_xpath
 from .performance import measure_time
-from .xml_utils import hl7_clark_tag
 
 # Maps XML nodes matched by configured XPaths to all their rules.
 type RuleMatchCache = dict[etree._Element, list[Rule]]
@@ -106,33 +106,29 @@ def _get_document_metadata(root: etree._Element) -> Document:
     )
 
 
-def _associated_code_elements(
-    context: etree._Element,
-) -> Iterable[etree._Element]:
-    """Yield coded elements directly associated with an XML context."""
-    yield context
-
-    translation_tag = hl7_clark_tag("translation")
-    yield from context.iterchildren(tag=translation_tag)
-
-    for code_element in context.iterchildren(tag=hl7_clark_tag("code")):
-        yield code_element
-        yield from code_element.iterchildren(tag=translation_tag)
-
-
-def _closest_associated_loinc_code(
+def _section_loinc_code_for_change(
     changed_element: etree._Element,
 ) -> str | None:
-    """Return the nearest well-formed LOINC code associated with an element."""
-    for context in (changed_element, *changed_element.iterancestors()):
-        for coded_element in _associated_code_elements(context):
-            code = coded_element.get("code")
-            if (
-                coded_element.get("codeSystem") == _LOINC_CODE_SYSTEM_OID
-                and code is not None
-                and _LOINC_CODE_PATTERN.fullmatch(code)
-            ):
-                return code
+    """Return the nearest enclosing CDA section's well-formed LOINC code."""
+    if changed_element.tag == SECTION_TAG:
+        section = changed_element
+    else:
+        section = next(changed_element.iterancestors(tag=SECTION_TAG), None)
+
+    if section is None:
+        return None
+
+    section_code = next(section.iterchildren(tag=CODE_TAG), None)
+    if section_code is None:
+        return None
+
+    code = section_code.get("code")
+    if (
+        section_code.get("codeSystem") == _LOINC_CODE_SYSTEM_OID
+        and code is not None
+        and _LOINC_CODE_PATTERN.fullmatch(code)
+    ):
+        return code
 
     return None
 
@@ -187,7 +183,7 @@ def _process_additions(
     """
     actionable_changes: list[Change] = []
     for added_element in added:
-        closest_associated_loinc_code = _closest_associated_loinc_code(added_element)
+        section_loinc_code = _section_loinc_code_for_change(added_element)
         if mode == DiffMode.WATCH_LIST:
             for rule_match in unique_rule_matches_for_change_type(
                 rule_matches_for_node_and_descendants(
@@ -204,7 +200,7 @@ def _process_additions(
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
                         actionabilityRuleDisplayName=rule_match.displayName,
-                        closest_associated_loinc_code=closest_associated_loinc_code,
+                        section_loinc_code=section_loinc_code,
                         augmentation_anchor_node=added_element,
                     )
                 )
@@ -226,7 +222,7 @@ def _process_additions(
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
                     actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
-                    closest_associated_loinc_code=closest_associated_loinc_code,
+                    section_loinc_code=section_loinc_code,
                     augmentation_anchor_node=added_element,
                 )
             )
@@ -250,7 +246,7 @@ def _process_updates(
     """
     actionable_changes: list[Change] = []
     for before, after in updated:
-        closest_associated_loinc_code = _closest_associated_loinc_code(after)
+        section_loinc_code = _section_loinc_code_for_change(after)
         if mode == DiffMode.WATCH_LIST:
             for rule_match in unique_rule_matches_for_change_type(
                 right_rule_match_cache.get(after, []),
@@ -264,7 +260,7 @@ def _process_updates(
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
                         actionabilityRuleDisplayName=rule_match.displayName,
-                        closest_associated_loinc_code=closest_associated_loinc_code,
+                        section_loinc_code=section_loinc_code,
                         augmentation_anchor_node=after,
                     )
                 )
@@ -292,7 +288,7 @@ def _process_updates(
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
                     actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
-                    closest_associated_loinc_code=closest_associated_loinc_code,
+                    section_loinc_code=section_loinc_code,
                     augmentation_anchor_node=after,
                 )
             )
@@ -315,7 +311,7 @@ def _process_deletions(
     """
     actionable_changes: list[Change] = []
     for deleted_element in deleted:
-        closest_associated_loinc_code = _closest_associated_loinc_code(deleted_element)
+        section_loinc_code = _section_loinc_code_for_change(deleted_element)
         if mode == DiffMode.WATCH_LIST:
             for rule_match in unique_rule_matches_for_change_type(
                 rule_matches_for_node_and_descendants(
@@ -332,7 +328,7 @@ def _process_deletions(
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
                         actionabilityRuleDisplayName=rule_match.displayName,
-                        closest_associated_loinc_code=closest_associated_loinc_code,
+                        section_loinc_code=section_loinc_code,
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
@@ -352,7 +348,7 @@ def _process_deletions(
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
                     actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
-                    closest_associated_loinc_code=closest_associated_loinc_code,
+                    section_loinc_code=section_loinc_code,
                 )
             )
     return actionable_changes

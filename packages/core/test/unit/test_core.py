@@ -2,11 +2,11 @@ from uuid import UUID
 
 import pytest
 from core import (
-    _closest_associated_loinc_code,
     _get_document_metadata,
     _process_additions,
     _process_deletions,
     _process_updates,
+    _section_loinc_code_for_change,
     build_rule_match_cache,
     has_ignore_rule_for_change_type,
     rule_matches_for_node_and_ancestors,
@@ -95,80 +95,75 @@ def test_get_document_metadata_uses_empty_strings_for_missing_values():
     [
         (
             f"""
-            <observation xmlns="{HL7_NS}">
-              <value ID="target" code="718-7"
-                     codeSystem="2.16.840.1.113883.6.1"/>
-            </observation>
-            """,
-            "718-7",
-        ),
-        (
-            f"""
             <section xmlns="{HL7_NS}">
               <code code="10160-0" codeSystem="2.16.840.1.113883.6.1"/>
-              <entry>
-                <observation>
-                  <code code="718-7" codeSystem="2.16.840.1.113883.6.1"/>
-                  <value ID="target"/>
-                </observation>
-              </entry>
+              <component>
+                <section>
+                  <code code="18776-5" codeSystem="2.16.840.1.113883.6.1"/>
+                  <entry>
+                    <observation>
+                      <code code="718-7" codeSystem="2.16.840.1.113883.6.1"/>
+                      <value ID="target"/>
+                    </observation>
+                  </entry>
+                </section>
+              </component>
             </section>
             """,
-            "718-7",
+            "18776-5",
         ),
         (
             f"""
-            <observation xmlns="{HL7_NS}">
-              <code code="365860008" codeSystem="2.16.840.1.113883.6.96">
-                <translation code="4548-4"
-                             codeSystem="2.16.840.1.113883.6.1"/>
-              </code>
-              <value ID="target"/>
-            </observation>
+            <ClinicalDocument xmlns="{HL7_NS}">
+              <component>
+                <section ID="target">
+                  <code code="18776-5" codeSystem="2.16.840.1.113883.6.1"/>
+                </section>
+              </component>
+            </ClinicalDocument>
             """,
-            "4548-4",
+            "18776-5",
         ),
         (
             f"""
-            <observation xmlns="{HL7_NS}">
-              <value ID="target" code="365860008"
-                     codeSystem="2.16.840.1.113883.6.96">
-                <translation code="85354-9"
-                             codeSystem="2.16.840.1.113883.6.1"/>
-              </value>
-            </observation>
-            """,
-            "85354-9",
-        ),
-        (
-            f"""
-            <observation xmlns="{HL7_NS}">
-              <code code="not-a-loinc-code"
-                    codeSystem="2.16.840.1.113883.6.1"/>
-              <value ID="target"/>
-            </observation>
+            <ClinicalDocument xmlns="{HL7_NS}">
+              <recordTarget ID="target"/>
+            </ClinicalDocument>
             """,
             None,
         ),
         (
             f"""
-            <observation xmlns="{HL7_NS}">
-              <code code="718-7" codeSystem="example" codeSystemName="LOINC"/>
+            <section xmlns="{HL7_NS}">
+              <code code="365860008" codeSystem="2.16.840.1.113883.6.96"/>
+              <observation>
+                <code code="718-7" codeSystem="2.16.840.1.113883.6.1"/>
+                <value ID="target"/>
+              </observation>
+            </section>
+            """,
+            None,
+        ),
+        (
+            f"""
+            <section xmlns="{HL7_NS}">
+              <code code="not-a-loinc-code"
+                    codeSystem="2.16.840.1.113883.6.1"/>
               <value ID="target"/>
-            </observation>
+            </section>
             """,
             None,
         ),
     ],
 )
-def test_closest_associated_loinc_code_uses_nearest_verified_code(
+def test_section_loinc_code_uses_only_nearest_enclosing_section(
     xml: str,
     expected: str | None,
 ) -> None:
     root = elem(xml)
     changed_element = find_one(root, ".//*[@ID='target']")
 
-    assert _closest_associated_loinc_code(changed_element) == expected
+    assert _section_loinc_code_for_change(changed_element) == expected
 
 
 def test_all_change_types_capture_loinc_without_serializing_it() -> None:
@@ -203,16 +198,16 @@ def test_all_change_types_capture_loinc_without_serializing_it() -> None:
         [previous], DiffMode.IGNORE_LIST, {}, previous_document
     )[0]
 
-    assert added_change.closest_associated_loinc_code == "18776-5"
-    assert updated_change.closest_associated_loinc_code == "18776-5"
-    assert deleted_change.closest_associated_loinc_code == "10160-0"
+    assert added_change.section_loinc_code == "18776-5"
+    assert updated_change.section_loinc_code == "18776-5"
+    assert deleted_change.section_loinc_code == "10160-0"
     assert (
-        "closest_associated_loinc_code"
+        "section_loinc_code"
         not in Change.model_json_schema(mode="serialization")["properties"]
     )
     for change in (added_change, updated_change, deleted_change):
-        assert "closest_associated_loinc_code" not in change.model_dump()
-        assert '"closest_associated_loinc_code"' not in change.model_dump_json()
+        assert "section_loinc_code" not in change.model_dump()
+        assert '"section_loinc_code"' not in change.model_dump_json()
 
 
 def test_process_additions_watch_list_emits_change_for_watched_descendant():
