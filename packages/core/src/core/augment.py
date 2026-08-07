@@ -747,7 +747,10 @@ def _process_diff_output_changes(diff_output: DiffOutput, timestamp: str) -> Non
     """
     # Can't add entry-level augmentation to a deleted element that doesn't exist in the new eICR
     filtered_changes = [
-        x for x in diff_output.changes if x.changeType != ChangeType.DELETED
+        # should we filter on "x.isActionable == True" in order to only augment actionable changes?
+        x
+        for x in diff_output.changes
+        if x.changeType != ChangeType.DELETED
     ]
 
     for change in filtered_changes:

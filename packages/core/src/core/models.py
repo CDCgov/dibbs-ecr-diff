@@ -38,9 +38,9 @@ class Change(BaseModel):
     changeType: ChangeType
     xpath: str
     xpathDocumentId: str
-    isActionable: bool = True
-    actionabilityRuleId: UUID
-    actionabilityRuleDisplayName: str
+    isActionable: bool = True  # defensive default
+    actionabilityRuleId: UUID | None = None
+    actionabilityRuleDisplayName: str | None = None
     augmentation_anchor_node: _Element | None = Field(
         exclude=True, default=None
     )  # needed for entry-level augmentation
@@ -64,7 +64,8 @@ class DiffOutput(BaseModel):
     setId: str
     currentDocument: Document
     previousDocument: Document
-    hasActionableChanges: bool = True
+    hasDetectedChanges: bool
+    hasActionableChanges: bool = True  # defensive default to allow eICRs through
     changes: list[Change] = Field(default_factory=list)
 
 
