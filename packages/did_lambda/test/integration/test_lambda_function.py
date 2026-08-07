@@ -4,11 +4,14 @@ from .helpers import (
     send_input_files,
 )
 
+DID_OUTPUT_PREFIX = "DIDOutput/"
+
 
 def test_process_manifest_entry_with_single_file(
     s3_client, bucket_name, dynamodb_table
 ):
     from did_lambda.lambda_function import process_manifest_entry
+    from did_lambda.utils import get_did_output_key
 
     eicr_set_id = "eicr-set-id-1"
     version_number = 1
@@ -36,8 +39,15 @@ def test_process_manifest_entry_with_single_file(
         Key={"setId": eicr_set_id, "versionNumber": version_number}
     )["Item"]
 
+    # dynamodb should have a record for our processed file
     assert record["s3Key"] == manifest_file.eicr
     assert record["s3KeyRR"] == manifest_file.rr
     assert record["s3KeyDiffOutput"] is None
     assert record["isActionable"] is True
     assert record["comparedToVersion"] is None
+
+    # make sure the augmented eicr/rr were correctly put in DIDOutput/
+    for input_key in (manifest_file.eicr, manifest_file.rr):
+        output_key = get_did_output_key(DID_OUTPUT_PREFIX, input_key)
+        response = s3_client.get_object(Bucket=bucket_name, Key=output_key)
+        assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
