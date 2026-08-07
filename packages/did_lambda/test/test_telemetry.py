@@ -10,16 +10,20 @@ from did_lambda.telemetry import (
     DocumentTelemetry,
     ManifestEntryResult,
     TelemetryConfigurationError,
+    change_path_for_logging,
     make_document_correlation_key,
 )
 
 TEST_LOG_HASH_SALT = "a" * 32
 
 
-def make_change(change_type: ChangeType) -> Change:
+def make_change(
+    change_type: ChangeType,
+    xpath: str = "/ClinicalDocument/component",
+) -> Change:
     return Change(
         changeType=change_type,
-        xpath="/ClinicalDocument/component",
+        xpath=xpath,
         xpathDocumentId="document-id",
         actionabilityRuleId=UUID(int=0),
         actionabilityRuleDisplayName="test rule",
@@ -115,6 +119,17 @@ def test_document_telemetry_exposes_only_safe_identifiers() -> None:
         "document_correlation_key",
         "version_number",
     )
+
+
+def test_change_path_for_logging_removes_positions_without_changing_output() -> None:
+    original_path = "/hl7:ClinicalDocument[1]/hl7:component[2]/sdtc:deceasedInd[12]"
+    change = make_change(ChangeType.UPDATED, xpath=original_path)
+
+    logged_path = change_path_for_logging(change)
+
+    assert logged_path == ("/hl7:ClinicalDocument/hl7:component/sdtc:deceasedInd")
+    assert change.xpath == original_path
+    assert change.model_dump()["xpath"] == original_path
 
 
 def test_records_processed_documents_and_reported_change_types() -> None:

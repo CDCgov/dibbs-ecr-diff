@@ -1,5 +1,6 @@
 """Core Difference in Docs functionality."""
 
+import re
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from uuid import UUID
@@ -24,9 +25,13 @@ from .models import (
 )
 from .paths import structural_xpath
 from .performance import measure_time
+from .xml_utils import hl7_clark_tag
 
 # Maps XML nodes matched by configured XPaths to all their rules.
 type RuleMatchCache = dict[etree._Element, list[Rule]]
+
+_LOINC_CODE_SYSTEM_OID = "2.16.840.1.113883.6.1"
+_LOINC_CODE_PATTERN = re.compile(r"\d{1,8}-\d")
 
 
 def eval_xpath(
@@ -101,6 +106,37 @@ def _get_document_metadata(root: etree._Element) -> Document:
     )
 
 
+def _associated_code_elements(
+    context: etree._Element,
+) -> Iterable[etree._Element]:
+    """Yield coded elements directly associated with an XML context."""
+    yield context
+
+    translation_tag = hl7_clark_tag("translation")
+    yield from context.iterchildren(tag=translation_tag)
+
+    for code_element in context.iterchildren(tag=hl7_clark_tag("code")):
+        yield code_element
+        yield from code_element.iterchildren(tag=translation_tag)
+
+
+def _closest_associated_loinc_code(
+    changed_element: etree._Element,
+) -> str | None:
+    """Return the nearest well-formed LOINC code associated with an element."""
+    for context in (changed_element, *changed_element.iterancestors()):
+        for coded_element in _associated_code_elements(context):
+            code = coded_element.get("code")
+            if (
+                coded_element.get("codeSystem") == _LOINC_CODE_SYSTEM_OID
+                and code is not None
+                and _LOINC_CODE_PATTERN.fullmatch(code)
+            ):
+                return code
+
+    return None
+
+
 def unique_rule_matches_for_change_type(
     rule_matches: Iterable[Rule],
     change_type: ChangeType,
@@ -151,6 +187,7 @@ def _process_additions(
     """
     actionable_changes: list[Change] = []
     for added_element in added:
+        closest_associated_loinc_code = _closest_associated_loinc_code(added_element)
         if mode == DiffMode.WATCH_LIST:
             for rule_match in unique_rule_matches_for_change_type(
                 rule_matches_for_node_and_descendants(
@@ -167,6 +204,7 @@ def _process_additions(
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
                         actionabilityRuleDisplayName=rule_match.displayName,
+                        closest_associated_loinc_code=closest_associated_loinc_code,
                         augmentation_anchor_node=added_element,
                     )
                 )
@@ -188,6 +226,7 @@ def _process_additions(
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
                     actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
+                    closest_associated_loinc_code=closest_associated_loinc_code,
                     augmentation_anchor_node=added_element,
                 )
             )
@@ -211,6 +250,7 @@ def _process_updates(
     """
     actionable_changes: list[Change] = []
     for before, after in updated:
+        closest_associated_loinc_code = _closest_associated_loinc_code(after)
         if mode == DiffMode.WATCH_LIST:
             for rule_match in unique_rule_matches_for_change_type(
                 right_rule_match_cache.get(after, []),
@@ -224,6 +264,7 @@ def _process_updates(
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
                         actionabilityRuleDisplayName=rule_match.displayName,
+                        closest_associated_loinc_code=closest_associated_loinc_code,
                         augmentation_anchor_node=after,
                     )
                 )
@@ -251,6 +292,7 @@ def _process_updates(
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
                     actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
+                    closest_associated_loinc_code=closest_associated_loinc_code,
                     augmentation_anchor_node=after,
                 )
             )
@@ -273,6 +315,7 @@ def _process_deletions(
     """
     actionable_changes: list[Change] = []
     for deleted_element in deleted:
+        closest_associated_loinc_code = _closest_associated_loinc_code(deleted_element)
         if mode == DiffMode.WATCH_LIST:
             for rule_match in unique_rule_matches_for_change_type(
                 rule_matches_for_node_and_descendants(
@@ -289,6 +332,7 @@ def _process_deletions(
                         isActionable=True,
                         actionabilityRuleId=rule_match.id,
                         actionabilityRuleDisplayName=rule_match.displayName,
+                        closest_associated_loinc_code=closest_associated_loinc_code,
                     )
                 )
         elif mode == DiffMode.IGNORE_LIST:
@@ -308,6 +352,7 @@ def _process_deletions(
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
                     actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
+                    closest_associated_loinc_code=closest_associated_loinc_code,
                 )
             )
     return actionable_changes

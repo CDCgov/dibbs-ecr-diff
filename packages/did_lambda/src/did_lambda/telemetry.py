@@ -3,6 +3,7 @@
 import hashlib
 import hmac
 import os
+import re
 import time
 from collections import Counter
 from dataclasses import dataclass, field
@@ -13,10 +14,16 @@ from .models import DIDOutputFile
 
 DOCUMENT_CORRELATION_KEY_HEX_LENGTH = 32
 MIN_LOG_HASH_SALT_BYTES = 32
+_NUMERIC_POSITION_PREDICATE = re.compile(r"\[\d+\]")
 
 
 class TelemetryConfigurationError(RuntimeError):
     """Raised when required telemetry configuration is invalid."""
+
+
+def change_path_for_logging(change: Change) -> str:
+    """Return a structural change path without positional predicates."""
+    return _NUMERIC_POSITION_PREDICATE.sub("", change.xpath)
 
 
 def make_document_correlation_key(set_id: str, version_number: int) -> str:
