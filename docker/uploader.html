@@ -129,8 +129,8 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
             <input name="rr-file" type="file" accept=".xml,application/xml,text/xml" required />
           </label>
           <label>
-            Jurisdiction ID path after the eICR or RR persistence ID (optional)
-            <input name="upload-path" type="text" placeholder="SDDH/COVID19/" />
+            Jurisdiction ID & Condition Grouping path after the eICR or RR persistence ID
+            <input name="upload-path" type="text" placeholder="SDDH/COVID19/" value="SDDH/COVID19/" required />
           </label>
 
           <button onclick=${onRemove} type="button">Remove</button>
