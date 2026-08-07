@@ -223,6 +223,8 @@ def process_sqs_record(
         _raise_processing_failure("manifest_load", exc)
 
     did_complete_output_files: list[DIDOutputFile] = []
+    pending_results: list[ManifestEntryResult] = []
+    pending_condition_counts: Counter[ConditionCode] = Counter()
 
     # process every DIDInputFile in the batch
     for entry in did_input_manifest.files:
@@ -231,14 +233,13 @@ def process_sqs_record(
                 bucket_name,
                 persistence_id,
                 entry,
-                stats.doc_processing_attempts_by_condition,
+                pending_condition_counts,
             )
         except Exception:
             stats.documents_failed += 1
             raise
 
-        stats.record_document_processed(result)
-        _log_doc_and_changes(result)
+        pending_results.append(result)
         did_complete_output_files.append(result.output_file)
 
     try:
@@ -254,6 +255,13 @@ def process_sqs_record(
         )
     except Exception as exc:
         _raise_processing_failure("completion_write", exc)
+
+    # Commit success telemetry only for a fully completed manifest. If entry
+    # processing or the completion write fails, these local buffers are discarded.
+    for result in pending_results:
+        stats.record_document_processed(result)
+        _log_doc_and_changes(result)
+    stats.doc_processing_attempts_by_condition.update(pending_condition_counts)
 
 
 def process_manifest_entry(

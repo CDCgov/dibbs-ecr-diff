@@ -271,18 +271,58 @@ def test_lambda_handler_logs_doc_processing_attempts_by_condition(
     assert "version_number" not in condition_fields
 
 
-def test_lambda_handler_flushes_partial_metrics_and_preserves_failure(
+def test_lambda_handler_flushes_completed_metrics_when_later_manifest_fails(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     lambda_module = load_lambda_module()
     failure = InfraError("Processing failed during output_write")
+    records_processed = 0
 
     def fail_record(_record, stats):
-        stats.documents_processed = 1
+        nonlocal records_processed
+        records_processed += 1
+        if records_processed == 1:
+            stats.documents_processed = 1
+            stats.changes_added = 2
+            stats.section_change_counts["18776-5"] = 2
+            return
+
         stats.documents_failed = 1
-        stats.changes_added = 2
-        stats.section_change_counts["18776-5"] = 2
+        raise failure
+
+    monkeypatch.setattr(lambda_module, "process_sqs_record", fail_record)
+
+    with pytest.raises(InfraError) as raised:
+        lambda_module.lambda_handler(
+            {"Records": [{"body": "{}"}, {"body": "{}"}]}, None
+        )
+
+    assert raised.value is failure
+    emf_objects = emitted_metrics(capsys)
+    aggregate = next(item for item in emf_objects if "BatchDurationMs" in item)
+    assert aggregate["ManifestsProcessed"] == [1.0]
+    assert aggregate["ManifestsFailed"] == [1.0]
+    assert aggregate["DocumentsProcessed"] == [1.0]
+    assert aggregate["DocumentsFailed"] == [1.0]
+    assert aggregate["ChangesAdded"] == [2.0]
+    assert aggregate["ChangesTotal"] == [2.0]
+    section_metric = next(item for item in emf_objects if "SectionChanges" in item)
+    assert section_metric["section_loinc_code"] == "18776-5"
+    assert section_metric["SectionChanges"] == [2.0]
+
+
+def test_lambda_handler_emits_only_failure_metrics_for_failed_manifest(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    lambda_module = load_lambda_module()
+    failure = InfraError("Processing failed during output_write")
+    caplog.set_level("INFO")
+
+    def fail_record(_record, stats):
+        stats.documents_failed = 1
         raise failure
 
     monkeypatch.setattr(lambda_module, "process_sqs_record", fail_record)
@@ -295,13 +335,21 @@ def test_lambda_handler_flushes_partial_metrics_and_preserves_failure(
     aggregate = next(item for item in emf_objects if "BatchDurationMs" in item)
     assert aggregate["ManifestsProcessed"] == [0.0]
     assert aggregate["ManifestsFailed"] == [1.0]
-    assert aggregate["DocumentsProcessed"] == [1.0]
+    assert aggregate["DocumentsProcessed"] == [0.0]
     assert aggregate["DocumentsFailed"] == [1.0]
-    assert aggregate["ChangesAdded"] == [2.0]
-    assert aggregate["ChangesTotal"] == [2.0]
-    section_metric = next(item for item in emf_objects if "SectionChanges" in item)
-    assert section_metric["section_loinc_code"] == "18776-5"
-    assert section_metric["SectionChanges"] == [2.0]
+    assert aggregate["ChangesTotal"] == [0.0]
+    assert aggregate["BatchDurationMs"][0] >= 0
+    assert all("SectionChanges" not in item for item in emf_objects)
+    assert all("EncountersProcessed" not in item for item in emf_objects)
+    assert all(
+        record.message
+        not in {
+            "document_processed",
+            "xml_change",
+            "doc_processing_attempts_by_condition",
+        }
+        for record in caplog.records
+    )
 
 
 def test_lambda_handler_counts_successful_manifest_attempts(
@@ -355,17 +403,32 @@ def test_process_sqs_record_preserves_completion_manifest_schema(
     lambda_module = load_lambda_module()
     caplog.set_level("INFO")
     configure_manifest_record(monkeypatch, lambda_module)
-    monkeypatch.setattr(
-        lambda_module, "process_manifest_entry", lambda *_args: make_result()
-    )
-    put_object = Mock()
-    monkeypatch.setattr(lambda_module, "put_object", put_object)
     stats = BatchProcessingStats()
+    condition = ConditionCode(code_system="2.16.840.1.113883.6.96", code="840539006")
+
+    def process_entry(_bucket, _persistence_id, _entry, condition_counts):
+        condition_counts[condition] += 1
+        return make_result()
+
+    def write_completion(_bucket, _key, _body):
+        assert stats.documents_processed == 0
+        assert stats.encounter_counts == {}
+        assert stats.doc_processing_attempts_by_condition == {}
+        assert all(
+            record.message not in {"document_processed", "xml_change"}
+            for record in caplog.records
+        )
+
+    monkeypatch.setattr(lambda_module, "process_manifest_entry", process_entry)
+    put_object = Mock(side_effect=write_completion)
+    monkeypatch.setattr(lambda_module, "put_object", put_object)
 
     lambda_module.process_sqs_record(SimpleNamespace(json_body={}), stats)
 
     assert stats.documents_processed == 1
     assert stats.documents_failed == 0
+    assert stats.encounter_counts == {"ambulatory": 1}
+    assert stats.doc_processing_attempts_by_condition == {condition: 1}
     doc_log = next(
         record for record in caplog.records if record.message == "document_processed"
     )
@@ -411,6 +474,61 @@ def test_process_sqs_record_counts_failure_and_rethrows_same_exception(
     assert raised.value is failure
     assert stats.documents_processed == 0
     assert stats.documents_failed == 1
+    put_object.assert_not_called()
+    assert all(
+        record.message not in {"document_processed", "xml_change"}
+        for record in caplog.records
+    )
+
+
+def test_process_sqs_record_discards_pending_telemetry_on_entry_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    lambda_module = load_lambda_module()
+    configure_manifest_record(monkeypatch, lambda_module)
+    monkeypatch.setattr(
+        lambda_module,
+        "get_input_manifest",
+        lambda _bucket, _key: DIDInputManifest(Files=[make_entry(), make_entry()]),
+    )
+    failure = InfraError("Processing failed during output_write")
+    condition = ConditionCode(code_system="2.16.840.1.113883.6.96", code="840539006")
+    successful_result = make_result(
+        make_change(
+            ChangeType.ADDED,
+            "/hl7:ClinicalDocument[1]/hl7:component[1]/hl7:section[1]",
+        )
+    )
+    entry_attempts = 0
+    pending_condition_counts = None
+
+    def process_entry(_bucket, _persistence_id, _entry, condition_counts):
+        nonlocal entry_attempts, pending_condition_counts
+        entry_attempts += 1
+        pending_condition_counts = condition_counts
+        if entry_attempts == 1:
+            condition_counts[condition] += 1
+            return successful_result
+        raise failure
+
+    monkeypatch.setattr(lambda_module, "process_manifest_entry", process_entry)
+    put_object = Mock()
+    monkeypatch.setattr(lambda_module, "put_object", put_object)
+    caplog.set_level("INFO")
+    stats = BatchProcessingStats()
+
+    with pytest.raises(InfraError) as raised:
+        lambda_module.process_sqs_record(SimpleNamespace(json_body={}), stats)
+
+    assert raised.value is failure
+    assert pending_condition_counts == {condition: 1}
+    assert stats.documents_processed == 0
+    assert stats.documents_failed == 1
+    assert stats.changes_total == 0
+    assert stats.section_change_counts == {}
+    assert stats.encounter_counts == {}
+    assert stats.doc_processing_attempts_by_condition == {}
     put_object.assert_not_called()
     assert all(
         record.message not in {"document_processed", "xml_change"}
@@ -720,9 +838,19 @@ def test_process_sqs_record_sanitizes_completion_write_failure(
 ) -> None:
     lambda_module = load_lambda_module()
     configure_manifest_record(monkeypatch, lambda_module)
-    monkeypatch.setattr(
-        lambda_module, "process_manifest_entry", lambda *_args: make_result()
+    condition = ConditionCode(code_system="2.16.840.1.113883.6.96", code="840539006")
+    result = make_result(
+        make_change(
+            ChangeType.ADDED,
+            "/hl7:ClinicalDocument[1]/hl7:component[1]/hl7:section[1]",
+        )
     )
+
+    def process_entry(_bucket, _persistence_id, _entry, condition_counts):
+        condition_counts[condition] += 1
+        return result
+
+    monkeypatch.setattr(lambda_module, "process_manifest_entry", process_entry)
     monkeypatch.setattr(
         lambda_module,
         "put_object",
@@ -733,8 +861,16 @@ def test_process_sqs_record_sanitizes_completion_write_failure(
     with pytest.raises(InfraError) as raised:
         lambda_module.process_sqs_record(SimpleNamespace(json_body={}), stats)
 
-    assert stats.documents_processed == 1
+    assert stats.documents_processed == 0
     assert stats.documents_failed == 0
+    assert stats.changes_total == 0
+    assert stats.section_change_counts == {}
+    assert stats.encounter_counts == {}
+    assert stats.doc_processing_attempts_by_condition == {}
+    assert all(
+        record.message not in {"document_processed", "xml_change"}
+        for record in caplog.records
+    )
     assert_safe_processing_failure(
         caplog,
         raised,
