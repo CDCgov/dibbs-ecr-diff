@@ -26,6 +26,23 @@ _RR_CONDITION_VALUE_XPATH = (
 _CONDITION_CODE_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 _CODE_SYSTEM_OID_PATTERN = re.compile(r"\d+(?:\.\d+)+")
 _MAX_CODE_SYSTEM_OID_LENGTH = 128
+_ENCOUNTER_CODE_PATH = "hl7:componentOf/hl7:encompassingEncounter/hl7:code"
+_ACT_ENCOUNTER_CODE_SYSTEM = "2.16.840.1.113883.5.4"
+_PHIN_VADS_CODE_SYSTEM = "2.16.840.1.114222.4.5.274"
+_ENCOUNTER_TYPES = {
+    (_ACT_ENCOUNTER_CODE_SYSTEM, "AMB"): "ambulatory",
+    (_ACT_ENCOUNTER_CODE_SYSTEM, "EMER"): "emergency",
+    (_ACT_ENCOUNTER_CODE_SYSTEM, "IMP"): "inpatient",
+    (_ACT_ENCOUNTER_CODE_SYSTEM, "ACUTE"): "inpatient",
+    (_ACT_ENCOUNTER_CODE_SYSTEM, "NONAC"): "inpatient",
+    (_ACT_ENCOUNTER_CODE_SYSTEM, "OBSENC"): "observation",
+    (_ACT_ENCOUNTER_CODE_SYSTEM, "PRENC"): "preadmission",
+    (_ACT_ENCOUNTER_CODE_SYSTEM, "SS"): "short_stay",
+    (_ACT_ENCOUNTER_CODE_SYSTEM, "HH"): "home_health",
+    (_ACT_ENCOUNTER_CODE_SYSTEM, "FLD"): "field",
+    (_ACT_ENCOUNTER_CODE_SYSTEM, "VR"): "virtual",
+    (_PHIN_VADS_CODE_SYSTEM, "PHC2237"): "external_historical",
+}
 
 
 class TelemetryConfigurationError(RuntimeError):
@@ -84,12 +101,29 @@ def condition_codes_from_rr(rr_tree: ElementTree) -> tuple[ConditionCode, ...]:
     return tuple(sorted(conditions))
 
 
+def encounter_type_from_eicr(eicr_tree: ElementTree) -> str:
+    """Return a bounded encounter type from the eICR header."""
+    encounter_code = eicr_tree.getroot().find(
+        _ENCOUNTER_CODE_PATH, namespaces=NAMESPACES
+    )
+    if encounter_code is None:
+        return "unknown"
+
+    code = encounter_code.get("code")
+    code_system = encounter_code.get("codeSystem")
+    if code is None or code_system is None:
+        return "unknown"
+
+    return _ENCOUNTER_TYPES.get((code_system.strip(), code.strip()), "other")
+
+
 @dataclass(frozen=True, slots=True)
 class DocumentTelemetry:
     """Privacy-limited document metadata available to telemetry consumers."""
 
     document_correlation_key: str
     version_number: int
+    encounter_type: str
     unique_condition_count: int = 0
 
 
@@ -119,6 +153,7 @@ class BatchProcessingStats:
     changes_updated: int = 0
     changes_deleted: int = 0
     section_change_counts: Counter[str] = field(default_factory=Counter)
+    encounter_counts: Counter[str] = field(default_factory=Counter)
     doc_processing_attempts_by_condition: Counter[ConditionCode] = field(
         default_factory=Counter
     )
@@ -131,6 +166,7 @@ class BatchProcessingStats:
         self.changes_added += counts[ChangeType.ADDED]
         self.changes_updated += counts[ChangeType.UPDATED]
         self.changes_deleted += counts[ChangeType.DELETED]
+        self.encounter_counts[result.telemetry.encounter_type] += 1
         for change in result.changes:
             if change.section_loinc_code is not None:
                 self.section_change_counts[change.section_loinc_code] += 1

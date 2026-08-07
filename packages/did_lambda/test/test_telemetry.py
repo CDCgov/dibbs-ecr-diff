@@ -13,6 +13,7 @@ from did_lambda.telemetry import (
     TelemetryConfigurationError,
     change_path_for_logging,
     condition_codes_from_rr,
+    encounter_type_from_eicr,
     make_document_correlation_key,
 )
 from lxml import etree
@@ -37,6 +38,7 @@ def make_change(
 
 def make_result(
     *changes: Change,
+    encounter_type: str = "ambulatory",
 ) -> ManifestEntryResult:
     return ManifestEntryResult(
         output_file=DIDOutputFile(
@@ -50,6 +52,7 @@ def make_result(
         telemetry=DocumentTelemetry(
             document_correlation_key="test-correlation-key",
             version_number=2,
+            encounter_type=encounter_type,
         ),
     )
 
@@ -125,6 +128,7 @@ def test_document_telemetry_exposes_only_privacy_limited_fields() -> None:
     assert tuple(field.name for field in fields(DocumentTelemetry)) == (
         "document_correlation_key",
         "version_number",
+        "encounter_type",
         "unique_condition_count",
     )
     assert tuple(field.name for field in fields(ManifestEntryResult)) == (
@@ -174,6 +178,70 @@ def test_extracts_unique_coded_conditions_from_rr_condition_observations() -> No
     )
 
 
+@pytest.mark.parametrize(
+    ("code_system", "code", "expected"),
+    [
+        ("2.16.840.1.113883.5.4", "AMB", "ambulatory"),
+        ("2.16.840.1.113883.5.4", "EMER", "emergency"),
+        ("2.16.840.1.113883.5.4", "IMP", "inpatient"),
+        ("2.16.840.1.113883.5.4", "ACUTE", "inpatient"),
+        ("2.16.840.1.113883.5.4", "NONAC", "inpatient"),
+        ("2.16.840.1.113883.5.4", "OBSENC", "observation"),
+        ("2.16.840.1.113883.5.4", "PRENC", "preadmission"),
+        ("2.16.840.1.113883.5.4", "SS", "short_stay"),
+        ("2.16.840.1.113883.5.4", "HH", "home_health"),
+        ("2.16.840.1.113883.5.4", "FLD", "field"),
+        ("2.16.840.1.113883.5.4", "VR", "virtual"),
+        ("2.16.840.1.114222.4.5.274", "PHC2237", "external_historical"),
+        ("2.16.840.1.113883.5.4", "UNSUPPORTED", "other"),
+        ("9.9.9", "radioactive-encounter-value", "other"),
+    ],
+)
+def test_extracts_bounded_encounter_type_from_eicr_header(
+    code_system: str, code: str, expected: str
+) -> None:
+    eicr_tree = etree.ElementTree(
+        etree.fromstring(
+            f"""
+            <ClinicalDocument xmlns="urn:hl7-org:v3">
+              <componentOf>
+                <encompassingEncounter>
+                  <code code="{code}" codeSystem="{code_system}"/>
+                </encompassingEncounter>
+              </componentOf>
+            </ClinicalDocument>
+            """.encode()
+        )
+    )
+
+    assert encounter_type_from_eicr(eicr_tree) == expected
+
+
+@pytest.mark.parametrize(
+    "code_element",
+    [
+        "",
+        '<code nullFlavor="UNK"/>',
+        '<code code="AMB"/>',
+        '<code codeSystem="2.16.840.1.113883.5.4"/>',
+    ],
+)
+def test_missing_encounter_code_data_is_unknown(code_element: str) -> None:
+    eicr_tree = etree.ElementTree(
+        etree.fromstring(
+            f"""
+            <ClinicalDocument xmlns="urn:hl7-org:v3">
+              <componentOf>
+                <encompassingEncounter>{code_element}</encompassingEncounter>
+              </componentOf>
+            </ClinicalDocument>
+            """.encode()
+        )
+    )
+
+    assert encounter_type_from_eicr(eicr_tree) == "unknown"
+
+
 def test_change_path_for_logging_removes_positions_without_changing_output() -> None:
     original_path = "/hl7:ClinicalDocument[1]/hl7:component[2]/sdtc:deceasedInd[12]"
     change = make_change(ChangeType.UPDATED, xpath=original_path)
@@ -204,6 +272,7 @@ def test_records_processed_documents_and_reported_change_types() -> None:
     assert stats.changes_deleted == 1
     assert stats.changes_total == 4
     assert stats.section_change_counts == {"18776-5": 2, "10160-0": 1}
+    assert stats.encounter_counts == {"ambulatory": 2}
 
 
 def test_duration_ms_uses_monotonic_elapsed_time(

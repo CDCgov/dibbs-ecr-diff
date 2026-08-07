@@ -56,6 +56,7 @@ def make_entry() -> DIDInputFile:
 def make_result(
     *changes: Change,
     unique_condition_count: int = 0,
+    encounter_type: str = "ambulatory",
 ) -> ManifestEntryResult:
     return ManifestEntryResult(
         output_file=DIDOutputFile(
@@ -69,6 +70,7 @@ def make_result(
         telemetry=DocumentTelemetry(
             document_correlation_key=make_document_correlation_key("set-id", 1),
             version_number=1,
+            encounter_type=encounter_type,
             unique_condition_count=unique_condition_count,
         ),
     )
@@ -143,7 +145,7 @@ def emitted_metrics(capsys: pytest.CaptureFixture[str]) -> list[dict]:
     ]
 
 
-def test_lambda_handler_emits_aggregate_and_section_metrics(
+def test_lambda_handler_emits_aggregate_section_and_encounter_metrics(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -156,6 +158,7 @@ def test_lambda_handler_emits_aggregate_and_section_metrics(
         stats.changes_updated = 4
         stats.changes_deleted = 5
         stats.section_change_counts.update({"18776-5": 3, "10160-0": 2})
+        stats.encounter_counts.update({"ambulatory": 2, "inpatient": 1})
 
     monkeypatch.setattr(lambda_module, "process_sqs_record", process_record)
 
@@ -211,6 +214,28 @@ def test_lambda_handler_emits_aggregate_and_section_metrics(
             "service",
             "environment",
             "section_loinc_code",
+        }
+        assert item["service"] == lambda_module.SERVICE_NAME
+        assert item["environment"] == lambda_module.ENVIRONMENT
+
+    encounter_metrics = {
+        item["encounter_type"]: item
+        for item in emf_objects
+        if "EncountersProcessed" in item
+    }
+    assert set(encounter_metrics) == {"ambulatory", "inpatient"}
+    assert encounter_metrics["ambulatory"]["EncountersProcessed"] == [2.0]
+    assert encounter_metrics["inpatient"]["EncountersProcessed"] == [1.0]
+    for item in encounter_metrics.values():
+        metric_definition = item["_aws"]["CloudWatchMetrics"][0]
+        assert metric_definition["Namespace"] == lambda_module.METRICS_NAMESPACE
+        assert metric_definition["Metrics"] == [
+            {"Name": "EncountersProcessed", "Unit": "Count"}
+        ]
+        assert set(metric_definition["Dimensions"][0]) == {
+            "service",
+            "environment",
+            "encounter_type",
         }
         assert item["service"] == lambda_module.SERVICE_NAME
         assert item["environment"] == lambda_module.ENVIRONMENT
@@ -437,6 +462,7 @@ def test_process_sqs_record_logs_completed_document_and_reported_changes(
     assert doc_fields["unique_condition_count"] == 1
     assert "condition_code" not in doc_fields
     assert "condition_code_system" not in doc_fields
+    assert "encounter_type" not in doc_fields
 
     assert [vars(record)["change_type"] for record in change_logs] == [
         "ADDED",
@@ -458,6 +484,7 @@ def test_process_sqs_record_logs_completed_document_and_reported_changes(
         assert "condition_code" not in fields
         assert "condition_code_system" not in fields
         assert "section_loinc_code" not in fields
+        assert "encounter_type" not in fields
 
     logged_fields = repr([vars(record) for record in doc_logs + change_logs])
     assert "radioactive-condition-code" not in logged_fields
@@ -485,6 +512,10 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
     )
     extract_conditions = Mock(return_value=condition_codes)
     monkeypatch.setattr(lambda_module, "condition_codes_from_rr", extract_conditions)
+    extract_encounter_type = Mock(return_value="ambulatory")
+    monkeypatch.setattr(
+        lambda_module, "encounter_type_from_eicr", extract_encounter_type
+    )
     monkeypatch.setattr(lambda_module, "jurisdiction_id_from_key", lambda *_: "jur")
     monkeypatch.setattr(lambda_module, "get_augmented_eicr", lambda *_: b"eicr")
     monkeypatch.setattr(lambda_module, "get_augmented_rr", lambda *_: b"rr")
@@ -512,11 +543,13 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
     assert result.telemetry == DocumentTelemetry(
         document_correlation_key=make_document_correlation_key("set-id", 1),
         version_number=1,
+        encounter_type="ambulatory",
         unique_condition_count=1,
     )
     assert not hasattr(result, "condition_codes")
     assert doc_processing_attempts_by_condition == {condition_codes[0]: 1}
     extract_conditions.assert_called_once_with(rr_tree)
+    extract_encounter_type.assert_called_once_with(eicr_tree)
     assert operations.mock_calls == [
         call.put_eicr_record(
             {
@@ -544,6 +577,9 @@ def test_process_manifest_entry_propagates_final_write_failure(
     monkeypatch.setattr(lambda_module, "get_before_actionable_record", lambda *_: None)
     monkeypatch.setattr(lambda_module, "get_object_xml_tree", lambda *_: object())
     monkeypatch.setattr(lambda_module, "condition_codes_from_rr", lambda *_: ())
+    monkeypatch.setattr(
+        lambda_module, "encounter_type_from_eicr", lambda *_: "ambulatory"
+    )
     monkeypatch.setattr(lambda_module, "jurisdiction_id_from_key", lambda *_: "jur")
     monkeypatch.setattr(lambda_module, "get_augmented_eicr", lambda *_: b"eicr")
     monkeypatch.setattr(lambda_module, "get_augmented_rr", lambda *_: b"rr")
@@ -612,6 +648,9 @@ def test_process_manifest_entry_sanitizes_each_processing_stage(
     monkeypatch.setattr(lambda_module, "get_before_actionable_record", lambda *_: None)
     monkeypatch.setattr(lambda_module, "get_object_xml_tree", lambda *_: object())
     monkeypatch.setattr(lambda_module, "condition_codes_from_rr", lambda *_: ())
+    monkeypatch.setattr(
+        lambda_module, "encounter_type_from_eicr", lambda *_: "ambulatory"
+    )
     monkeypatch.setattr(lambda_module, "jurisdiction_id_from_key", lambda *_: "jur")
     monkeypatch.setattr(lambda_module, "get_augmented_eicr", lambda *_: b"eicr")
     monkeypatch.setattr(lambda_module, "get_augmented_rr", lambda *_: b"rr")

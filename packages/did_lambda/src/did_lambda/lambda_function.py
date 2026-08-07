@@ -40,6 +40,7 @@ from .telemetry import (
     ManifestEntryResult,
     change_path_for_logging,
     condition_codes_from_rr,
+    encounter_type_from_eicr,
     make_document_correlation_key,
 )
 from .utils import (
@@ -86,7 +87,7 @@ def _raise_processing_failure(
 
 
 def _record_processing_metrics(stats: BatchProcessingStats) -> None:
-    """Record aggregate and section metrics for one batch processing attempt."""
+    """Record metrics for one batch processing attempt."""
     metrics.add_dimension(name="environment", value=ENVIRONMENT)
     count_metrics = {
         "ManifestsProcessed": stats.manifests_processed,
@@ -122,6 +123,16 @@ def _record_processing_metrics(stats: BatchProcessingStats) -> None:
             section_metric.add_dimension(
                 name="section_loinc_code", value=section_loinc_code
             )
+
+    for encounter_type, encounter_count in stats.encounter_counts.items():
+        with single_metric(
+            name="EncountersProcessed",
+            unit=MetricUnit.Count,
+            value=encounter_count,
+            namespace=METRICS_NAMESPACE,
+            default_dimensions=default_dimensions,
+        ) as encounter_metric:
+            encounter_metric.add_dimension(name="encounter_type", value=encounter_type)
 
 
 def _log_doc_and_changes(result: ManifestEntryResult) -> None:
@@ -270,6 +281,7 @@ def process_manifest_entry(
 
         eicr_tree = get_object_xml_tree(bucket_name, entry.eicr)
         rr_tree = get_object_xml_tree(bucket_name, entry.rr)
+        encounter_type = encounter_type_from_eicr(eicr_tree)
         condition_codes = condition_codes_from_rr(rr_tree)
 
         if before_record:
@@ -329,6 +341,7 @@ def process_manifest_entry(
             telemetry=DocumentTelemetry(
                 document_correlation_key=document_correlation_key,
                 version_number=version_number,
+                encounter_type=encounter_type,
                 unique_condition_count=len(condition_codes),
             ),
         )
