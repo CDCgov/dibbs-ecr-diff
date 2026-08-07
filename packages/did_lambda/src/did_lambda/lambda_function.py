@@ -118,6 +118,7 @@ def process_manifest_entry(
         diff_output = diff_xml(before_tree, eicr_tree, config)
         is_actionable = diff_output.hasActionableChanges
 
+        # TODO: should we only create the diff_output json file in lower envs and exclude prod?
         put_object(
             bucket_name,
             diff_output_key,
