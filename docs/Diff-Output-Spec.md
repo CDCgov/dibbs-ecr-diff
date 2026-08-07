@@ -27,6 +27,7 @@ APHL uses the diff to decide whether to send the new eICR to the receiving juris
 | `setId` | string | Yes | The shared eICR set ID for the two documents compared. |
 | `currentDocument` | object | Yes | See [Document object](#document-object). The eICR currently being processed. |
 | `previousDocument` | object | Yes | See [Document object](#document-object). The prior eICR being compared against. |
+| `hasDetectedChanges` | boolean | Yes | `true` if any changes were detected before actionability evaluation. |
 | `hasActionableChanges` | boolean | Yes | Flag used by APHL to decide whether to send the new eICR to the receiving jurisdiction(s). `true` if any entry in `changes` has `isActionable: true`. (Technically optional, but clearer for APHL to just look at one boolean value than check the list of changes) |
 | `changes` | array of [Change](#change-object) | Yes | May be empty if no changes were detected. |
 
@@ -45,8 +46,11 @@ APHL uses the diff to decide whether to send the new eICR to the receiving juris
 | `xPath` | string | Yes | XPath to the changed node. See [XPath Document Id](#xpath-document-id) below. |
 | `xPathDocumentId` | string | Yes | The `documentId` of the eICR that the `xPath` resolves against. Always equal to either the value of `currentDocument.documentId` or `previousDocument.documentId`. See [XPath Document Id](#xpath-document-id) below. |
 | `isActionable` | boolean | Yes | Whether this change should contribute to APHL's decision to send the new eICR. |
-| `actionabilityRuleId` | string | Yes | UUID of the rule or default behavior that determined `isActionable`. Default behaviors (watch-all, ignore-all) also have reserved UUIDs. |
-| `actionabilityRuleDisplayName` | string | Optional | Human-readable name of the rule or default behavior. |
+| `actionabilityRuleId` | string or null | Yes | UUID of the rule or default behavior that determined `isActionable`. `null` when no rule applies. |
+| `actionabilityRuleDisplayName` | string or null | Yes | Human-readable name of the rule or default behavior. `null` when no rule applies. |
+
+When multiple applicable configuration rules match the same detected change,
+the `changes` array contains one entry for each matching rule.
 
 The reserved rule UUID for the default behavior that makes unmatched changes
 actionable under an `IGNORE_LIST` configuration is
@@ -79,6 +83,7 @@ actionable under an `IGNORE_LIST` configuration is
     "documentId": "db734647-fc99-424c-a864-7e3cda82e703",
     "versionNumber": "2"
   },
+  "hasDetectedChanges": true,
   "hasActionableChanges": true,
   "changes": [
     {
@@ -102,8 +107,8 @@ actionable under an `IGNORE_LIST` configuration is
       "xpath": "/ClinicalDocument/component/structuredBody/component[4]/section/entry[3]",
       "xpathDocumentId": "db734647-fc99-424c-a864-7e3cda82e704",
       "isActionable": false,
-      "actionabilityRuleId": "f78ecad1-6122-40f7-8203-bace36944de5",
-      "actionabilityRuleDisplayName": "Default: ignore all"
+      "actionabilityRuleId": null,
+      "actionabilityRuleDisplayName": null
     },
     {
       "changeType": "deleted",
@@ -121,8 +126,6 @@ actionable under an `IGNORE_LIST` configuration is
 
 1. **Triggering and storage.** Should the JSON output be written to the same APHL bucket as the augmented eICR output? Should the presence of the JSON itself act as the trigger for downstream processing?
 2. **No previous eICR.** What behavior should APHL expect if there is no previous eICR for DiD to diff against? Should a JSON output file still be created? Should the current eICR still be written to a DiD output bucket? Can DiD skip augmenting the current eICR since there is nothing to diff against?
-3. **All changes vs. only actionable.** Should the diff JSON list all changes or only those detected as actionable? Earlier notes call for the JSON to "represent all changes between the two versions of the ECR, regardless of significance." However, only including actionable changes would allow us to short-circuit in watch-list mode since we would only have to check for actionable changes defined in the watch-list rather than perform a full diff.
-    - Showing all changes may be particularly useful for evaluating a DiD dry-run before the MVP is fully launched and operational in production. The dry-run would allow DiD to run against real production eICR data, perform the full diff and actionability evaluation, but take no action on the result. APHL would continue sending eICRs to jurisdictions exactly as it does today, regardless of what DiD reports.
 
 ## Post-MVP considerations
 
