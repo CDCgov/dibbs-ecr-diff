@@ -65,11 +65,14 @@ def test_process_sqs_record_with_eicr_diff(s3_client, bucket_name, dynamodb_tabl
     eicr_body_1 = build_doc(
         version_number=1,
         set_id=eicr_set_id,
-        body=f"""
+        body="""
           <component>
             <section>
               <entry>
-                <observation ID="{eicr_set_id}-result" value="old"/>
+                <observation>
+                    <code code="75323-6"></code>
+                    <statusCode code="active" />
+                </observation>
               </entry>
             </section>
           </component>
@@ -97,11 +100,14 @@ def test_process_sqs_record_with_eicr_diff(s3_client, bucket_name, dynamodb_tabl
     eicr_body_2 = build_doc(
         version_number=2,
         set_id=eicr_set_id,
-        body=f"""
+        body="""
           <component>
             <section>
               <entry>
-                <observation ID="{eicr_set_id}-result" value="new"/>
+                <observation>
+                    <code code="75323-6"></code>
+                    <statusCode code="completed" />
+                </observation>
               </entry>
             </section>
           </component>
