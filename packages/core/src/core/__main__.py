@@ -15,7 +15,6 @@ from core.diff_collector import collect_additions_updates_deletes
 from core.json_output import write_changes_json
 
 
-# TODO: should we only create the changes.json file in lower envs and exclude prod?
 def main() -> None:
     """Run the CDA/eICR diff CLI."""
     arg_parser = argparse.ArgumentParser(

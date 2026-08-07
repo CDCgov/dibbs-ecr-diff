@@ -202,7 +202,7 @@ def build_changes_for_rule_matches(
                 )
             ]
 
-    raise ValueError(f"Unsupported diff mode: {mode}")
+    return []
 
 
 def _process_additions(
@@ -218,6 +218,7 @@ def _process_additions(
     rule matches the node or an ancestor. All other additions are retained
     with the mode's default actionability.
     """
+    rule_matches: list[Rule] = []
     changes: list[Change] = []
     for added_element in added:
         if mode == DiffMode.WATCH_LIST:
@@ -230,8 +231,6 @@ def _process_additions(
                 added_element,
                 right_rule_match_cache,
             )
-        else:
-            raise ValueError(f"Unsupported diff mode: {mode}")
 
         changes.extend(
             build_changes_for_rule_matches(
@@ -260,6 +259,7 @@ def _process_updates(
     are retained with the mode's default actionability.
     """
     changes: list[Change] = []
+    rule_matches: list[Rule] = []
     for before, after in updated:
         if mode == DiffMode.WATCH_LIST:
             rule_matches = right_rule_match_cache.get(after, [])
@@ -274,8 +274,6 @@ def _process_updates(
                     right_rule_match_cache,
                 ),
             ]
-        else:
-            raise ValueError(f"Unsupported diff mode: {mode}")
 
         changes.extend(
             build_changes_for_rule_matches(
@@ -303,6 +301,7 @@ def _process_deletions(
     the mode's default actionability.
     """
     changes: list[Change] = []
+    rule_matches: list[Rule] = []
     for deleted_element in deleted:
         if mode == DiffMode.WATCH_LIST:
             rule_matches = rule_matches_for_node_and_descendants(
@@ -314,8 +313,6 @@ def _process_deletions(
                 deleted_element,
                 left_rule_match_cache,
             )
-        else:
-            raise ValueError(f"Unsupported diff mode: {mode}")
 
         changes.extend(
             build_changes_for_rule_matches(
