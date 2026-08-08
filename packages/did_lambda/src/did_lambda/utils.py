@@ -29,10 +29,10 @@ def get_did_output_key(root_prefix: str, persistence_id: str, source_key: str) -
     """Convert an S3 key into a DIDOutput-prefixed key.
 
     Examples:
-    DIDInput/{persistence_id}/SDDH/COVID19/cda_eicr_1.xml
+    RefinerOutputV2/{persistence_id}/SDDH/COVID19/cda_eicr_1.xml
         -> DIDOutput/{persistence_id}/SDDH/COVID19/cda_eicr_1.xml
 
-    DIDInput/{persistence_id} -> DIDOutput/{persistence_id}
+    eCRMessageV2/{persistence_id} -> DIDOutput/{persistence_id}
     """
     output_path = get_did_output_path(root_prefix, persistence_id, source_key)
     source_path = source_key.strip("/").split("/", 1)[-1]
@@ -52,8 +52,8 @@ def get_did_output_path(
 ) -> str:
     """Convert an S3 key into a DIDOutput-prefixed parent path.
 
-    DIDInput/<persistence_id>/SDDH/COVID19/file.xml -> DIDOutput/<persistence_id>/SDDH/COVID19
-    DIDInput/<persistence_id> -> DIDOutput/<persistence_id>
+    RefinerOutputV2/<persistence_id>/SDDH/COVID19/file.xml -> DIDOutput/<persistence_id>/SDDH/COVID19
+    eCRMessageV2/<persistence_id> -> DIDOutput/<persistence_id>
     """
     # every part after DIDInput/
     # ex: ['2026', '08', '06', '<uuid>', 'SDDH', 'COVID19', 'cda_eicr_3.xml']
@@ -62,7 +62,8 @@ def get_did_output_path(
     persistence_id_parts = persistence_id.strip("/").split("/")
 
     # check if source_key begins with the persistence_id
-    if source_parts[: len(persistence_id_parts)] != persistence_id_parts:
+    after_persistence_idx = len(persistence_id_parts)
+    if source_parts[:after_persistence_idx] != persistence_id_parts:
         raise InfraError("Source key does not contain persistence ID")
 
     parts = source_parts if source_parts == persistence_id_parts else source_parts[:-1]
