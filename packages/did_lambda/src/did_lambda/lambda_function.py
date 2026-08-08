@@ -134,7 +134,7 @@ def process_manifest_entry(
     augmented_rr = get_augmented_rr(rr_tree, jurisdiction_id)
     rr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, entry.rr)
     put_object(bucket_name, rr_out_key, augmented_rr)
-    
+
     # write eICR metadata to DB
     put_eicr_record(
         EICRStorageRecord(
