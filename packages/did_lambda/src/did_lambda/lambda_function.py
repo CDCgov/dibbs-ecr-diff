@@ -125,9 +125,16 @@ def process_manifest_entry(
             diff_output.model_dump_json(indent=2).encode("utf-8"),
         )
 
+    # write augmented eicr to DIDOutput/
     augmented_eicr = get_augmented_eicr(eicr_tree, jurisdiction_id, diff_output)
-    augmented_rr = get_augmented_rr(rr_tree, jurisdiction_id)
+    eicr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, entry.eicr)
+    put_object(bucket_name, eicr_out_key, augmented_eicr)
 
+    # write augmented rr to DIDOutput/
+    augmented_rr = get_augmented_rr(rr_tree, jurisdiction_id)
+    rr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, entry.rr)
+    put_object(bucket_name, rr_out_key, augmented_rr)
+    
     # write eICR metadata to DB
     put_eicr_record(
         EICRStorageRecord(
@@ -141,14 +148,6 @@ def process_manifest_entry(
             comparedToVersion=compared_to_version,
         )
     )
-
-    # write augmented eicr to DIDOutput/
-    eicr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, entry.eicr)
-    put_object(bucket_name, eicr_out_key, augmented_eicr)
-
-    # write augmented rr to DIDOutput/
-    rr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, entry.rr)
-    put_object(bucket_name, rr_out_key, augmented_rr)
 
     return DIDOutputFile(
         setId=set_id,
