@@ -51,7 +51,7 @@ def test_process_manifest_entry_with_single_file(
 
     # make sure the augmented eicr/rr were correctly put in DIDOutput/
     for input_key in (manifest_file.eicr, manifest_file.rr):
-        output_key = get_did_output_key(DID_OUTPUT_PREFIX, input_key)
+        output_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, input_key)
         response = s3_client.get_object(Bucket=bucket_name, Key=output_key)
         assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
 
@@ -132,11 +132,16 @@ def test_process_sqs_record_with_eicr_diff(s3_client, bucket_name, dynamodb_tabl
     process_sqs_record(build_sqs_record(bucket_name, manifest_key_2))
 
     # ensure all files exist in DIDOutput
-    for manifest in (manifest_1, manifest_2):
+    for manifest, persistence_id in (
+        (manifest_1, persistence_id_1),
+        (manifest_2, persistence_id_2),
+    ):
         assert len(manifest.files) == 1
         manifest_file = manifest.files[0]
         for input_key in (manifest_file.eicr, manifest_file.rr):
-            output_key = get_did_output_key(DID_OUTPUT_PREFIX, input_key)
+            output_key = get_did_output_key(
+                DID_OUTPUT_PREFIX, persistence_id, input_key
+            )
             response = s3_client.get_object(Bucket=bucket_name, Key=output_key)
             assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
 

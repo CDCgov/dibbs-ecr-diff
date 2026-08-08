@@ -25,33 +25,48 @@ def persistence_id_from_manifest_key(key: str) -> str:
     return parts[1]
 
 
-def jurisdiction_id_from_key(persistence_id: str, key: str) -> str:
-    """Extract the jurisdiction ID between the persistence ID and filename."""
-    persistence_id_part = f"/{persistence_id.strip('/')}/"
-    parts = key.strip("/").split(persistence_id_part, 1)
+def get_did_output_key(root_prefix: str, persistence_id: str, source_key: str) -> str:
+    """Convert an S3 key into a DIDOutput-prefixed key.
 
-    if len(parts) != 2:
-        raise InfraError(f"S3 key does not contain persistence_id: {key}")
+    Examples:
+    DIDInput/{persistence_id}/SDDH/COVID19/cda_eicr_1.xml
+        -> DIDOutput/{persistence_id}/SDDH/COVID19/cda_eicr_1.xml
 
-    jurisdiction_parts = parts[1].split("/", 1)
-    if len(jurisdiction_parts) != 2 or not all(jurisdiction_parts):
-        raise InfraError(f"S3 key has no jurisdiction or filename: {key}")
+    DIDInput/{persistence_id} -> DIDOutput/{persistence_id}
+    """
+    output_path = get_did_output_path(root_prefix, persistence_id, source_key)
+    source_path = source_key.strip("/").split("/", 1)[-1]
 
-    return jurisdiction_parts[0]
+    # handle s3 keys like `eCRMessageV2/<persistence_id>`
+    if source_path == persistence_id.strip("/"):
+        return output_path
+
+    basename = source_path.rsplit("/", 1)[-1]
+    return f"{output_path}/{basename}"
 
 
-def get_did_output_key(root_prefix: str, source_key: str) -> str:
-    """Convert an S3 key into a DIDOutput-prefixed key."""
-    output_path = get_did_output_path(root_prefix, source_key)
-    return f"{output_path}/{get_key_basename(source_key)}"
+def get_did_output_path(
+    root_prefix: str,
+    persistence_id: str,
+    source_key: str,
+) -> str:
+    """Convert an S3 key into a DIDOutput-prefixed parent path.
 
+    DIDInput/<persistence_id>/SDDH/COVID19/file.xml -> DIDOutput/<persistence_id>/SDDH/COVID19
+    DIDInput/<persistence_id> -> DIDOutput/<persistence_id>
+    """
+    # every part after DIDInput/
+    # ex: ['2026', '08', '06', '<uuid>', 'SDDH', 'COVID19', 'cda_eicr_3.xml']
+    source_parts = source_key.strip("/").split("/")[1:]
 
-def get_did_output_path(root_prefix: str, source_key: str) -> str:
-    """Extract a full output path minus basename from a DIDInput S3 key."""
-    parts = source_key.strip("/").split("/")
-    if len(parts) <= 2:
-        raise InfraError(f"S3 key has nothing after prefix: {source_key}")
-    return f"{root_prefix}{'/'.join(parts[1:-1])}"
+    persistence_id_parts = persistence_id.strip("/").split("/")
+
+    # check if source_key begins with the persistence_id
+    if source_parts[: len(persistence_id_parts)] != persistence_id_parts:
+        raise InfraError("Source key does not contain persistence ID")
+
+    parts = source_parts if source_parts == persistence_id_parts else source_parts[:-1]
+    return f"{root_prefix}{'/'.join(parts)}"
 
 
 def get_key_basename(source_key: str) -> str:

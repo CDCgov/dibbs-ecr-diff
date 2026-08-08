@@ -36,7 +36,6 @@ from .utils import (
     get_did_output_key,
     get_did_output_path,
     get_timestamp,
-    jurisdiction_id_from_key,
     persistence_id_from_manifest_key,
 )
 
@@ -95,6 +94,7 @@ def process_manifest_entry(
     """Process a single DID input manifest entry."""
     set_id = entry.setId
     version_number = entry.versionNumber
+    jurisdiction_id = ",".join(entry.jurisdictions)
 
     before_record = get_before_actionable_record(set_id, version_number)
     compared_to_version = before_record.versionNumber if before_record else None
@@ -107,16 +107,16 @@ def process_manifest_entry(
     rr_tree = get_object_xml_tree(bucket_name, entry.rr)
 
     if before_record:
-        output_path = get_did_output_path(DID_OUTPUT_PREFIX, entry.eicr)
-        diff_output_key = f"{output_path}/{set_id}_eicr_diff"
         before_tree = get_object_xml_tree(bucket_name, before_record.s3Key)
-
         logger.info(
-            f"Diffing version {version_number} against version {before_record.versionNumber} of {set_id}"
+            f"Diffing version {version_number} against version {compared_to_version} of {set_id}"
         )
 
         diff_output = diff_xml(before_tree, eicr_tree, config)
         is_actionable = diff_output.hasActionableChanges
+
+        output_path = get_did_output_path(DID_OUTPUT_PREFIX, persistence_id, entry.eicr)
+        diff_output_key = f"{output_path}/diff_{compared_to_version}_{version_number}"
 
         # TODO: should we only create the diff_output json file in lower envs and exclude prod?
         put_object(
@@ -125,7 +125,6 @@ def process_manifest_entry(
             diff_output.model_dump_json(indent=2).encode("utf-8"),
         )
 
-    jurisdiction_id = jurisdiction_id_from_key(persistence_id, entry.eicr)
     augmented_eicr = get_augmented_eicr(eicr_tree, jurisdiction_id, diff_output)
     augmented_rr = get_augmented_rr(rr_tree, jurisdiction_id)
 
@@ -144,11 +143,11 @@ def process_manifest_entry(
     )
 
     # write augmented eicr to DIDOutput/
-    eicr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, entry.eicr)
+    eicr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, entry.eicr)
     put_object(bucket_name, eicr_out_key, augmented_eicr)
 
     # write augmented rr to DIDOutput/
-    rr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, entry.rr)
+    rr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, entry.rr)
     put_object(bucket_name, rr_out_key, augmented_rr)
 
     return DIDOutputFile(

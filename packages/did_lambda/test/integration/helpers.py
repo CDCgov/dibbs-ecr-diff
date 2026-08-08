@@ -70,6 +70,7 @@ def send_input_files(
                 rr=rr_key,
                 setId=input_file.set_id,
                 versionNumber=input_file.version_number,
+                jurisdictions=["SDDH"],
             )
         )
 
