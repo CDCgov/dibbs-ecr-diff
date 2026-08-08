@@ -51,6 +51,7 @@ def send_input_files(
     bucket_name: str,
     input_files: list[MockS3InputFile],
 ) -> tuple[str, DIDInputManifest, str]:
+    """Mocks sending eICR/RR pairs to RefinerOutputV2/ and the DIDInputManifest to DIDInput/."""
     persistence_id = build_persistence_id()
     manifest_files = []
 
