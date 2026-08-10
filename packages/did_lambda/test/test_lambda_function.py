@@ -17,9 +17,11 @@ from did_lambda.models import (
 )
 from did_lambda.telemetry import (
     BatchProcessingStats,
-    ConditionCode,
     DocumentTelemetry,
     ManifestEntryResult,
+)
+from did_lambda.telemetry_helpers import (
+    ConditionCode,
     TelemetryConfigurationError,
     make_document_correlation_key,
 )
@@ -149,132 +151,6 @@ def emitted_metrics(capsys: pytest.CaptureFixture[str]) -> list[dict]:
         for line in capsys.readouterr().out.splitlines()
         if line.startswith("{") and "_aws" in (payload := json.loads(line))
     ]
-
-
-def test_lambda_handler_emits_aggregate_section_and_encounter_metrics(
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    lambda_module = load_lambda_module()
-
-    def process_record(_record, stats):
-        stats.documents_processed = 2
-        stats.documents_failed = 1
-        stats.changes_added = 3
-        stats.changes_updated = 4
-        stats.changes_deleted = 5
-        stats.section_change_counts.update({"18776-5": 3, "10160-0": 2})
-        stats.encounter_counts.update({"ambulatory": 2, "inpatient": 1})
-
-    monkeypatch.setattr(lambda_module, "process_sqs_record", process_record)
-
-    response = lambda_module.lambda_handler({"Records": [{"body": "{}"}]}, None)
-
-    assert response == {"statusCode": 200, "message": "OK"}
-    emf_objects = emitted_metrics(capsys)
-    aggregate = next(item for item in emf_objects if "BatchDurationMs" in item)
-    metric_definitions = aggregate["_aws"]["CloudWatchMetrics"][0]
-
-    assert metric_definitions["Namespace"] == lambda_module.METRICS_NAMESPACE
-    assert set(metric_definitions["Dimensions"][0]) == {"service", "environment"}
-    assert {
-        metric["Name"]: metric["Unit"] for metric in metric_definitions["Metrics"]
-    } == {
-        "ManifestsProcessed": "Count",
-        "ManifestsFailed": "Count",
-        "DocumentsProcessed": "Count",
-        "DocumentsFailed": "Count",
-        "ChangesAdded": "Count",
-        "ChangesUpdated": "Count",
-        "ChangesDeleted": "Count",
-        "ChangesTotal": "Count",
-        "BatchDurationMs": "Milliseconds",
-    }
-    assert aggregate["service"] == lambda_module.SERVICE_NAME
-    assert aggregate["environment"] == lambda_module.ENVIRONMENT
-    assert aggregate["ManifestsProcessed"] == [1.0]
-    assert aggregate["ManifestsFailed"] == [0.0]
-    assert aggregate["DocumentsProcessed"] == [2.0]
-    assert aggregate["DocumentsFailed"] == [1.0]
-    assert aggregate["ChangesAdded"] == [3.0]
-    assert aggregate["ChangesUpdated"] == [4.0]
-    assert aggregate["ChangesDeleted"] == [5.0]
-    assert aggregate["ChangesTotal"] == [12.0]
-    assert aggregate["BatchDurationMs"][0] >= 0
-
-    section_metrics = {
-        item["section_loinc_code"]: item
-        for item in emf_objects
-        if "SectionChanges" in item
-    }
-    assert set(section_metrics) == {"18776-5", "10160-0"}
-    assert section_metrics["18776-5"]["SectionChanges"] == [3.0]
-    assert section_metrics["10160-0"]["SectionChanges"] == [2.0]
-    for item in section_metrics.values():
-        metric_definition = item["_aws"]["CloudWatchMetrics"][0]
-        assert metric_definition["Namespace"] == lambda_module.METRICS_NAMESPACE
-        assert metric_definition["Metrics"] == [
-            {"Name": "SectionChanges", "Unit": "Count"}
-        ]
-        assert set(metric_definition["Dimensions"][0]) == {
-            "service",
-            "environment",
-            "section_loinc_code",
-        }
-        assert item["service"] == lambda_module.SERVICE_NAME
-        assert item["environment"] == lambda_module.ENVIRONMENT
-
-    encounter_metrics = {
-        item["encounter_type"]: item
-        for item in emf_objects
-        if "EncountersProcessed" in item
-    }
-    assert set(encounter_metrics) == {"ambulatory", "inpatient"}
-    assert encounter_metrics["ambulatory"]["EncountersProcessed"] == [2.0]
-    assert encounter_metrics["inpatient"]["EncountersProcessed"] == [1.0]
-    for item in encounter_metrics.values():
-        metric_definition = item["_aws"]["CloudWatchMetrics"][0]
-        assert metric_definition["Namespace"] == lambda_module.METRICS_NAMESPACE
-        assert metric_definition["Metrics"] == [
-            {"Name": "EncountersProcessed", "Unit": "Count"}
-        ]
-        assert set(metric_definition["Dimensions"][0]) == {
-            "service",
-            "environment",
-            "encounter_type",
-        }
-        assert item["service"] == lambda_module.SERVICE_NAME
-        assert item["environment"] == lambda_module.ENVIRONMENT
-
-
-def test_lambda_handler_logs_doc_processing_attempts_by_condition(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    lambda_module = load_lambda_module()
-    condition = ConditionCode(code_system="2.16.840.1.113883.6.96", code="840539006")
-    caplog.set_level("INFO")
-
-    def process_record(_record, stats):
-        stats.doc_processing_attempts_by_condition[condition] = 2
-
-    monkeypatch.setattr(lambda_module, "process_sqs_record", process_record)
-
-    response = lambda_module.lambda_handler({"Records": [{"body": "{}"}]}, None)
-
-    assert response == {"statusCode": 200, "message": "OK"}
-    condition_logs = [
-        record
-        for record in caplog.records
-        if record.message == "doc_processing_attempts_by_condition"
-    ]
-    assert len(condition_logs) == 1
-    condition_fields = vars(condition_logs[0])
-    assert condition_fields["condition_code"] == condition.code
-    assert condition_fields["condition_code_system"] == condition.code_system
-    assert condition_fields["doc_processing_attempt_count"] == 2
-    assert "document_correlation_key" not in condition_fields
-    assert "version_number" not in condition_fields
 
 
 def test_lambda_handler_flushes_completed_metrics_when_later_manifest_fails(

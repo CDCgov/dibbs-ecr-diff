@@ -1,24 +1,23 @@
+import json
+import traceback
 from dataclasses import fields
-from inspect import signature
 from uuid import UUID
 
 import pytest
 from core import Change, ChangeType
+from did_lambda import telemetry
 from did_lambda.models import DIDOutputFile
 from did_lambda.telemetry import (
     BatchProcessingStats,
-    ConditionCode,
     DocumentTelemetry,
     ManifestEntryResult,
-    TelemetryConfigurationError,
-    change_path_for_logging,
-    condition_codes_from_rr,
-    encounter_type_from_eicr,
-    make_document_correlation_key,
+    log_doc_and_changes,
+    log_doc_processing_attempts_by_condition,
+    raise_processing_failure,
+    record_processing_metrics,
 )
-from lxml import etree
-
-TEST_LOG_HASH_SALT = "a" * 32
+from did_lambda.telemetry_helpers import ConditionCode
+from did_lambda.utils import InfraError
 
 
 def make_change(
@@ -41,6 +40,7 @@ def make_change(
 def make_result(
     *changes: Change,
     encounter_type: str = "ambulatory",
+    unique_condition_count: int = 0,
 ) -> ManifestEntryResult:
     return ManifestEntryResult(
         output_file=DIDOutputFile(
@@ -55,78 +55,12 @@ def make_result(
             document_correlation_key="test-correlation-key",
             version_number=2,
             encounter_type=encounter_type,
+            unique_condition_count=unique_condition_count,
         ),
     )
 
 
-def test_document_correlation_key_matches_known_hmac_vector(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    set_id = "sensitive-set-id"
-    monkeypatch.setenv("LOG_HASH_SALT", TEST_LOG_HASH_SALT)
-
-    key = make_document_correlation_key(set_id, 2)
-
-    assert key == "7d0e891727b5704803d9b3ed86bc43a4"
-    assert len(key) == 32
-    assert set(key) <= set("0123456789abcdef")
-    assert set_id not in key
-    assert TEST_LOG_HASH_SALT not in key
-
-
-def test_document_correlation_key_is_deterministic_and_identifier_specific(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("LOG_HASH_SALT", TEST_LOG_HASH_SALT)
-
-    key = make_document_correlation_key("set-id", 2)
-
-    assert make_document_correlation_key("set-id", 2) == key
-    assert make_document_correlation_key("different-set-id", 2) != key
-    assert make_document_correlation_key("set-id", 3) != key
-
-
-def test_document_correlation_key_changes_with_salt(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("LOG_HASH_SALT", "a" * 32)
-    first_key = make_document_correlation_key("set-id", 2)
-
-    monkeypatch.setenv("LOG_HASH_SALT", "b" * 32)
-    second_key = make_document_correlation_key("set-id", 2)
-
-    assert second_key != first_key
-
-
-def test_document_correlation_key_requires_salt(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv("LOG_HASH_SALT", raising=False)
-
-    with pytest.raises(TelemetryConfigurationError) as raised:
-        make_document_correlation_key("set-id", 2)
-
-    assert str(raised.value) == "LOG_HASH_SALT is required"
-
-
-def test_document_correlation_key_rejects_short_salt_without_exposing_it(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    short_salt = "sensitive-short-salt"
-    monkeypatch.setenv("LOG_HASH_SALT", short_salt)
-
-    with pytest.raises(TelemetryConfigurationError) as raised:
-        make_document_correlation_key("set-id", 2)
-
-    assert str(raised.value) == "LOG_HASH_SALT must contain at least 32 bytes"
-    assert short_salt not in str(raised.value)
-
-
 def test_document_telemetry_exposes_only_privacy_limited_fields() -> None:
-    assert tuple(signature(make_document_correlation_key).parameters) == (
-        "set_id",
-        "version_number",
-    )
     assert tuple(field.name for field in fields(DocumentTelemetry)) == (
         "document_correlation_key",
         "version_number",
@@ -140,119 +74,190 @@ def test_document_telemetry_exposes_only_privacy_limited_fields() -> None:
     )
 
 
-def test_extracts_unique_coded_conditions_from_rr_condition_observations() -> None:
-    rr_tree = etree.ElementTree(
-        etree.fromstring(
-            b"""
-            <ClinicalDocument xmlns="urn:hl7-org:v3">
-              <observation>
-                <templateId root="2.16.840.1.113883.10.20.15.2.3.12"/>
-                <value code="43692000" codeSystem="2.16.840.1.113883.6.96"/>
-              </observation>
-              <observation>
-                <templateId root="2.16.840.1.113883.10.20.15.2.3.12"/>
-                <value code="43692000" codeSystem="2.16.840.1.113883.6.96"/>
-              </observation>
-              <observation>
-                <templateId root="2.16.840.1.113883.10.20.15.2.3.12"/>
-                <value code="840539006" codeSystem="2.16.840.1.113883.6.96"/>
-              </observation>
-              <observation>
-                <templateId root="unrelated-template"/>
-                <value code="sensitive-unrelated-code" codeSystem="unknown"/>
-              </observation>
-              <observation>
-                <templateId root="2.16.840.1.113883.10.20.15.2.3.12"/>
-                <value code="missing-code-system"/>
-              </observation>
-              <observation>
-                <templateId root="2.16.840.1.113883.10.20.15.2.3.12"/>
-                <value code="patient name" codeSystem="not-an-oid"/>
-              </observation>
-            </ClinicalDocument>
-            """
-        )
-    )
-
-    assert condition_codes_from_rr(rr_tree) == (
-        ConditionCode(code_system="2.16.840.1.113883.6.96", code="43692000"),
-        ConditionCode(code_system="2.16.840.1.113883.6.96", code="840539006"),
-    )
+def emitted_metrics(capsys: pytest.CaptureFixture[str]) -> list[dict]:
+    """Return CloudWatch EMF objects emitted to standard output."""
+    return [
+        payload
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("{") and "_aws" in (payload := json.loads(line))
+    ]
 
 
-@pytest.mark.parametrize(
-    ("code_system", "code", "expected"),
-    [
-        ("2.16.840.1.113883.5.4", "AMB", "ambulatory"),
-        ("2.16.840.1.113883.5.4", "EMER", "emergency"),
-        ("2.16.840.1.113883.5.4", "IMP", "inpatient"),
-        ("2.16.840.1.113883.5.4", "ACUTE", "inpatient"),
-        ("2.16.840.1.113883.5.4", "NONAC", "inpatient"),
-        ("2.16.840.1.113883.5.4", "OBSENC", "observation"),
-        ("2.16.840.1.113883.5.4", "PRENC", "preadmission"),
-        ("2.16.840.1.113883.5.4", "SS", "short_stay"),
-        ("2.16.840.1.113883.5.4", "HH", "home_health"),
-        ("2.16.840.1.113883.5.4", "FLD", "field"),
-        ("2.16.840.1.113883.5.4", "VR", "virtual"),
-        ("2.16.840.1.114222.4.5.274", "PHC2237", "external_historical"),
-        ("2.16.840.1.113883.5.4", "UNSUPPORTED", "other"),
-        ("9.9.9", "radioactive-encounter-value", "other"),
-    ],
-)
-def test_extracts_bounded_encounter_type_from_eicr_header(
-    code_system: str, code: str, expected: str
+def test_emits_aggregate_section_and_encounter_metrics(
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    eicr_tree = etree.ElementTree(
-        etree.fromstring(
-            f"""
-            <ClinicalDocument xmlns="urn:hl7-org:v3">
-              <componentOf>
-                <encompassingEncounter>
-                  <code code="{code}" codeSystem="{code_system}"/>
-                </encompassingEncounter>
-              </componentOf>
-            </ClinicalDocument>
-            """.encode()
-        )
+    stats = BatchProcessingStats(
+        manifests_processed=1,
+        documents_processed=2,
+        documents_failed=1,
+        changes_added=3,
+        changes_updated=4,
+        changes_deleted=5,
+    )
+    stats.section_change_counts.update({"18776-5": 3, "10160-0": 2})
+    stats.encounter_counts.update({"ambulatory": 2, "inpatient": 1})
+
+    record_processing_metrics(stats)
+    telemetry.metrics.flush_metrics()
+
+    emf_objects = emitted_metrics(capsys)
+    aggregate = next(item for item in emf_objects if "BatchDurationMs" in item)
+    metric_definitions = aggregate["_aws"]["CloudWatchMetrics"][0]
+
+    assert metric_definitions["Namespace"] == telemetry.METRICS_NAMESPACE
+    assert set(metric_definitions["Dimensions"][0]) == {"service", "environment"}
+    assert {
+        metric["Name"]: metric["Unit"] for metric in metric_definitions["Metrics"]
+    } == {
+        "ManifestsProcessed": "Count",
+        "ManifestsFailed": "Count",
+        "DocumentsProcessed": "Count",
+        "DocumentsFailed": "Count",
+        "ChangesAdded": "Count",
+        "ChangesUpdated": "Count",
+        "ChangesDeleted": "Count",
+        "ChangesTotal": "Count",
+        "BatchDurationMs": "Milliseconds",
+    }
+    assert aggregate["service"] == telemetry.SERVICE_NAME
+    assert aggregate["environment"] == telemetry.ENVIRONMENT
+    assert aggregate["ManifestsProcessed"] == [1.0]
+    assert aggregate["ManifestsFailed"] == [0.0]
+    assert aggregate["DocumentsProcessed"] == [2.0]
+    assert aggregate["DocumentsFailed"] == [1.0]
+    assert aggregate["ChangesAdded"] == [3.0]
+    assert aggregate["ChangesUpdated"] == [4.0]
+    assert aggregate["ChangesDeleted"] == [5.0]
+    assert aggregate["ChangesTotal"] == [12.0]
+    assert aggregate["BatchDurationMs"][0] >= 0
+
+    section_metrics = {
+        item["section_loinc_code"]: item
+        for item in emf_objects
+        if "SectionChanges" in item
+    }
+    assert set(section_metrics) == {"18776-5", "10160-0"}
+    assert section_metrics["18776-5"]["SectionChanges"] == [3.0]
+    assert section_metrics["10160-0"]["SectionChanges"] == [2.0]
+    for item in section_metrics.values():
+        metric_definition = item["_aws"]["CloudWatchMetrics"][0]
+        assert metric_definition["Namespace"] == telemetry.METRICS_NAMESPACE
+        assert metric_definition["Metrics"] == [
+            {"Name": "SectionChanges", "Unit": "Count"}
+        ]
+        assert set(metric_definition["Dimensions"][0]) == {
+            "service",
+            "environment",
+            "section_loinc_code",
+        }
+        assert item["service"] == telemetry.SERVICE_NAME
+        assert item["environment"] == telemetry.ENVIRONMENT
+
+    encounter_metrics = {
+        item["encounter_type"]: item
+        for item in emf_objects
+        if "EncountersProcessed" in item
+    }
+    assert set(encounter_metrics) == {"ambulatory", "inpatient"}
+    assert encounter_metrics["ambulatory"]["EncountersProcessed"] == [2.0]
+    assert encounter_metrics["inpatient"]["EncountersProcessed"] == [1.0]
+    for item in encounter_metrics.values():
+        metric_definition = item["_aws"]["CloudWatchMetrics"][0]
+        assert metric_definition["Namespace"] == telemetry.METRICS_NAMESPACE
+        assert metric_definition["Metrics"] == [
+            {"Name": "EncountersProcessed", "Unit": "Count"}
+        ]
+        assert set(metric_definition["Dimensions"][0]) == {
+            "service",
+            "environment",
+            "encounter_type",
+        }
+        assert item["service"] == telemetry.SERVICE_NAME
+        assert item["environment"] == telemetry.ENVIRONMENT
+
+
+def test_logs_document_and_reported_changes(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level("INFO")
+    result = make_result(
+        make_change(
+            ChangeType.UPDATED,
+            xpath="/hl7:ClinicalDocument[1]/hl7:component[2]",
+            is_actionable=False,
+        ),
+        unique_condition_count=3,
     )
 
-    assert encounter_type_from_eicr(eicr_tree) == expected
+    log_doc_and_changes(result)
 
-
-@pytest.mark.parametrize(
-    "code_element",
-    [
-        "",
-        '<code nullFlavor="UNK"/>',
-        '<code code="AMB"/>',
-        '<code codeSystem="2.16.840.1.113883.5.4"/>',
-    ],
-)
-def test_missing_encounter_code_data_is_unknown(code_element: str) -> None:
-    eicr_tree = etree.ElementTree(
-        etree.fromstring(
-            f"""
-            <ClinicalDocument xmlns="urn:hl7-org:v3">
-              <componentOf>
-                <encompassingEncounter>{code_element}</encompassingEncounter>
-              </componentOf>
-            </ClinicalDocument>
-            """.encode()
-        )
+    document_log = next(
+        record for record in caplog.records if record.message == "document_processed"
     )
+    assert vars(document_log)["document_correlation_key"] == "test-correlation-key"
+    assert vars(document_log)["version_number"] == 2
+    assert vars(document_log)["unique_condition_count"] == 3
 
-    assert encounter_type_from_eicr(eicr_tree) == "unknown"
+    change_log = next(
+        record for record in caplog.records if record.message == "xml_change"
+    )
+    assert vars(change_log)["document_correlation_key"] == "test-correlation-key"
+    assert vars(change_log)["version_number"] == 2
+    assert vars(change_log)["change_type"] == "UPDATED"
+    assert vars(change_log)["change_path"] == "/hl7:ClinicalDocument/hl7:component"
+    assert "isActionable" not in vars(change_log)
 
 
-def test_change_path_for_logging_removes_positions_without_changing_output() -> None:
-    original_path = "/hl7:ClinicalDocument[1]/hl7:component[2]/sdtc:deceasedInd[12]"
-    change = make_change(ChangeType.UPDATED, xpath=original_path)
+def test_logs_doc_processing_attempts_by_condition_without_document_fields(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    condition = ConditionCode(code_system="2.16.840.1.113883.6.96", code="840539006")
+    stats = BatchProcessingStats()
+    stats.doc_processing_attempts_by_condition[condition] = 2
+    caplog.set_level("INFO")
 
-    logged_path = change_path_for_logging(change)
+    log_doc_processing_attempts_by_condition(stats)
 
-    assert logged_path == ("/hl7:ClinicalDocument/hl7:component/sdtc:deceasedInd")
-    assert change.xpath == original_path
-    assert change.model_dump()["xpath"] == original_path
+    condition_log = next(
+        record
+        for record in caplog.records
+        if record.message == "doc_processing_attempts_by_condition"
+    )
+    condition_fields = vars(condition_log)
+    assert condition_fields["condition_code"] == condition.code
+    assert condition_fields["condition_code_system"] == condition.code_system
+    assert condition_fields["doc_processing_attempt_count"] == 2
+    assert "document_correlation_key" not in condition_fields
+    assert "version_number" not in condition_fields
+
+
+def test_processing_failure_log_and_exception_exclude_sensitive_details(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    sensitive_value = (
+        "s3://bucket/patient.xml <ClinicalDocument>secret</ClinicalDocument>"
+    )
+    caplog.set_level("INFO")
+
+    with pytest.raises(InfraError) as raised:
+        raise_processing_failure(
+            "diff",
+            ValueError(sensitive_value),
+            document_correlation_key="test-correlation-key",
+        )
+
+    failure_log = next(
+        record for record in caplog.records if record.message == "processing_failure"
+    )
+    failure_fields = vars(failure_log)
+    assert failure_fields["failure_stage"] == "diff"
+    assert failure_fields["error_type"] == "ValueError"
+    assert failure_fields["document_correlation_key"] == "test-correlation-key"
+    assert not failure_log.exc_info
+    assert not failure_log.stack_info
+    assert str(raised.value) == "Processing failed during diff"
+    assert sensitive_value not in caplog.text
+    assert sensitive_value not in "".join(traceback.format_exception(raised.value))
 
 
 def test_records_processed_documents_and_reported_change_types() -> None:

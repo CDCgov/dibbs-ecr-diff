@@ -2,11 +2,8 @@
 
 import os
 from collections import Counter
-from typing import Never
 from urllib.parse import unquote_plus
 
-from aws_lambda_powertools import Logger, Metrics
-from aws_lambda_powertools.metrics import MetricUnit, single_metric
 from aws_lambda_powertools.utilities.data_classes import (
     S3EventBridgeNotificationEvent,
     SQSEvent,
@@ -37,10 +34,16 @@ from .models import (
 from .s3 import get_object, get_object_xml_tree, put_object
 from .telemetry import (
     BatchProcessingStats,
-    ConditionCode,
     DocumentTelemetry,
     ManifestEntryResult,
-    change_path_for_logging,
+    log_doc_and_changes,
+    log_doc_processing_attempts_by_condition,
+    metrics,
+    raise_processing_failure,
+    record_processing_metrics,
+)
+from .telemetry_helpers import (
+    ConditionCode,
     condition_codes_from_rr,
     encounter_type_from_eicr,
     make_document_correlation_key,
@@ -56,128 +59,8 @@ from .utils import (
 DID_OUTPUT_PREFIX = os.environ.get("DID_OUTPUT_PREFIX", "DIDOutput/")
 DID_COMPLETE_PREFIX = os.environ.get("DID_COMPLETE_PREFIX", "DIDComplete/")
 DID_CONFIGURATION_FILE = os.environ.get("DID_CONFIGURATION_FILE", "aphl_baseline.json")
-ENVIRONMENT = os.environ.get("ENVIRONMENT", "prod")
-METRICS_NAMESPACE = os.environ.get("POWERTOOLS_METRICS_NAMESPACE", "eICRDiff")
-SERVICE_NAME = os.environ.get("POWERTOOLS_SERVICE_NAME", "difference-in-docs")
 
-logger = Logger(SERVICE_NAME)
-metrics = Metrics(namespace=METRICS_NAMESPACE, service=SERVICE_NAME)
 config = load_configuration(DID_CONFIGURATION_FILE)
-
-
-def _raise_processing_failure(
-    stage: str,
-    exc: Exception,
-    document_correlation_key: str | None = None,
-) -> Never:
-    """Log bounded failure details and raise a privacy-safe retryable error."""
-    extra = {
-        "failure_stage": stage,
-        "error_type": type(exc).__name__,
-    }
-    if document_correlation_key is not None:
-        extra["document_correlation_key"] = document_correlation_key
-
-    logger.error(
-        "processing_failure",
-        extra=extra,
-        exc_info=False,
-        stack_info=False,
-    )
-    raise InfraError(f"Processing failed during {stage}") from None
-
-
-def _record_processing_metrics(stats: BatchProcessingStats) -> None:
-    """Record metrics for one batch processing attempt."""
-    metrics.add_dimension(name="environment", value=ENVIRONMENT)
-    count_metrics = {
-        "ManifestsProcessed": stats.manifests_processed,
-        "ManifestsFailed": stats.manifests_failed,
-        "DocumentsProcessed": stats.documents_processed,
-        "DocumentsFailed": stats.documents_failed,
-        "ChangesAdded": stats.changes_added,
-        "ChangesUpdated": stats.changes_updated,
-        "ChangesDeleted": stats.changes_deleted,
-        "ChangesTotal": stats.changes_total,
-    }
-    for name, value in count_metrics.items():
-        metrics.add_metric(name=name, unit=MetricUnit.Count, value=value)
-
-    metrics.add_metric(
-        name="BatchDurationMs",
-        unit=MetricUnit.Milliseconds,
-        value=stats.duration_ms,
-    )
-
-    default_dimensions = {
-        "service": SERVICE_NAME,
-        "environment": ENVIRONMENT,
-    }
-    for section_loinc_code, change_count in stats.section_change_counts.items():
-        with single_metric(
-            name="SectionChanges",
-            unit=MetricUnit.Count,
-            value=change_count,
-            namespace=METRICS_NAMESPACE,
-            default_dimensions=default_dimensions,
-        ) as section_metric:
-            section_metric.add_dimension(
-                name="section_loinc_code", value=section_loinc_code
-            )
-
-    for encounter_type, encounter_count in stats.encounter_counts.items():
-        with single_metric(
-            name="EncountersProcessed",
-            unit=MetricUnit.Count,
-            value=encounter_count,
-            namespace=METRICS_NAMESPACE,
-            default_dimensions=default_dimensions,
-        ) as encounter_metric:
-            encounter_metric.add_dimension(name="encounter_type", value=encounter_type)
-
-
-def _log_doc_and_changes(result: ManifestEntryResult) -> None:
-    """Log one completed document and each of its reported changes."""
-    doc_fields = {
-        "document_correlation_key": result.telemetry.document_correlation_key,
-        "version_number": result.telemetry.version_number,
-    }
-    logger.info(
-        "document_processed",
-        extra={
-            **doc_fields,
-            "unique_condition_count": result.telemetry.unique_condition_count,
-        },
-    )
-
-    for change in result.changes:
-        logger.info(
-            "xml_change",
-            extra={
-                **doc_fields,
-                "change_type": change.changeType.value,
-                "change_path": change_path_for_logging(change),
-            },
-        )
-
-
-def _log_doc_processing_attempts_by_condition(stats: BatchProcessingStats) -> None:
-    """Log doc processing attempts by condition without correlation fields.
-
-    These batch records remain temporally linkable in the shared Lambda log stream;
-    their longer-term privacy boundary is pending external guidance.
-    """
-    for condition, processing_attempt_count in sorted(
-        stats.doc_processing_attempts_by_condition.items()
-    ):
-        logger.info(
-            "doc_processing_attempts_by_condition",
-            extra={
-                "condition_code": condition.code,
-                "condition_code_system": condition.code_system,
-                "doc_processing_attempt_count": processing_attempt_count,
-            },
-        )
 
 
 @metrics.log_metrics
@@ -188,7 +71,7 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
     try:
         raw_records = event.get("Records")
         if not isinstance(raw_records, list) or not raw_records:
-            _raise_processing_failure(
+            raise_processing_failure(
                 "manifest_load", InfraError("SQS event has no Records")
             )
 
@@ -203,8 +86,8 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
 
         return {"statusCode": 200, "message": "OK"}
     finally:
-        _record_processing_metrics(stats)
-        _log_doc_processing_attempts_by_condition(stats)
+        record_processing_metrics(stats)
+        log_doc_processing_attempts_by_condition(stats)
 
 
 def process_sqs_record(
@@ -221,7 +104,7 @@ def process_sqs_record(
         persistence_id = persistence_id_from_manifest_key(did_input_manifest_key)
         did_input_manifest = get_input_manifest(bucket_name, did_input_manifest_key)
     except Exception as exc:
-        _raise_processing_failure("manifest_load", exc)
+        raise_processing_failure("manifest_load", exc)
 
     did_complete_output_files: list[DIDOutputFile] = []
     pending_results: list[ManifestEntryResult] = []
@@ -254,13 +137,13 @@ def process_sqs_record(
             ),
         )
     except Exception as exc:
-        _raise_processing_failure("completion_write", exc)
+        raise_processing_failure("completion_write", exc)
 
     # Commit success telemetry only for a fully completed manifest. If entry
     # processing or the completion write fails, these local buffers are discarded.
     for result in pending_results:
         stats.record_document_processed(result)
-        _log_doc_and_changes(result)
+        log_doc_and_changes(result)
     stats.doc_processing_attempts_by_condition.update(pending_condition_counts)
 
 
@@ -362,7 +245,7 @@ def process_manifest_entry(
             doc_processing_attempts_by_condition.update(condition_codes)
         return result
     except Exception as exc:
-        _raise_processing_failure(stage, exc, document_correlation_key)
+        raise_processing_failure(stage, exc, document_correlation_key)
 
 
 def get_augmented_eicr(
