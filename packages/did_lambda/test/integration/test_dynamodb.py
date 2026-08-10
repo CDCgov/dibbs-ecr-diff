@@ -17,13 +17,13 @@ def test_get_before_actionable_record_returns_latest_earlier_actionable_record(
     dynamodb_table, dynamodb_module
 ):
     dynamodb_table.put_item(Item=record(1, True))
-    dynamodb_table.put_item(Item=record(2, False))
+    dynamodb_table.put_item(Item=record(2, True))
     dynamodb_table.put_item(Item=record(3, False))
 
     result = dynamodb_module.get_before_actionable_record(SET_ID, 4)
 
     assert result is not None
-    assert result.versionNumber == 1
+    assert result.versionNumber == 2
 
 
 def test_get_before_actionable_record_returns_none_when_none_exists(
