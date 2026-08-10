@@ -13,6 +13,7 @@ from aws_lambda_powertools.utilities.data_classes import (
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from core import DiffOutput, diff_xml
 from core.augment import (
+    AugmentationRun,
     augment_eicr_in_place,
     augment_rr_in_place,
     create_augmentation_run,
@@ -127,13 +128,19 @@ def process_manifest_entry(
             diff_output.model_dump_json(indent=2).encode("utf-8"),
         )
 
-    # write augmented eicr to DIDOutput/
-    augmented_eicr = get_augmented_eicr(eicr_tree, jurisdiction_id, diff_output)
+    # create augmentation run
+    eicr_root = eicr_tree.getroot()
+    augmentation_run = create_augmentation_run(eicr_root)
+
+    # create and write augmented eicr to DIDOutput/
+    augmented_eicr = get_augmented_eicr(
+        eicr_root, augmentation_run, jurisdiction_id, diff_output
+    )
     eicr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, entry.eicr)
     put_object(bucket_name, eicr_out_key, augmented_eicr)
 
-    # write augmented rr to DIDOutput/
-    augmented_rr = get_augmented_rr(rr_tree, jurisdiction_id)
+    # create and write augmented rr to DIDOutput/
+    augmented_rr = get_augmented_rr(rr_tree, augmentation_run, jurisdiction_id)
     rr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, entry.rr)
     put_object(bucket_name, rr_out_key, augmented_rr)
 
@@ -162,12 +169,12 @@ def process_manifest_entry(
 
 
 def get_augmented_eicr(
-    eicr_tree: ElementTree, jurisdiction_id: str, diff_output: DiffOutput | None
+    eicr_root: etree._Element,
+    augmentation_run: AugmentationRun,
+    jurisdiction_id: str,
+    diff_output: DiffOutput | None,
 ) -> bytes:
     """Return augmented eICR."""
-    eicr_root = eicr_tree.getroot()
-    augmentation_run = create_augmentation_run(eicr_root)
-
     augment_eicr_in_place(
         eicr_root=eicr_root,
         run=augmentation_run,
@@ -180,11 +187,11 @@ def get_augmented_eicr(
     )
 
 
-def get_augmented_rr(rr_tree: ElementTree, jurisdiction_id: str) -> bytes:
+def get_augmented_rr(
+    rr_tree: ElementTree, augmentation_run: AugmentationRun, jurisdiction_id: str
+) -> bytes:
     """Return augmented RR."""
     rr_root = rr_tree.getroot()
-    augmentation_run = create_augmentation_run(rr_root)
-
     augment_rr_in_place(
         rr_root=rr_root, run=augmentation_run, jurisdiction_id=jurisdiction_id
     )
