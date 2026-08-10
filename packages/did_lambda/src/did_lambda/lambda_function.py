@@ -1,34 +1,52 @@
 """Ingest manifests delivered through S3 and SQS."""
 
 import os
-from typing import TYPE_CHECKING
 from urllib.parse import unquote_plus
 
-import boto3
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.data_classes import (
     S3EventBridgeNotificationEvent,
     SQSEvent,
+    SQSRecord,
     event_source,
 )
 from aws_lambda_powertools.utilities.typing import LambdaContext
+from core import DiffOutput, diff_xml
+from core.augment import (
+    AugmentationRun,
+    augment_eicr_in_place,
+    augment_rr_in_place,
+    create_augmentation_run,
+)
+from core.configurations import load_configuration
+from lxml import etree
+from lxml.etree import ElementTree
 from pydantic import ValidationError
 
-from .models import DIDCompleteManifest, DIDInputManifest, DIDOutputFile
-
-if TYPE_CHECKING:
-    from types_boto3_s3 import S3Client
+from .dynamodb import get_before_actionable_record, put_eicr_record
+from .models import (
+    DIDCompleteManifest,
+    DIDInputFile,
+    DIDInputManifest,
+    DIDOutputFile,
+    EICRStorageRecord,
+)
+from .s3 import get_object, get_object_xml_tree, put_object
+from .utils import (
+    InfraError,
+    get_did_output_key,
+    get_did_output_path,
+    get_timestamp,
+    persistence_id_from_manifest_key,
+)
 
 DID_OUTPUT_PREFIX = os.environ.get("DID_OUTPUT_PREFIX", "DIDOutput/")
 DID_COMPLETE_PREFIX = os.environ.get("DID_COMPLETE_PREFIX", "DIDComplete/")
+DID_CONFIGURATION_FILE = os.environ.get("DID_CONFIGURATION_FILE", "aphl_baseline.json")
 ENVIRONMENT = os.environ.get("ENVIRONMENT", "prod")
 
-s3: "S3Client" = boto3.client("s3")
-logger = Logger(service="difference-in-docs")
-
-
-class InfraError(Exception):
-    """Raised for failures that should fail the Lambda, which will trigger an automated SQS retry / DLQ)."""
+logger = Logger("difference-in-docs")
+config = load_configuration(DID_CONFIGURATION_FILE)
 
 
 @event_source(data_class=SQSEvent)
@@ -39,52 +57,148 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
         raise InfraError("SQS event has no Records")
 
     for record in event.records:
-        s3_event = S3EventBridgeNotificationEvent(record.json_body)
-
-        bucket_name = s3_event.detail.bucket.name
-        did_input_manifest_key = unquote_plus(s3_event.detail.object.key)
-
-        persistence_id = persistence_id_from_key(did_input_manifest_key)
-        did_input_manifest = get_input_manifest(bucket_name, did_input_manifest_key)
-
-        did_complete_output_records: list[DIDOutputFile] = []
-
-        for entry in did_input_manifest.files:
-            set_id = entry.setId
-            version_number = entry.versionNumber
-
-            eicr_out_key = get_did_output_key(entry.eicr)
-            rr_out_key = get_did_output_key(entry.rr)
-
-            # write eICR to DIDOutput/
-            put_object(bucket_name, eicr_out_key, get_object(bucket_name, entry.eicr))
-
-            # write RR to DIDOutput/
-            put_object(bucket_name, rr_out_key, get_object(bucket_name, entry.rr))
-
-            did_complete_output_records.append(
-                DIDOutputFile(
-                    setId=set_id,
-                    versionNumber=version_number,
-                    eicr=eicr_out_key,
-                    rr=rr_out_key,
-                    eicr_diff_output=None,  # TODO: add this once we're actually diffing
-                    is_actionable=True,  # TODO: add this once we're actually diffing
-                )
-            )
-
-        # write to DIDComplete/
-        did_complete_manifest = DIDCompleteManifest(Files=did_complete_output_records)
-        did_complete_manifest_key = f"{DID_COMPLETE_PREFIX}{persistence_id}"
-        put_object(
-            bucket_name,
-            did_complete_manifest_key,
-            did_complete_manifest.model_dump_json(by_alias=True, indent=2).encode(
-                "utf-8"
-            ),
-        )
+        process_sqs_record(record)
 
     return {"statusCode": 200, "message": "OK"}
+
+
+def process_sqs_record(record: SQSRecord) -> None:
+    """Process an SQS record containing an S3 event."""
+    s3_event = S3EventBridgeNotificationEvent(record.json_body)
+
+    bucket_name = s3_event.detail.bucket.name
+    did_input_manifest_key = unquote_plus(s3_event.detail.object.key)
+
+    persistence_id = persistence_id_from_manifest_key(did_input_manifest_key)
+    did_input_manifest = get_input_manifest(bucket_name, did_input_manifest_key)
+    did_complete_output_files: list[DIDOutputFile] = []
+
+    # process every DIDInputFile in the batch
+    for index, entry in enumerate(did_input_manifest.files):
+        did_complete_output_files.append(
+            process_manifest_entry(bucket_name, persistence_id, entry, index)
+        )
+
+    # write to DIDComplete/
+    did_complete_manifest = DIDCompleteManifest(Files=did_complete_output_files)
+    did_complete_manifest_key = f"{DID_COMPLETE_PREFIX}{persistence_id}"
+    put_object(
+        bucket_name,
+        did_complete_manifest_key,
+        did_complete_manifest.model_dump_json(by_alias=True, indent=2).encode("utf-8"),
+    )
+
+
+def process_manifest_entry(
+    bucket_name: str, persistence_id: str, entry: DIDInputFile, index: int
+) -> DIDOutputFile:
+    """Process a single DID input manifest entry."""
+    set_id = entry.setId
+    version_number = entry.versionNumber
+    jurisdiction_id = ",".join(entry.jurisdictions)
+
+    before_record = get_before_actionable_record(set_id, version_number)
+    compared_to_version = before_record.versionNumber if before_record else None
+    is_actionable = before_record is None
+
+    diff_output: DiffOutput | None = None
+    diff_output_key: str | None = None
+
+    eicr_tree = get_object_xml_tree(bucket_name, entry.eicr)
+    rr_tree = get_object_xml_tree(bucket_name, entry.rr)
+
+    if before_record:
+        before_tree = get_object_xml_tree(bucket_name, before_record.s3Key)
+        logger.info(
+            f"Diffing version {version_number} against version {compared_to_version} of {set_id}"
+        )
+
+        diff_output = diff_xml(before_tree, eicr_tree, config)
+        is_actionable = diff_output.hasActionableChanges
+
+        output_path = get_did_output_path(DID_OUTPUT_PREFIX, persistence_id, entry.eicr)
+        diff_output_key = (
+            f"{output_path}/diff_v{compared_to_version}_to_v{version_number}_{index}"
+        )
+
+        # TODO: should we only create the diff_output json file in lower envs and exclude prod?
+        put_object(
+            bucket_name,
+            diff_output_key,
+            diff_output.model_dump_json(indent=2).encode("utf-8"),
+        )
+
+    # create augmentation run
+    eicr_root = eicr_tree.getroot()
+    augmentation_run = create_augmentation_run(eicr_root)
+
+    # create and write augmented eicr to DIDOutput/
+    augmented_eicr = get_augmented_eicr(
+        eicr_root, augmentation_run, jurisdiction_id, diff_output
+    )
+    eicr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, entry.eicr)
+    put_object(bucket_name, eicr_out_key, augmented_eicr)
+
+    # create and write augmented rr to DIDOutput/
+    augmented_rr = get_augmented_rr(rr_tree, augmentation_run, jurisdiction_id)
+    rr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, entry.rr)
+    put_object(bucket_name, rr_out_key, augmented_rr)
+
+    # write eICR metadata to DB
+    put_eicr_record(
+        EICRStorageRecord(
+            setId=set_id,
+            versionNumber=version_number,
+            s3Key=entry.eicr,
+            s3KeyRR=entry.rr,
+            s3KeyDiffOutput=diff_output_key,
+            processedAt=get_timestamp(),
+            isActionable=is_actionable,
+            comparedToVersion=compared_to_version,
+        )
+    )
+
+    return DIDOutputFile(
+        setId=set_id,
+        versionNumber=version_number,
+        eicr=eicr_out_key,
+        rr=rr_out_key,
+        eicr_diff_output=diff_output_key,
+        is_actionable=is_actionable,
+    )
+
+
+def get_augmented_eicr(
+    eicr_root: etree._Element,
+    augmentation_run: AugmentationRun,
+    jurisdiction_id: str,
+    diff_output: DiffOutput | None,
+) -> bytes:
+    """Return augmented eICR."""
+    augment_eicr_in_place(
+        eicr_root=eicr_root,
+        run=augmentation_run,
+        jurisdiction_id=jurisdiction_id,
+        diff_output=diff_output,
+    )
+
+    return etree.tostring(
+        eicr_root, pretty_print=True, xml_declaration=True, encoding="utf-8"
+    )
+
+
+def get_augmented_rr(
+    rr_tree: ElementTree, augmentation_run: AugmentationRun, jurisdiction_id: str
+) -> bytes:
+    """Return augmented RR."""
+    rr_root = rr_tree.getroot()
+    augment_rr_in_place(
+        rr_root=rr_root, run=augmentation_run, jurisdiction_id=jurisdiction_id
+    )
+
+    return etree.tostring(
+        rr_root, pretty_print=True, xml_declaration=True, encoding="utf-8"
+    )
 
 
 def get_input_manifest(bucket: str, key: str) -> DIDInputManifest:
@@ -93,55 +207,3 @@ def get_input_manifest(bucket: str, key: str) -> DIDInputManifest:
         return DIDInputManifest.model_validate_json(get_object(bucket, key))
     except ValidationError as exc:
         raise InfraError(f"Invalid manifest s3://{bucket}/{key}") from exc
-
-
-def get_object(bucket: str, key: str) -> bytes:
-    """Utility to get object from S3."""
-    try:
-        obj = s3.get_object(Bucket=bucket, Key=key)
-        return obj["Body"].read()
-    except Exception as exc:
-        raise InfraError(f"S3 get_object failed s3://{bucket}/{key}: {exc}") from exc
-
-
-def put_object(bucket: str, key: str, data: bytes) -> None:
-    """Utility to put object to S3."""
-    try:
-        s3.put_object(Bucket=bucket, Key=key, Body=data)
-    except Exception as exc:
-        raise InfraError(f"S3 put_object failed s3://{bucket}/{key}: {exc}") from exc
-
-
-def persistence_id_from_key(key: str) -> str:
-    """Strip the first S3 key segment (prefix) to leave the persistence_id.
-
-    AIMS form: YYYY/MM/DD/{uuid}
-    Example: DIDInput/2026/07/14/19d4812b-fc1d-471a-8872-6d5edd1714ff
-    → 2026/07/14/19d4812b-fc1d-471a-8872-6d5edd1714ff
-    """
-    parts = key.strip("/").split("/", 1)
-    if len(parts) != 2 or not parts[1]:
-        raise InfraError(f"S3 key has no persistence_id after prefix: {key}")
-    return parts[1]
-
-
-def get_did_output_key(source_key: str) -> str:
-    """Converts an S3 Key into a DIDOutput prefixed key."""
-    output_prefix = get_did_output_prefix(source_key)
-    return f"{output_prefix}/{get_key_basename(source_key)}"
-
-
-def get_did_output_prefix(source_key: str) -> str:
-    """Extracts S3 Key prefix from DIDInput S3 key."""
-    parts = source_key.strip("/").split("/")
-    if len(parts) <= 2:
-        raise InfraError(f"S3 key has nothing after prefix: {source_key}")
-    return f"{DID_OUTPUT_PREFIX}{'/'.join(parts[1:-1])}"
-
-
-def get_key_basename(source_key: str) -> str:
-    """Gets basename of an S3 key."""
-    key = source_key.strip("/")
-    if not key:
-        raise InfraError(f"Invalid S3 key: {source_key}")
-    return key.rsplit("/", 1)[-1]

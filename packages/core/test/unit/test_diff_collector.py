@@ -16,6 +16,7 @@ from core.diff_collector import (
     _equivalent_excluding_version_metadata,
     collect_additions_updates_deletes,
 )
+from core.xml_utils import localname
 from helpers import HL7_NS, elem
 
 
@@ -481,7 +482,7 @@ def test_nested_updates_are_not_pruned_to_the_outermost_element():
     )
 
     assert added == []
-    assert [after.tag.rsplit("}", 1)[-1] for _, after in updated] == [
+    assert [localname(after) for _, after in updated] == [
         "observation",
         "statusCode",
     ]

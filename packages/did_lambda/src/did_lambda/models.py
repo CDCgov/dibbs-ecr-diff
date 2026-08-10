@@ -1,5 +1,7 @@
 """Models for S3 manifest files."""
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -10,11 +12,16 @@ class DIDInputFile(BaseModel):
     rr: str
     setId: str
     versionNumber: int
+    jurisdictions: list[str]
 
 
-class DIDOutputFile(DIDInputFile):
+class DIDOutputFile(BaseModel):
     """Output EICR, RR, DiffOutput S3 keys, and related metadata."""
 
+    eicr: str
+    rr: str
+    setId: str
+    versionNumber: int
     eicr_diff_output: str | None = None
     is_actionable: bool
 
@@ -29,3 +36,16 @@ class DIDCompleteManifest(BaseModel):
     """A manifest containing DIDOutput files."""
 
     files: list[DIDOutputFile] = Field(alias="Files")
+
+
+class EICRStorageRecord(BaseModel):
+    """DynamoDB table record."""
+
+    setId: str
+    versionNumber: int
+    s3Key: str
+    s3KeyRR: str | None = None
+    s3KeyDiffOutput: str | None = None
+    processedAt: datetime
+    isActionable: bool
+    comparedToVersion: int | None = None
