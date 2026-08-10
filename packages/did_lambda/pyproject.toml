@@ -10,7 +10,11 @@ dependencies = [
     "pydantic>=2.13.4",
 ]
 
+[tool.uv]
+package = true
+
 [dependency-groups]
 dev = [
+    "moto[cloudwatch,dynamodb,events,s3,sqs]>=5.2.2",
     "types-boto3[essential]>=1.43.53",
 ]

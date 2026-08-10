@@ -16,6 +16,7 @@ from aws_lambda_powertools.utilities.data_classes import (
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from core import DiffOutput, diff_xml
 from core.augment import (
+    AugmentationRun,
     augment_eicr_in_place,
     augment_rr_in_place,
     create_augmentation_run,
@@ -31,6 +32,7 @@ from .models import (
     DIDInputFile,
     DIDInputManifest,
     DIDOutputFile,
+    EICRStorageRecord,
 )
 from .s3 import get_object, get_object_xml_tree, put_object
 from .telemetry import (
@@ -46,22 +48,21 @@ from .telemetry import (
 from .utils import (
     InfraError,
     get_did_output_key,
-    get_did_output_prefix,
+    get_did_output_path,
     get_timestamp,
-    jurisdiction_id_from_key,
-    persistence_id_from_key,
+    persistence_id_from_manifest_key,
 )
 
 DID_OUTPUT_PREFIX = os.environ.get("DID_OUTPUT_PREFIX", "DIDOutput/")
 DID_COMPLETE_PREFIX = os.environ.get("DID_COMPLETE_PREFIX", "DIDComplete/")
+DID_CONFIGURATION_FILE = os.environ.get("DID_CONFIGURATION_FILE", "aphl_baseline.json")
 ENVIRONMENT = os.environ.get("ENVIRONMENT", "prod")
-CONFIGURATION_FILE = os.environ.get("CONFIGURATION_FILE", "aphl_baseline.json")
 METRICS_NAMESPACE = os.environ.get("POWERTOOLS_METRICS_NAMESPACE", "eICRDiff")
 SERVICE_NAME = os.environ.get("POWERTOOLS_SERVICE_NAME", "difference-in-docs")
 
 logger = Logger(SERVICE_NAME)
 metrics = Metrics(namespace=METRICS_NAMESPACE, service=SERVICE_NAME)
-config = load_configuration(CONFIGURATION_FILE)
+config = load_configuration(DID_CONFIGURATION_FILE)
 
 
 def _raise_processing_failure(
@@ -217,7 +218,7 @@ def process_sqs_record(
         s3_event = S3EventBridgeNotificationEvent(record.json_body)
         bucket_name = s3_event.detail.bucket.name
         did_input_manifest_key = unquote_plus(s3_event.detail.object.key)
-        persistence_id = persistence_id_from_key(did_input_manifest_key)
+        persistence_id = persistence_id_from_manifest_key(did_input_manifest_key)
         did_input_manifest = get_input_manifest(bucket_name, did_input_manifest_key)
     except Exception as exc:
         _raise_processing_failure("manifest_load", exc)
@@ -226,13 +227,13 @@ def process_sqs_record(
     pending_results: list[ManifestEntryResult] = []
     pending_condition_counts: Counter[ConditionCode] = Counter()
 
-    # process every DIDInputFile in the batch
-    for entry in did_input_manifest.files:
+    for index, entry in enumerate(did_input_manifest.files):
         try:
             result = process_manifest_entry(
                 bucket_name,
                 persistence_id,
                 entry,
+                index,
                 pending_condition_counts,
             )
         except Exception:
@@ -243,7 +244,6 @@ def process_sqs_record(
         did_complete_output_files.append(result.output_file)
 
     try:
-        # write to DIDComplete/
         did_complete_manifest = DIDCompleteManifest(Files=did_complete_output_files)
         did_complete_manifest_key = f"{DID_COMPLETE_PREFIX}{persistence_id}"
         put_object(
@@ -268,6 +268,7 @@ def process_manifest_entry(
     bucket_name: str,
     persistence_id: str,
     entry: DIDInputFile,
+    index: int,
     doc_processing_attempts_by_condition: Counter[ConditionCode] | None = None,
 ) -> ManifestEntryResult:
     """Process a single DID input manifest entry."""
@@ -280,6 +281,7 @@ def process_manifest_entry(
         document_correlation_key = make_document_correlation_key(set_id, version_number)
 
         stage = "document_load"
+        jurisdiction_id = ",".join(entry.jurisdictions)
         before_record = get_before_actionable_record(set_id, version_number)
         compared_to_version = before_record.versionNumber if before_record else None
         is_actionable = before_record is None
@@ -296,45 +298,48 @@ def process_manifest_entry(
             before_tree = get_object_xml_tree(bucket_name, before_record.s3Key)
 
             stage = "diff"
-            output_prefix = get_did_output_prefix(DID_OUTPUT_PREFIX, entry.eicr)
-            diff_output_key = f"{output_prefix}/{set_id}_eicr_diff"
             diff_output = diff_xml(before_tree, eicr_tree, config)
             is_actionable = diff_output.hasActionableChanges
 
-        stage = "augmentation"
-        jurisdiction_id = jurisdiction_id_from_key(persistence_id, entry.eicr)
-        augmented_eicr = get_augmented_eicr(eicr_tree, jurisdiction_id, diff_output)
-        augmented_rr = get_augmented_rr(rr_tree, jurisdiction_id)
+            output_path = get_did_output_path(
+                DID_OUTPUT_PREFIX, persistence_id, entry.eicr
+            )
+            diff_output_key = f"{output_path}/diff_v{compared_to_version}_to_v{version_number}_{index}"
 
-        stage = "output_write"
-        if diff_output_key is not None and diff_output is not None:
+            stage = "output_write"
             put_object(
                 bucket_name,
                 diff_output_key,
                 diff_output.model_dump_json(indent=2).encode("utf-8"),
             )
 
-        # write eICR metadata to DB
-        put_eicr_record(
-            {
-                "setId": set_id,
-                "versionNumber": version_number,
-                "s3Key": entry.eicr,
-                "s3KeyRR": entry.rr,
-                "s3KeyDiffOutput": diff_output_key,
-                "processedAt": get_timestamp(),
-                "isActionable": is_actionable,
-                "comparedToVersion": compared_to_version,
-            }
+        stage = "augmentation"
+        eicr_root = eicr_tree.getroot()
+        augmentation_run = create_augmentation_run(eicr_root)
+        augmented_eicr = get_augmented_eicr(
+            eicr_root, augmentation_run, jurisdiction_id, diff_output
         )
+        augmented_rr = get_augmented_rr(rr_tree, augmentation_run, jurisdiction_id)
 
-        # write augmented eicr to DIDOutput/
-        eicr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, entry.eicr)
+        stage = "output_write"
+        eicr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, entry.eicr)
         put_object(bucket_name, eicr_out_key, augmented_eicr)
 
-        # write augmented rr to DIDOutput/
-        rr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, entry.rr)
+        rr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, entry.rr)
         put_object(bucket_name, rr_out_key, augmented_rr)
+
+        put_eicr_record(
+            EICRStorageRecord(
+                setId=set_id,
+                versionNumber=version_number,
+                s3Key=entry.eicr,
+                s3KeyRR=entry.rr,
+                s3KeyDiffOutput=diff_output_key,
+                processedAt=get_timestamp(),
+                isActionable=is_actionable,
+                comparedToVersion=compared_to_version,
+            )
+        )
 
         result = ManifestEntryResult(
             output_file=DIDOutputFile(
@@ -361,12 +366,12 @@ def process_manifest_entry(
 
 
 def get_augmented_eicr(
-    eicr_tree: ElementTree, jurisdiction_id: str, diff_output: DiffOutput | None
+    eicr_root: etree._Element,
+    augmentation_run: AugmentationRun,
+    jurisdiction_id: str,
+    diff_output: DiffOutput | None,
 ) -> bytes:
     """Return augmented eICR."""
-    eicr_root = eicr_tree.getroot()
-    augmentation_run = create_augmentation_run(eicr_root)
-
     augment_eicr_in_place(
         eicr_root=eicr_root,
         run=augmentation_run,
@@ -379,11 +384,11 @@ def get_augmented_eicr(
     )
 
 
-def get_augmented_rr(rr_tree: ElementTree, jurisdiction_id: str) -> bytes:
+def get_augmented_rr(
+    rr_tree: ElementTree, augmentation_run: AugmentationRun, jurisdiction_id: str
+) -> bytes:
     """Return augmented RR."""
     rr_root = rr_tree.getroot()
-    augmentation_run = create_augmentation_run(rr_root)
-
     augment_rr_in_place(
         rr_root=rr_root, run=augmentation_run, jurisdiction_id=jurisdiction_id
     )
@@ -394,7 +399,7 @@ def get_augmented_rr(rr_tree: ElementTree, jurisdiction_id: str) -> bytes:
 
 
 def get_input_manifest(bucket: str, key: str) -> DIDInputManifest:
-    """Reads and validates manifest file from S3."""
+    """Read and validate a manifest file from S3."""
     try:
         return DIDInputManifest.model_validate_json(get_object(bucket, key))
     except ValidationError as exc:

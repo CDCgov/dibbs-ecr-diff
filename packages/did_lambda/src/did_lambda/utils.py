@@ -7,13 +7,13 @@ class InfraError(Exception):
     """Raised for failures that should trigger an automated SQS retry or DLQ."""
 
 
-def get_timestamp() -> str:
+def get_timestamp() -> datetime:
     """Generate a new ISO-8601 timestamp."""
-    return datetime.now(UTC).isoformat()
+    return datetime.now(UTC)
 
 
-def persistence_id_from_key(key: str) -> str:
-    """Strip the first S3 key segment (prefix) to leave the persistence_id.
+def persistence_id_from_manifest_key(key: str) -> str:
+    """Strip the first S3 key segment (prefix) form manifest key to leave the persistence_id.
 
     AIMS form: YYYY/MM/DD/{uuid}
     Example: DIDInput/2026/07/14/19d4812b-fc1d-471a-8872-6d5edd1714ff
@@ -25,30 +25,49 @@ def persistence_id_from_key(key: str) -> str:
     return parts[1]
 
 
-def jurisdiction_id_from_key(persistence_id: str, key: str) -> str:
-    """Extract the jurisdiction ID between the persistence ID and filename."""
-    persistence_id_part = f"/{persistence_id.strip('/')}/"
-    parts = key.strip("/").split(persistence_id_part, 1)
+def get_did_output_key(root_prefix: str, persistence_id: str, source_key: str) -> str:
+    """Convert an S3 key into a DIDOutput-prefixed key.
 
-    if len(parts) != 2:
-        raise InfraError(f"S3 key does not contain persistence_id: {key}")
+    Examples:
+    RefinerOutputV2/{persistence_id}/SDDH/COVID19/cda_eicr_1.xml
+        -> DIDOutput/{persistence_id}/SDDH/COVID19/cda_eicr_1.xml
 
-    jurisdiction_id_parts = parts[1].split("/")[:-1]
-    return "/".join(jurisdiction_id_parts)
+    eCRMessageV2/{persistence_id} -> DIDOutput/{persistence_id}
+    """
+    output_path = get_did_output_path(root_prefix, persistence_id, source_key)
+    source_path = source_key.strip("/").split("/", 1)[-1]
+
+    # handle s3 keys like `eCRMessageV2/<persistence_id>`
+    if source_path == persistence_id.strip("/"):
+        return output_path
+
+    basename = source_path.rsplit("/", 1)[-1]
+    return f"{output_path}/{basename}"
 
 
-def get_did_output_key(root_prefix: str, source_key: str) -> str:
-    """Convert an S3 key into a DIDOutput-prefixed key."""
-    output_prefix = get_did_output_prefix(root_prefix, source_key)
-    return f"{output_prefix}/{get_key_basename(source_key)}"
+def get_did_output_path(
+    root_prefix: str,
+    persistence_id: str,
+    source_key: str,
+) -> str:
+    """Convert an S3 key into a DIDOutput-prefixed parent path.
 
+    RefinerOutputV2/<persistence_id>/SDDH/COVID19/file.xml -> DIDOutput/<persistence_id>/SDDH/COVID19
+    eCRMessageV2/<persistence_id> -> DIDOutput/<persistence_id>
+    """
+    # every part after DIDInput/
+    # ex: ['2026', '08', '06', '<uuid>', 'SDDH', 'COVID19', 'cda_eicr_3.xml']
+    source_parts = source_key.strip("/").split("/")[1:]
 
-def get_did_output_prefix(root_prefix: str, source_key: str) -> str:
-    """Extract an S3 key prefix from a DIDInput S3 key."""
-    parts = source_key.strip("/").split("/")
-    if len(parts) <= 2:
-        raise InfraError(f"S3 key has nothing after prefix: {source_key}")
-    return f"{root_prefix}{'/'.join(parts[1:-1])}"
+    persistence_id_parts = persistence_id.strip("/").split("/")
+
+    # check if source_key begins with the persistence_id
+    after_persistence_idx = len(persistence_id_parts)
+    if source_parts[:after_persistence_idx] != persistence_id_parts:
+        raise InfraError("Source key does not contain persistence ID")
+
+    parts = source_parts if source_parts == persistence_id_parts else source_parts[:-1]
+    return f"{root_prefix}{'/'.join(parts)}"
 
 
 def get_key_basename(source_key: str) -> str:

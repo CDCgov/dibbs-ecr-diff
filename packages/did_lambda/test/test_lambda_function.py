@@ -9,7 +9,12 @@ from uuid import UUID
 
 import pytest
 from core import Change, ChangeType
-from did_lambda.models import DIDInputFile, DIDInputManifest, DIDOutputFile
+from did_lambda.models import (
+    DIDInputFile,
+    DIDInputManifest,
+    DIDOutputFile,
+    EICRStorageRecord,
+)
 from did_lambda.telemetry import (
     BatchProcessingStats,
     ConditionCode,
@@ -50,6 +55,7 @@ def make_entry() -> DIDInputFile:
         rr="DIDInput/2026/id/jurisdiction/rr.xml",
         setId="set-id",
         versionNumber=1,
+        jurisdictions=["jurisdiction"],
     )
 
 
@@ -274,10 +280,13 @@ def test_lambda_handler_logs_doc_processing_attempts_by_condition(
 def test_lambda_handler_flushes_completed_metrics_when_later_manifest_fails(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     lambda_module = load_lambda_module()
     failure = InfraError("Processing failed during output_write")
+    condition = ConditionCode(code_system="2.16.840.1.113883.6.96", code="840539006")
     records_processed = 0
+    caplog.set_level("INFO")
 
     def fail_record(_record, stats):
         nonlocal records_processed
@@ -286,6 +295,8 @@ def test_lambda_handler_flushes_completed_metrics_when_later_manifest_fails(
             stats.documents_processed = 1
             stats.changes_added = 2
             stats.section_change_counts["18776-5"] = 2
+            stats.encounter_counts["ambulatory"] = 1
+            stats.doc_processing_attempts_by_condition[condition] = 1
             return
 
         stats.documents_failed = 1
@@ -310,6 +321,19 @@ def test_lambda_handler_flushes_completed_metrics_when_later_manifest_fails(
     section_metric = next(item for item in emf_objects if "SectionChanges" in item)
     assert section_metric["section_loinc_code"] == "18776-5"
     assert section_metric["SectionChanges"] == [2.0]
+    encounter_metric = next(
+        item for item in emf_objects if "EncountersProcessed" in item
+    )
+    assert encounter_metric["encounter_type"] == "ambulatory"
+    assert encounter_metric["EncountersProcessed"] == [1.0]
+    condition_log = next(
+        record
+        for record in caplog.records
+        if record.message == "doc_processing_attempts_by_condition"
+    )
+    assert vars(condition_log)["condition_code"] == condition.code
+    assert vars(condition_log)["condition_code_system"] == condition.code_system
+    assert vars(condition_log)["doc_processing_attempt_count"] == 1
 
 
 def test_lambda_handler_emits_only_failure_metrics_for_failed_manifest(
@@ -406,7 +430,7 @@ def test_process_sqs_record_preserves_completion_manifest_schema(
     stats = BatchProcessingStats()
     condition = ConditionCode(code_system="2.16.840.1.113883.6.96", code="840539006")
 
-    def process_entry(_bucket, _persistence_id, _entry, condition_counts):
+    def process_entry(_bucket, _persistence_id, _entry, _index, condition_counts):
         condition_counts[condition] += 1
         return make_result()
 
@@ -503,7 +527,7 @@ def test_process_sqs_record_discards_pending_telemetry_on_entry_failure(
     entry_attempts = 0
     pending_condition_counts = None
 
-    def process_entry(_bucket, _persistence_id, _entry, condition_counts):
+    def process_entry(_bucket, _persistence_id, _entry, _index, condition_counts):
         nonlocal entry_attempts, pending_condition_counts
         entry_attempts += 1
         pending_condition_counts = condition_counts
@@ -616,8 +640,10 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
 ) -> None:
     lambda_module = load_lambda_module()
     entry = make_entry()
-    eicr_tree = object()
+    eicr_root = object()
+    eicr_tree = SimpleNamespace(getroot=lambda: eicr_root)
     rr_tree = object()
+    augmentation_run = object()
     condition_codes = (
         ConditionCode(code_system="2.16.840.1.113883.6.96", code="840539006"),
     )
@@ -634,7 +660,9 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
     monkeypatch.setattr(
         lambda_module, "encounter_type_from_eicr", extract_encounter_type
     )
-    monkeypatch.setattr(lambda_module, "jurisdiction_id_from_key", lambda *_: "jur")
+    monkeypatch.setattr(
+        lambda_module, "create_augmentation_run", lambda *_: augmentation_run
+    )
     monkeypatch.setattr(lambda_module, "get_augmented_eicr", lambda *_: b"eicr")
     monkeypatch.setattr(lambda_module, "get_augmented_rr", lambda *_: b"rr")
 
@@ -647,7 +675,7 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
     monkeypatch.setattr(lambda_module, "put_object", put_object)
 
     result = lambda_module.process_manifest_entry(
-        "bucket", "2026/id", entry, doc_processing_attempts_by_condition
+        "bucket", "2026/id", entry, 0, doc_processing_attempts_by_condition
     )
 
     assert result.output_file == DIDOutputFile(
@@ -669,21 +697,21 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
     extract_conditions.assert_called_once_with(rr_tree)
     extract_encounter_type.assert_called_once_with(eicr_tree)
     assert operations.mock_calls == [
-        call.put_eicr_record(
-            {
-                "setId": "set-id",
-                "versionNumber": 1,
-                "s3Key": entry.eicr,
-                "s3KeyRR": entry.rr,
-                "s3KeyDiffOutput": None,
-                "processedAt": ANY,
-                "isActionable": True,
-                "comparedToVersion": None,
-            }
-        ),
         call.put_object("bucket", "DIDOutput/2026/id/jurisdiction/eicr.xml", b"eicr"),
         call.put_object("bucket", "DIDOutput/2026/id/jurisdiction/rr.xml", b"rr"),
+        call.put_eicr_record(ANY),
     ]
+    storage_record = put_eicr_record.call_args.args[0]
+    assert isinstance(storage_record, EICRStorageRecord)
+    assert storage_record.model_dump(exclude={"processedAt"}) == {
+        "setId": "set-id",
+        "versionNumber": 1,
+        "s3Key": entry.eicr,
+        "s3KeyRR": entry.rr,
+        "s3KeyDiffOutput": None,
+        "isActionable": True,
+        "comparedToVersion": None,
+    }
 
 
 def test_process_manifest_entry_propagates_final_write_failure(
@@ -692,13 +720,18 @@ def test_process_manifest_entry_propagates_final_write_failure(
 ) -> None:
     lambda_module = load_lambda_module()
     entry = make_entry()
+    eicr_tree = SimpleNamespace(getroot=lambda: object())
     monkeypatch.setattr(lambda_module, "get_before_actionable_record", lambda *_: None)
-    monkeypatch.setattr(lambda_module, "get_object_xml_tree", lambda *_: object())
+    monkeypatch.setattr(
+        lambda_module,
+        "get_object_xml_tree",
+        Mock(side_effect=[eicr_tree, object()]),
+    )
     monkeypatch.setattr(lambda_module, "condition_codes_from_rr", lambda *_: ())
     monkeypatch.setattr(
         lambda_module, "encounter_type_from_eicr", lambda *_: "ambulatory"
     )
-    monkeypatch.setattr(lambda_module, "jurisdiction_id_from_key", lambda *_: "jur")
+    monkeypatch.setattr(lambda_module, "create_augmentation_run", lambda *_: object())
     monkeypatch.setattr(lambda_module, "get_augmented_eicr", lambda *_: b"eicr")
     monkeypatch.setattr(lambda_module, "get_augmented_rr", lambda *_: b"rr")
     monkeypatch.setattr(lambda_module, "put_eicr_record", Mock())
@@ -707,7 +740,7 @@ def test_process_manifest_entry_propagates_final_write_failure(
     monkeypatch.setattr(lambda_module, "put_object", put_object)
 
     with pytest.raises(InfraError) as raised:
-        lambda_module.process_manifest_entry("bucket", "2026/id", entry)
+        lambda_module.process_manifest_entry("bucket", "2026/id", entry, 0)
 
     assert put_object.call_count == 2
     assert_safe_processing_failure(
@@ -737,7 +770,7 @@ def test_process_manifest_entry_rejects_missing_salt_before_side_effects(
     monkeypatch.setattr(lambda_module, "put_object", put_object)
 
     with pytest.raises(InfraError) as raised:
-        lambda_module.process_manifest_entry("bucket", "2026/id", make_entry())
+        lambda_module.process_manifest_entry("bucket", "2026/id", make_entry(), 0)
 
     get_before_actionable_record.assert_not_called()
     get_object_xml_tree.assert_not_called()
@@ -764,12 +797,13 @@ def test_process_manifest_entry_sanitizes_each_processing_stage(
     lambda_module = load_lambda_module()
     before_record = SimpleNamespace(versionNumber=0, s3Key="sensitive-prior-key")
     monkeypatch.setattr(lambda_module, "get_before_actionable_record", lambda *_: None)
-    monkeypatch.setattr(lambda_module, "get_object_xml_tree", lambda *_: object())
+    eicr_tree = SimpleNamespace(getroot=lambda: object())
+    monkeypatch.setattr(lambda_module, "get_object_xml_tree", lambda *_: eicr_tree)
     monkeypatch.setattr(lambda_module, "condition_codes_from_rr", lambda *_: ())
     monkeypatch.setattr(
         lambda_module, "encounter_type_from_eicr", lambda *_: "ambulatory"
     )
-    monkeypatch.setattr(lambda_module, "jurisdiction_id_from_key", lambda *_: "jur")
+    monkeypatch.setattr(lambda_module, "create_augmentation_run", lambda *_: object())
     monkeypatch.setattr(lambda_module, "get_augmented_eicr", lambda *_: b"eicr")
     monkeypatch.setattr(lambda_module, "get_augmented_rr", lambda *_: b"rr")
     monkeypatch.setattr(lambda_module, "put_eicr_record", Mock())
@@ -798,7 +832,7 @@ def test_process_manifest_entry_sanitizes_each_processing_stage(
         )
 
     with pytest.raises(InfraError) as raised:
-        lambda_module.process_manifest_entry("bucket", "2026/id", make_entry())
+        lambda_module.process_manifest_entry("bucket", "2026/id", make_entry(), 0)
 
     assert_safe_processing_failure(
         caplog,
@@ -846,7 +880,7 @@ def test_process_sqs_record_sanitizes_completion_write_failure(
         )
     )
 
-    def process_entry(_bucket, _persistence_id, _entry, condition_counts):
+    def process_entry(_bucket, _persistence_id, _entry, _index, condition_counts):
         condition_counts[condition] += 1
         return result
 

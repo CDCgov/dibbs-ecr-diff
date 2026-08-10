@@ -72,7 +72,9 @@ def _make_empty_diff_output() -> DiffOutput:
         setId="abc",
         currentDocument=Document(documentId="123", versionNumber="2"),
         previousDocument=Document(documentId="345", versionNumber="1"),
-        hasActionableChanges=True,
+        hasDetectedChanges=False,
+        hasActionableChanges=False,
+        changes=[],
     )
 
 

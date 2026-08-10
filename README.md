@@ -214,10 +214,13 @@ including when their value is zero.
 | `ChangesUpdated` | Count | Reported `UPDATED` changes from documents in completed manifests. |
 | `ChangesDeleted` | Count | Reported `DELETED` changes from documents in completed manifests. |
 | `ChangesTotal` | Count | Sum of added, updated, and deleted reported changes from completed manifests. |
-| `BatchDurationMs` | Milliseconds | Elapsed time from the start of handler processing until final metrics are recorded, on success or failure. |
+| `BatchDurationMs` | Milliseconds | Elapsed time from batch-statistics initialization until final telemetry recording begins, on success or failure. Telemetry emission and flushing overhead is excluded. |
 
-Change metrics count configured and reported changes, not every raw XML
-difference. A first-version or zero-change eICR in a completed manifest
+Change metrics count every change included in the diff output, including both
+actionable and non-actionable changes. They do not count differences that the
+diff engine does not report. When multiple applicable rules produce multiple
+change records for one detected difference, each reported record contributes to
+the metrics. A first-version or zero-change eICR in a completed manifest
 increments `DocumentsProcessed` but contributes zero changes.
 
 Average changes per processed document can be calculated over the same period,
@@ -227,8 +230,10 @@ of a fully completed manifest.
 
 ### Section-change metric
 
-`SectionChanges` counts reported changes from completed manifests that are
-associated with the nearest enclosing CDA section carrying a valid LOINC code.
+`SectionChanges` counts actionable and non-actionable reported changes from
+completed manifests that are associated with the nearest enclosing CDA section,
+when that section carries a valid LOINC code. An invalid nearer section does not
+fall back to a more distant enclosing section.
 
 Its dimensions are `service`, `environment`, and `section_loinc_code`.
 
@@ -298,9 +303,10 @@ Condition codes themselves are never included in this correlated event.
 
 #### `xml_change`
 
-Emitted once per reported change after the containing manifest completes.
-A completed manifest can produce the same event again if its SQS record is
-delivered again.
+Emitted once per actionable or non-actionable reported change after the
+containing manifest completes. A completed manifest can produce the same event
+again if its SQS record is delivered again. Actionability is not included in
+this log event.
 
 | Field | Meaning |
 |---|---|

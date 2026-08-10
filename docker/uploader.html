@@ -129,8 +129,12 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
             <input name="rr-file" type="file" accept=".xml,application/xml,text/xml" required />
           </label>
           <label>
-            Jurisdiction ID path after the eICR or RR persistence ID (optional)
-            <input name="upload-path" type="text" placeholder="SDDH/COVID19/" />
+            Jurisdiction ID
+            <input name="jurisdiction" type="text" placeholder="SDDH" value="SDDH" />
+          </label>
+          <label>
+            Condition
+            <input name="condition" type="text" placeholder="COVID19" value="COVID19" />
           </label>
 
           <button onclick=${onRemove} type="button">Remove</button>
@@ -151,6 +155,11 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
         .replace(/\/+$/, '');   // remove all trailing slashes
     }
 
+    function normalizeKeyPart(part = '') {
+      // remove non-alphanumerics
+      return (part || '').replace(/[^a-zA-Z0-9]/g, '');
+    }
+
     function parseXML(text, filename) {
       // TODO: this loads the entire document into memory
       // native DOMParser doesn't support a streaming interface
@@ -167,12 +176,12 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
       return doc;
     }
 
-    function getMetadata(xmlDoc, filename) {
+    function getEICRMetadata(xmlDoc, filename) {
       const children = [...xmlDoc.documentElement.children];
 
       const setId = children
         .find((element) => element.localName === 'setId')
-        ?.getAttribute('extension')?.trim();
+        ?.getAttribute('root')?.trim();
 
       const versionValue = children
         .find((element) => element.localName === 'versionNumber')
@@ -189,24 +198,27 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
     async function buildUpload(row, persistenceId) {
       const eicr = row.elements.namedItem('eicr-file').files[0];
       const rr = row.elements.namedItem('rr-file').files[0];
-      const uploadPath = row.elements.namedItem('upload-path').value;
+      const jurisdiction = normalizeKeyPart(row.elements.namedItem('jurisdiction').value);
+      const condition = normalizeKeyPart(row.elements.namedItem('condition').value);
 
-      if (!eicr) throw new Error('Each document needs an eICR XML file.');
+      if (!eicr) throw new Error('Each upload needs an eICR XML file.');
+      if (!rr) throw new Error('Each upload needs an RR XML file.');
 
       const eicrDoc = parseXML(await eicr.text(), eicr.name);
-      const eicrKey = normalizeS3Key(`${REFINER_INPUT_PREFIX}${persistenceId}/${uploadPath}/${eicr.name}`);
-      const metadata = getMetadata(eicrDoc, eicr.name);
+      const eicrKey = normalizeS3Key(`${REFINER_INPUT_PREFIX}${persistenceId}/${jurisdiction}/${condition}/${eicr.name}`);
+      const metadata = getEICRMetadata(eicrDoc, eicr.name);
 
-      const manifestRecord = { eicr: eicrKey, ...metadata };
-      const objects = [{ key: eicrKey, file: eicr }];
+      const rrDoc = parseXML(await rr.text(), rr.name);
+      const rrKey = normalizeS3Key(`${REFINER_INPUT_PREFIX}${persistenceId}/${jurisdiction}/${condition}/${rr.name}`);
 
-      if (rr) {
-        parseXML(await rr.text(), rr.name);
-        const rrKey = normalizeS3Key(`${REFINER_INPUT_PREFIX}${persistenceId}/${uploadPath}/${rr.name}`);
-        manifestRecord.rr = rrKey;
-        objects.push({ key: rrKey, file: rr });
-      }
+      const manifestRecord = {
+        eicr: eicrKey,
+        rr: rrKey,
+        jurisdictions: [jurisdiction],
+        ...metadata
+      };
 
+      const objects = [{ key: eicrKey, file: eicr }, { key: rrKey, file: rr }];
       return { manifestRecord, objects };
     }
 

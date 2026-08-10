@@ -25,11 +25,13 @@ def make_change(
     change_type: ChangeType,
     xpath: str = "/ClinicalDocument/component",
     section_loinc_code: str | None = None,
+    is_actionable: bool = True,
 ) -> Change:
     return Change(
         changeType=change_type,
         xpath=xpath,
         xpathDocumentId="document-id",
+        isActionable=is_actionable,
         actionabilityRuleId=UUID(int=0),
         actionabilityRuleDisplayName="test rule",
         section_loinc_code=section_loinc_code,
@@ -273,6 +275,25 @@ def test_records_processed_documents_and_reported_change_types() -> None:
     assert stats.changes_total == 4
     assert stats.section_change_counts == {"18776-5": 2, "10160-0": 1}
     assert stats.encounter_counts == {"ambulatory": 2}
+
+
+def test_records_non_actionable_changes_reported_by_diff_output() -> None:
+    stats = BatchProcessingStats()
+
+    stats.record_document_processed(
+        make_result(
+            make_change(
+                ChangeType.UPDATED,
+                section_loinc_code="18776-5",
+                is_actionable=False,
+            )
+        )
+    )
+
+    assert stats.documents_processed == 1
+    assert stats.changes_updated == 1
+    assert stats.changes_total == 1
+    assert stats.section_change_counts == {"18776-5": 1}
 
 
 def test_duration_ms_uses_monotonic_elapsed_time(
