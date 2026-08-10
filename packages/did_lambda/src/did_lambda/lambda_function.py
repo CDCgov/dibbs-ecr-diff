@@ -73,9 +73,9 @@ def process_sqs_record(record: SQSRecord) -> None:
     did_complete_output_files: list[DIDOutputFile] = []
 
     # process every DIDInputFile in the batch
-    for entry in did_input_manifest.files:
+    for index, entry in enumerate(did_input_manifest.files):
         did_complete_output_files.append(
-            process_manifest_entry(bucket_name, persistence_id, entry)
+            process_manifest_entry(bucket_name, persistence_id, entry, index)
         )
 
     # write to DIDComplete/
@@ -89,7 +89,7 @@ def process_sqs_record(record: SQSRecord) -> None:
 
 
 def process_manifest_entry(
-    bucket_name: str, persistence_id: str, entry: DIDInputFile
+    bucket_name: str, persistence_id: str, entry: DIDInputFile, index: int
 ) -> DIDOutputFile:
     """Process a single DID input manifest entry."""
     set_id = entry.setId
@@ -116,7 +116,9 @@ def process_manifest_entry(
         is_actionable = diff_output.hasActionableChanges
 
         output_path = get_did_output_path(DID_OUTPUT_PREFIX, persistence_id, entry.eicr)
-        diff_output_key = f"{output_path}/diff_{compared_to_version}_{version_number}"
+        diff_output_key = (
+            f"{output_path}/diff_v{compared_to_version}_to_v{version_number}_{index}"
+        )
 
         # TODO: should we only create the diff_output json file in lower envs and exclude prod?
         put_object(

@@ -36,7 +36,7 @@ def test_process_manifest_entry_with_single_file(
     )
 
     manifest_file = manifest.files[0]
-    process_manifest_entry(bucket_name, persistence_id, manifest_file)
+    process_manifest_entry(bucket_name, persistence_id, manifest_file, 0)
 
     record = dynamodb_table.get_item(
         Key={"setId": eicr_set_id, "versionNumber": version_number}
