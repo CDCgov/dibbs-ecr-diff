@@ -59,7 +59,7 @@ class BatchProcessingStats:
     changes_deleted: int = 0
     section_change_counts: Counter[str] = field(default_factory=Counter)
     encounter_counts: Counter[str] = field(default_factory=Counter)
-    doc_processing_attempts_by_condition: Counter[ConditionCode] = field(
+    documents_processed_by_condition: Counter[ConditionCode] = field(
         default_factory=Counter
     )
 
@@ -183,20 +183,20 @@ def log_doc_and_changes(result: ManifestEntryResult) -> None:
         )
 
 
-def log_doc_processing_attempts_by_condition(stats: BatchProcessingStats) -> None:
-    """Log doc processing attempts by condition without correlation fields.
+def log_documents_processed_by_condition(stats: BatchProcessingStats) -> None:
+    """Log documents processed by condition without correlation fields.
 
     These batch records remain temporally linkable in the shared Lambda log stream;
     their longer-term privacy boundary is pending external guidance.
     """
-    for condition, processing_attempt_count in sorted(
-        stats.doc_processing_attempts_by_condition.items()
+    for condition, documents_processed_count in sorted(
+        stats.documents_processed_by_condition.items()
     ):
         logger.info(
-            "doc_processing_attempts_by_condition",
+            "documents_processed_by_condition",
             extra={
                 "condition_code": condition.code,
                 "condition_code_system": condition.code_system,
-                "doc_processing_attempt_count": processing_attempt_count,
+                "documents_processed_count": documents_processed_count,
             },
         )

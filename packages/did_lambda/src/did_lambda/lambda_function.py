@@ -37,7 +37,7 @@ from .telemetry import (
     DocumentTelemetry,
     ManifestEntryResult,
     log_doc_and_changes,
-    log_doc_processing_attempts_by_condition,
+    log_documents_processed_by_condition,
     metrics,
     raise_processing_failure,
     record_processing_metrics,
@@ -87,7 +87,7 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
         return {"statusCode": 200, "message": "OK"}
     finally:
         record_processing_metrics(stats)
-        log_doc_processing_attempts_by_condition(stats)
+        log_documents_processed_by_condition(stats)
 
 
 def process_sqs_record(
@@ -144,7 +144,7 @@ def process_sqs_record(
     for result in pending_results:
         stats.record_document_processed(result)
         log_doc_and_changes(result)
-    stats.doc_processing_attempts_by_condition.update(pending_condition_counts)
+    stats.documents_processed_by_condition.update(pending_condition_counts)
 
 
 def process_manifest_entry(
@@ -152,7 +152,7 @@ def process_manifest_entry(
     persistence_id: str,
     entry: DIDInputFile,
     index: int,
-    doc_processing_attempts_by_condition: Counter[ConditionCode] | None = None,
+    documents_processed_by_condition: Counter[ConditionCode] | None = None,
 ) -> ManifestEntryResult:
     """Process a single DID input manifest entry."""
     stage = "telemetry_config"
@@ -241,8 +241,8 @@ def process_manifest_entry(
                 unique_condition_count=len(condition_codes),
             ),
         )
-        if doc_processing_attempts_by_condition is not None:
-            doc_processing_attempts_by_condition.update(condition_codes)
+        if documents_processed_by_condition is not None:
+            documents_processed_by_condition.update(condition_codes)
         return result
     except Exception as exc:
         raise_processing_failure(stage, exc, document_correlation_key)

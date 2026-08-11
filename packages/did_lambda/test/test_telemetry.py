@@ -12,7 +12,7 @@ from did_lambda.telemetry import (
     DocumentTelemetry,
     ManifestEntryResult,
     log_doc_and_changes,
-    log_doc_processing_attempts_by_condition,
+    log_documents_processed_by_condition,
     raise_processing_failure,
     record_processing_metrics,
 )
@@ -208,25 +208,25 @@ def test_logs_document_and_reported_changes(
     assert "isActionable" not in vars(change_log)
 
 
-def test_logs_doc_processing_attempts_by_condition_without_document_fields(
+def test_logs_documents_processed_by_condition_without_document_fields(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     condition = ConditionCode(code_system="2.16.840.1.113883.6.96", code="840539006")
     stats = BatchProcessingStats()
-    stats.doc_processing_attempts_by_condition[condition] = 2
+    stats.documents_processed_by_condition[condition] = 2
     caplog.set_level("INFO")
 
-    log_doc_processing_attempts_by_condition(stats)
+    log_documents_processed_by_condition(stats)
 
     condition_log = next(
         record
         for record in caplog.records
-        if record.message == "doc_processing_attempts_by_condition"
+        if record.message == "documents_processed_by_condition"
     )
     condition_fields = vars(condition_log)
     assert condition_fields["condition_code"] == condition.code
     assert condition_fields["condition_code_system"] == condition.code_system
-    assert condition_fields["doc_processing_attempt_count"] == 2
+    assert condition_fields["documents_processed_count"] == 2
     assert "document_correlation_key" not in condition_fields
     assert "version_number" not in condition_fields
 

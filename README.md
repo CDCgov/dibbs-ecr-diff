@@ -339,7 +339,7 @@ keys, Lambda events, raw set IDs, or clinical document IDs. The propagated
 exception is sanitized so sensitive exception content is not logged
 automatically.
 
-#### `doc_processing_attempts_by_condition`
+#### `documents_processed_by_condition`
 
 Emitted once per condition-code and code-system pair represented by documents in
 completed manifests in the Lambda batch. These events are written when the
@@ -349,11 +349,11 @@ handler exits, including when a later manifest in the same Lambda batch fails.
 |---|---|
 | `condition_code` | Coded condition value extracted from the RR. |
 | `condition_code_system` | OID identifying the coding system. |
-| `doc_processing_attempt_count` | Number of documents in completed manifests containing that condition. |
+| `documents_processed_count` | Number of documents in completed manifests containing that condition. |
 
 Conditions are deduplicated within each RR by code and code system. Multiple
-occurrences of the same condition in one RR contribute one document-processing
-attempt. Condition counts buffered for a manifest are discarded if any entry or
+occurrences of the same condition in one RR contribute one processed document.
+Condition counts buffered for a manifest are discarded if any entry or
 the completion-manifest write fails.
 
 These events deliberately contain no document correlation key, version number,
@@ -402,14 +402,14 @@ fields failure_stage, error_type
 | sort failures desc
 ```
 
-Aggregate condition processing attempts:
+Documents processed by condition:
 
 ```text
-fields condition_code_system, condition_code, doc_processing_attempt_count
-| filter message = "doc_processing_attempts_by_condition"
-| stats sum(doc_processing_attempt_count) as processing_attempts
+fields condition_code_system, condition_code, documents_processed_count
+| filter message = "documents_processed_by_condition"
+| stats sum(documents_processed_count) as documents_processed
   by condition_code_system, condition_code
-| sort processing_attempts desc
+| sort documents_processed desc
 ```
 
 Approximate distinct completed document versions and repeated success events:

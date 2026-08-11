@@ -172,7 +172,7 @@ def test_lambda_handler_flushes_completed_metrics_when_later_manifest_fails(
             stats.changes_added = 2
             stats.section_change_counts["18776-5"] = 2
             stats.encounter_counts["ambulatory"] = 1
-            stats.doc_processing_attempts_by_condition[condition] = 1
+            stats.documents_processed_by_condition[condition] = 1
             return
 
         stats.documents_failed = 1
@@ -205,11 +205,11 @@ def test_lambda_handler_flushes_completed_metrics_when_later_manifest_fails(
     condition_log = next(
         record
         for record in caplog.records
-        if record.message == "doc_processing_attempts_by_condition"
+        if record.message == "documents_processed_by_condition"
     )
     assert vars(condition_log)["condition_code"] == condition.code
     assert vars(condition_log)["condition_code_system"] == condition.code_system
-    assert vars(condition_log)["doc_processing_attempt_count"] == 1
+    assert vars(condition_log)["documents_processed_count"] == 1
 
 
 def test_lambda_handler_emits_only_failure_metrics_for_failed_manifest(
@@ -246,7 +246,7 @@ def test_lambda_handler_emits_only_failure_metrics_for_failed_manifest(
         not in {
             "document_processed",
             "xml_change",
-            "doc_processing_attempts_by_condition",
+            "documents_processed_by_condition",
         }
         for record in caplog.records
     )
@@ -313,7 +313,7 @@ def test_process_sqs_record_preserves_completion_manifest_schema(
     def write_completion(_bucket, _key, _body):
         assert stats.documents_processed == 0
         assert stats.encounter_counts == {}
-        assert stats.doc_processing_attempts_by_condition == {}
+        assert stats.documents_processed_by_condition == {}
         assert all(
             record.message not in {"document_processed", "xml_change"}
             for record in caplog.records
@@ -328,7 +328,7 @@ def test_process_sqs_record_preserves_completion_manifest_schema(
     assert stats.documents_processed == 1
     assert stats.documents_failed == 0
     assert stats.encounter_counts == {"ambulatory": 1}
-    assert stats.doc_processing_attempts_by_condition == {condition: 1}
+    assert stats.documents_processed_by_condition == {condition: 1}
     doc_log = next(
         record for record in caplog.records if record.message == "document_processed"
     )
@@ -428,7 +428,7 @@ def test_process_sqs_record_discards_pending_telemetry_on_entry_failure(
     assert stats.changes_total == 0
     assert stats.section_change_counts == {}
     assert stats.encounter_counts == {}
-    assert stats.doc_processing_attempts_by_condition == {}
+    assert stats.documents_processed_by_condition == {}
     put_object.assert_not_called()
     assert all(
         record.message not in {"document_processed", "xml_change"}
@@ -523,7 +523,7 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
     condition_codes = (
         ConditionCode(code_system="2.16.840.1.113883.6.96", code="840539006"),
     )
-    doc_processing_attempts_by_condition: Counter[ConditionCode] = Counter()
+    documents_processed_by_condition: Counter[ConditionCode] = Counter()
     monkeypatch.setattr(lambda_module, "get_before_actionable_record", lambda *_: None)
     monkeypatch.setattr(
         lambda_module,
@@ -551,7 +551,7 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
     monkeypatch.setattr(lambda_module, "put_object", put_object)
 
     result = lambda_module.process_manifest_entry(
-        "bucket", "2026/id", entry, 0, doc_processing_attempts_by_condition
+        "bucket", "2026/id", entry, 0, documents_processed_by_condition
     )
 
     assert result.output_file == DIDOutputFile(
@@ -569,7 +569,7 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
         unique_condition_count=1,
     )
     assert not hasattr(result, "condition_codes")
-    assert doc_processing_attempts_by_condition == {condition_codes[0]: 1}
+    assert documents_processed_by_condition == {condition_codes[0]: 1}
     extract_conditions.assert_called_once_with(rr_tree)
     extract_encounter_type.assert_called_once_with(eicr_tree)
     assert operations.mock_calls == [
@@ -776,7 +776,7 @@ def test_process_sqs_record_sanitizes_completion_write_failure(
     assert stats.changes_total == 0
     assert stats.section_change_counts == {}
     assert stats.encounter_counts == {}
-    assert stats.doc_processing_attempts_by_condition == {}
+    assert stats.documents_processed_by_condition == {}
     assert all(
         record.message not in {"document_processed", "xml_change"}
         for record in caplog.records
