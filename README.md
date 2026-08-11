@@ -138,10 +138,12 @@ attempt emits no `document_processed` or `xml_change` events and no standalone
 section or encounter EMF objects. If the retry completes the manifest, A, B, and
 C are included once in that retry's success telemetry.
 
-A completion-manifest failure has the same success-telemetry behavior:
-entry-level writes may already exist, but their buffered success telemetry is
-discarded because the manifest did not complete. That failure increments
-`ManifestsFailed` but not `DocumentsFailed`, because no individual entry failed.
+A manifest attempt can fail after all its entries process successfully. After
+processing the entries, the Lambda writes a `DIDComplete` manifest. If that
+final write fails, the attempt increments `ManifestsFailed`, but not
+`DocumentsFailed`, because no individual entry failed. Entry outputs may already
+exist, but their buffered success telemetry is discarded until a retry reaches
+the completion-manifest boundary.
 
 This boundary removes the largest predictable source of duplicate success
 telemetry, but it does not provide strict idempotency. AWS documents that Lambda
