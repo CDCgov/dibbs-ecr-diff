@@ -729,9 +729,10 @@ def test_process_sqs_record_sanitizes_manifest_load_failure(
         "S3EventBridgeNotificationEvent",
         Mock(side_effect=RuntimeError(SENSITIVE_FAILURE_TEXT)),
     )
+    stats = BatchProcessingStats()
 
     with pytest.raises(InfraError) as raised:
-        lambda_module.process_sqs_record(SimpleNamespace(json_body={}))
+        lambda_module.process_sqs_record(SimpleNamespace(json_body={}), stats)
 
     assert_safe_processing_failure(
         caplog,

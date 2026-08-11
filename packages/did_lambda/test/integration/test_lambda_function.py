@@ -138,9 +138,11 @@ def test_process_manifest_entry_with_single_file(
 
 def test_process_sqs_record_with_eicr_diff(s3_client, bucket_name, dynamodb_table):
     from did_lambda.lambda_function import process_sqs_record
+    from did_lambda.telemetry import BatchProcessingStats
 
     eicr_set_id = "eicr-set-id-1"
     rr_set_id = "rr-set-id-1"
+    stats = BatchProcessingStats()
 
     eicr_body_1 = build_doc(
         version_number=1,
@@ -175,7 +177,7 @@ def test_process_sqs_record_with_eicr_diff(s3_client, bucket_name, dynamodb_tabl
     )
 
     # process first input manifest
-    process_sqs_record(build_sqs_record(bucket_name, manifest_key_1))
+    process_sqs_record(build_sqs_record(bucket_name, manifest_key_1), stats)
 
     eicr_body_2 = build_doc(
         version_number=2,
@@ -209,7 +211,9 @@ def test_process_sqs_record_with_eicr_diff(s3_client, bucket_name, dynamodb_tabl
     )
 
     # process second input manifest
-    process_sqs_record(build_sqs_record(bucket_name, manifest_key_2))
+    process_sqs_record(build_sqs_record(bucket_name, manifest_key_2), stats)
+
+    assert stats.documents_processed == 2
 
     # ensure all files exist in DIDOutput
     for manifest, persistence_id in (

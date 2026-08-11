@@ -90,13 +90,8 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
         log_documents_processed_by_condition(stats)
 
 
-def process_sqs_record(
-    record: SQSRecord, stats: BatchProcessingStats | None = None
-) -> None:
+def process_sqs_record(record: SQSRecord, stats: BatchProcessingStats) -> None:
     """Process an SQS record containing an S3 event."""
-    if stats is None:
-        stats = BatchProcessingStats()
-
     try:
         s3_event = S3EventBridgeNotificationEvent(record.json_body)
         bucket_name = s3_event.detail.bucket.name
