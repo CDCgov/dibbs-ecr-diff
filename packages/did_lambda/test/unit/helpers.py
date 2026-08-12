@@ -1,3 +1,5 @@
+"""Shared builders and parsers for Lambda unit tests."""
+
 import json
 from uuid import UUID
 
@@ -5,18 +7,6 @@ import pytest
 from core import Change, ChangeType
 from did_lambda.models import DIDOutputFile
 from did_lambda.telemetry import DocumentTelemetry, ManifestEntryResult
-from did_lambda.utils import (
-    InfraError,
-    get_did_output_key,
-    get_did_output_path,
-    persistence_id_from_manifest_key,
-)
-
-DID_OUTPUT_PREFIX = "DIDOutput/"
-PERSISTENCE_ID = "2026/07/14/497dcba3-ecbf-4587-a2dd-5eb0665e6880"
-MANIFEST_KEY = f"DIDInput/{PERSISTENCE_ID}"
-REFINED_EICR_KEY = f"DIDInput/{PERSISTENCE_ID}/SDDH/COVID19/eicr.xml"
-EICR_KEY = f"DIDInput/{PERSISTENCE_ID}"
 
 
 def make_change(
@@ -69,38 +59,3 @@ def emitted_metrics(capsys: pytest.CaptureFixture[str]) -> list[dict]:
         for line in capsys.readouterr().out.splitlines()
         if line.startswith("{") and "_aws" in (payload := json.loads(line))
     ]
-
-
-def test_persistence_id_from_manifest_key_removes_input_prefix():
-    assert persistence_id_from_manifest_key(MANIFEST_KEY) == PERSISTENCE_ID
-
-
-def test_persistence_id_from_manifest_key_requires_content_after_prefix():
-    with pytest.raises(InfraError):
-        persistence_id_from_manifest_key("DIDInput/")
-
-
-def test_get_did_output_path_returns_output_path():
-    assert (
-        get_did_output_path(DID_OUTPUT_PREFIX, PERSISTENCE_ID, REFINED_EICR_KEY)
-        == f"{DID_OUTPUT_PREFIX}{PERSISTENCE_ID}/SDDH/COVID19"
-    )
-
-
-def test_get_did_output_key_preserves_path_after_input_prefix():
-    assert (
-        get_did_output_key(DID_OUTPUT_PREFIX, PERSISTENCE_ID, REFINED_EICR_KEY)
-        == f"{DID_OUTPUT_PREFIX}{PERSISTENCE_ID}/SDDH/COVID19/eicr.xml"
-    )
-
-
-def test_get_did_output_key_on_unrefined_eicr():
-    assert (
-        get_did_output_key(DID_OUTPUT_PREFIX, PERSISTENCE_ID, EICR_KEY)
-        == f"{DID_OUTPUT_PREFIX}{PERSISTENCE_ID}"
-    )
-
-
-def test_get_did_output_path_requires_a_nested_source_key():
-    with pytest.raises(InfraError):
-        get_did_output_path(DID_OUTPUT_PREFIX, PERSISTENCE_ID, "DIDInput/eicr.xml")

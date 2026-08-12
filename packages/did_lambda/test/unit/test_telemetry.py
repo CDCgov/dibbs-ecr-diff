@@ -16,7 +16,7 @@ from did_lambda.telemetry import (
 from did_lambda.telemetry_helpers import ConditionCode
 from did_lambda.utils import InfraError
 
-from .test_utils import (
+from .helpers import (
     emitted_metrics,
     make_change,
     make_result,
