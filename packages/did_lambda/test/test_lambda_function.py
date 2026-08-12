@@ -146,63 +146,46 @@ def emitted_metrics(capsys: pytest.CaptureFixture[str]) -> list[dict]:
     ]
 
 
-def test_lambda_handler_flushes_completed_metrics_when_later_manifest_fails(
+def test_lambda_handler_rejects_multiple_manifests_before_processing(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     lambda_module = load_lambda_module()
-    failure = InfraError("Processing failed during output_write")
-    condition = ConditionCode(code_system="2.16.840.1.113883.6.96", code="840539006")
-    records_processed = 0
-    caplog.set_level("INFO")
-
-    def fail_record(_record, stats):
-        nonlocal records_processed
-        records_processed += 1
-        if records_processed == 1:
-            stats.documents_processed = 1
-            stats.changes_added = 2
-            stats.section_change_counts["18776-5"] = 2
-            stats.encounter_counts["ambulatory"] = 1
-            stats.documents_processed_by_condition[condition] = 1
-            return
-
-        stats.documents_failed = 1
-        raise failure
-
-    monkeypatch.setattr(lambda_module, "process_sqs_record", fail_record)
+    process_sqs_record = Mock()
+    monkeypatch.setattr(lambda_module, "process_sqs_record", process_sqs_record)
 
     with pytest.raises(InfraError) as raised:
         lambda_module.lambda_handler(
             {"Records": [{"body": "{}"}, {"body": "{}"}]}, None
         )
 
-    assert raised.value is failure
+    process_sqs_record.assert_not_called()
     emf_objects = emitted_metrics(capsys)
     aggregate = next(item for item in emf_objects if "BatchDurationMs" in item)
-    assert aggregate["ManifestsProcessed"] == [1.0]
-    assert aggregate["ManifestsFailed"] == [1.0]
-    assert aggregate["DocumentsProcessed"] == [1.0]
-    assert aggregate["DocumentsFailed"] == [1.0]
-    assert aggregate["ChangesAdded"] == [2.0]
-    assert aggregate["ChangesTotal"] == [2.0]
-    section_metric = next(item for item in emf_objects if "SectionChanges" in item)
-    assert section_metric["section_loinc_code"] == "18776-5"
-    assert section_metric["SectionChanges"] == [2.0]
-    encounter_metric = next(
-        item for item in emf_objects if "EncountersProcessed" in item
-    )
-    assert encounter_metric["encounter_type"] == "ambulatory"
-    assert encounter_metric["EncountersProcessed"] == [1.0]
-    condition_log = next(
-        record
+    assert aggregate["ManifestsProcessed"] == [0.0]
+    assert aggregate["ManifestsFailed"] == [2.0]
+    assert aggregate["DocumentsProcessed"] == [0.0]
+    assert aggregate["DocumentsFailed"] == [0.0]
+    assert aggregate["ChangesTotal"] == [0.0]
+    assert all("SectionChanges" not in item for item in emf_objects)
+    assert all("EncountersProcessed" not in item for item in emf_objects)
+    assert all(
+        record.message
+        not in {
+            "document_processed",
+            "xml_change",
+            "documents_processed_by_condition",
+        }
         for record in caplog.records
-        if record.message == "documents_processed_by_condition"
     )
-    assert vars(condition_log)["condition_code"] == condition.code
-    assert vars(condition_log)["condition_code_system"] == condition.code_system
-    assert vars(condition_log)["documents_processed_count"] == 1
+    assert_safe_processing_failure(
+        caplog,
+        raised,
+        stage="manifest_load",
+        error_type="InfraError",
+        persistence_id_with_index=None,
+    )
 
 
 def test_lambda_handler_emits_only_failure_metrics_for_failed_manifest(
@@ -245,7 +228,7 @@ def test_lambda_handler_emits_only_failure_metrics_for_failed_manifest(
     )
 
 
-def test_lambda_handler_counts_successful_manifest_attempts(
+def test_lambda_handler_counts_successful_manifest_attempt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     lambda_module = load_lambda_module()
@@ -256,14 +239,11 @@ def test_lambda_handler_counts_successful_manifest_attempts(
 
     monkeypatch.setattr(lambda_module, "process_sqs_record", process_record)
 
-    response = lambda_module.lambda_handler(
-        {"Records": [{"body": "{}"}, {"body": "{}"}]}, None
-    )
+    response = lambda_module.lambda_handler({"Records": [{"body": "{}"}]}, None)
 
     assert response == {"statusCode": 200, "message": "OK"}
-    assert len(observed_stats) == 2
-    assert observed_stats[0] is observed_stats[1]
-    assert observed_stats[0].manifests_processed == 2
+    assert len(observed_stats) == 1
+    assert observed_stats[0].manifests_processed == 1
     assert observed_stats[0].manifests_failed == 0
 
 

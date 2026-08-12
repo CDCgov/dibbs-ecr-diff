@@ -74,15 +74,21 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
             raise_processing_failure(
                 "manifest_load", InfraError("SQS event has no Records")
             )
+        if len(raw_records) != 1:
+            stats.manifests_failed += len(raw_records)
+            raise_processing_failure(
+                "manifest_load",
+                InfraError("SQS event must contain exactly one manifest"),
+            )
 
-        for record in event.records:
-            try:
-                process_sqs_record(record, stats)
-            except Exception:
-                stats.manifests_failed += 1
-                raise
-            else:
-                stats.manifests_processed += 1
+        record = next(event.records)
+        try:
+            process_sqs_record(record, stats)
+        except Exception:
+            stats.manifests_failed += 1
+            raise
+        else:
+            stats.manifests_processed += 1
 
         return {"statusCode": 200, "message": "OK"}
     finally:

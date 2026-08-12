@@ -81,6 +81,11 @@ The Lambda produces two kinds of metric output:
 
 ### Processing-attempt and retry semantics
 
+Each Lambda invocation must contain exactly one SQS record pointing to one
+manifest. An invocation containing multiple records is rejected before any
+manifest is loaded or processed. Each rejected record contributes one to
+`ManifestsFailed`; document and change metrics remain zero.
+
 Failure counters describe failed processing attempts. Document, change, section,
 encounter, and condition success counts describe contributions from manifests
 that reached the completion-manifest boundary during a processing attempt. None
@@ -143,9 +148,6 @@ when:
 - Its SQS record is delivered again, including after an otherwise successful
   processing attempt.
 - The same manifest is submitted in another SQS record.
-- One Lambda batch contains multiple manifests, an earlier manifest completes,
-  and a later manifest fails. Without partial SQS batch responses, the earlier
-  record may be retried.
 
 See [Using Lambda with Amazon
 SQS](https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html) for the AWS
@@ -157,21 +159,17 @@ manifest entry. CloudWatch EMF metrics are additive and cannot use that field to
 retract a duplicate. Adding it as a metric dimension would also create
 unbounded cardinality.
 
-The per-manifest telemetry boundary composes cleanly with partial SQS batch
-responses if they are added later. Partial responses could isolate failures
-between SQS records, but they would not make repeated delivery of the same
-manifest idempotent. Exact unique-document metrics would require durable
-deduplication at the chosen document or manifest boundary, plus careful
-coordination between output writes, completion state, and telemetry publication.
+Exact unique-document metrics would require durable deduplication at the chosen
+document or manifest boundary, plus careful coordination between output writes,
+completion state, and telemetry publication.
 
 The current metrics are therefore appropriate for workload, failure, and change
 pattern analysis. They must not be interpreted as exact epidemiological or
 unique-document volume.
 
-The aggregate EMF object is emitted for both successful and failed Lambda batch
-attempts. When processing fails partway through a batch, its success values
-include only manifests that completed before the failure. A document is counted
-as processed only after its containing completion-manifest write succeeds.
+The aggregate EMF object is emitted for both successful and failed Lambda
+invocations. A document is counted as processed only after its containing
+completion-manifest write succeeds.
 
 `DocumentsProcessed` and `DocumentsFailed` intentionally use different
 boundaries. If A succeeds at the entry level and B fails, B increments
@@ -199,7 +197,7 @@ including when their value is zero.
 | Metric | Unit | Meaning |
 |---|---|---|
 | `ManifestsProcessed` | Count | SQS records for which manifest processing returned successfully. |
-| `ManifestsFailed` | Count | SQS records for which manifest processing raised an exception. |
+| `ManifestsFailed` | Count | SQS records rejected by invocation validation or for which manifest processing raised an exception. |
 | `DocumentsProcessed` | Count | Document entries merged into the batch statistics after their completion-manifest write succeeded. |
 | `DocumentsFailed` | Count | Manifest-entry processing attempts that failed. Manifest-loading and completion-manifest failures do not increment this metric. |
 | `ChangesAdded` | Count | Reported `ADDED` changes from documents in completed manifests. |
@@ -334,8 +332,7 @@ automatically.
 #### `documents_processed_by_condition`
 
 Emitted once per condition-code and code-system pair represented by documents in
-completed manifests in the Lambda batch. These events are written when the
-handler exits, including when a later manifest in the same Lambda batch fails.
+the completed manifest. These events are written when the handler exits.
 
 | Field | Meaning |
 |---|---|
