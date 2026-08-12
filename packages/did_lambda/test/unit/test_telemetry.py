@@ -1,12 +1,9 @@
-import json
 import traceback
 from dataclasses import fields
-from uuid import UUID
 
 import pytest
-from core import Change, ChangeType
+from core import ChangeType
 from did_lambda import telemetry
-from did_lambda.models import DIDOutputFile
 from did_lambda.telemetry import (
     BatchProcessingStats,
     DocumentTelemetry,
@@ -19,45 +16,11 @@ from did_lambda.telemetry import (
 from did_lambda.telemetry_helpers import ConditionCode
 from did_lambda.utils import InfraError
 
-
-def make_change(
-    change_type: ChangeType,
-    xpath: str = "/ClinicalDocument/component",
-    section_loinc_code: str | None = None,
-    is_actionable: bool = True,
-) -> Change:
-    return Change(
-        changeType=change_type,
-        xpath=xpath,
-        xpathDocumentId="document-id",
-        isActionable=is_actionable,
-        actionabilityRuleId=UUID(int=0),
-        actionabilityRuleDisplayName="test rule",
-        section_loinc_code=section_loinc_code,
-    )
-
-
-def make_result(
-    *changes: Change,
-    encounter_type: str = "ambulatory",
-    unique_condition_count: int = 0,
-) -> ManifestEntryResult:
-    return ManifestEntryResult(
-        output_file=DIDOutputFile(
-            eicr="DIDOutput/eicr.xml",
-            rr="DIDOutput/rr.xml",
-            setId="set-id",
-            versionNumber=2,
-            is_actionable=True,
-        ),
-        changes=changes,
-        telemetry=DocumentTelemetry(
-            persistence_id_with_index="2026/id:0",
-            version_number=2,
-            encounter_type=encounter_type,
-            unique_condition_count=unique_condition_count,
-        ),
-    )
+from .test_utils import (
+    emitted_metrics,
+    make_change,
+    make_result,
+)
 
 
 def test_document_telemetry_exposes_only_expected_fields() -> None:
@@ -72,15 +35,6 @@ def test_document_telemetry_exposes_only_expected_fields() -> None:
         "changes",
         "telemetry",
     )
-
-
-def emitted_metrics(capsys: pytest.CaptureFixture[str]) -> list[dict]:
-    """Return CloudWatch EMF objects emitted to standard output."""
-    return [
-        payload
-        for line in capsys.readouterr().out.splitlines()
-        if line.startswith("{") and "_aws" in (payload := json.loads(line))
-    ]
 
 
 def test_emits_aggregate_section_and_encounter_metrics(
@@ -187,6 +141,7 @@ def test_logs_document_and_reported_changes(
             is_actionable=False,
         ),
         unique_condition_count=3,
+        version_number=2,
     )
 
     log_doc_and_changes(result)

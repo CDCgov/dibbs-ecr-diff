@@ -5,10 +5,9 @@ import traceback
 from collections import Counter
 from types import SimpleNamespace
 from unittest.mock import ANY, Mock, call
-from uuid import UUID
 
 import pytest
-from core import Change, ChangeType
+from core import ChangeType
 from did_lambda.models import (
     DIDInputFile,
     DIDInputManifest,
@@ -18,13 +17,18 @@ from did_lambda.models import (
 from did_lambda.telemetry import (
     BatchProcessingStats,
     DocumentTelemetry,
-    ManifestEntryResult,
 )
 from did_lambda.telemetry_helpers import (
     ConditionCode,
     make_persistence_id_with_index,
 )
 from did_lambda.utils import InfraError
+
+from .test_utils import (
+    emitted_metrics,
+    make_change,
+    make_result,
+)
 
 SENSITIVE_TEST_VALUES = (
     "set-id",
@@ -51,40 +55,6 @@ def make_entry() -> DIDInputFile:
         setId="set-id",
         versionNumber=1,
         jurisdictions=["jurisdiction"],
-    )
-
-
-def make_result(
-    *changes: Change,
-    unique_condition_count: int = 0,
-    encounter_type: str = "ambulatory",
-) -> ManifestEntryResult:
-    return ManifestEntryResult(
-        output_file=DIDOutputFile(
-            eicr="DIDOutput/2026/id/jurisdiction/eicr.xml",
-            rr="DIDOutput/2026/id/jurisdiction/rr.xml",
-            setId="set-id",
-            versionNumber=1,
-            is_actionable=True,
-        ),
-        changes=changes,
-        telemetry=DocumentTelemetry(
-            persistence_id_with_index=make_persistence_id_with_index("2026/id", 0),
-            version_number=1,
-            encounter_type=encounter_type,
-            unique_condition_count=unique_condition_count,
-        ),
-    )
-
-
-def make_change(change_type: ChangeType, xpath: str) -> Change:
-    return Change(
-        changeType=change_type,
-        xpath=xpath,
-        xpathDocumentId="document-id",
-        actionabilityRuleId=UUID(int=0),
-        actionabilityRuleDisplayName="test rule",
-        section_loinc_code="18776-5",
     )
 
 
@@ -135,15 +105,6 @@ def assert_safe_processing_failure(
     for sensitive_value in SENSITIVE_TEST_VALUES:
         assert sensitive_value not in caplog.text
         assert sensitive_value not in escaped_traceback
-
-
-def emitted_metrics(capsys: pytest.CaptureFixture[str]) -> list[dict]:
-    """Return CloudWatch EMF objects emitted to standard output."""
-    return [
-        payload
-        for line in capsys.readouterr().out.splitlines()
-        if line.startswith("{") and "_aws" in (payload := json.loads(line))
-    ]
 
 
 def test_lambda_handler_rejects_multiple_manifests_before_processing(
