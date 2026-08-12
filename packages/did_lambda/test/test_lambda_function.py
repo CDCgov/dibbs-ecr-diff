@@ -22,12 +22,10 @@ from did_lambda.telemetry import (
 )
 from did_lambda.telemetry_helpers import (
     ConditionCode,
-    TelemetryConfigurationError,
-    make_document_correlation_key,
+    make_persistence_id_with_index,
 )
 from did_lambda.utils import InfraError
 
-TEST_LOG_HASH_SALT = "a" * 32
 SENSITIVE_TEST_VALUES = (
     "set-id",
     "document-id",
@@ -36,11 +34,6 @@ SENSITIVE_TEST_VALUES = (
     '{"Records":["secret"]}',
 )
 SENSITIVE_FAILURE_TEXT = " ".join(SENSITIVE_TEST_VALUES)
-
-
-@pytest.fixture(autouse=True)
-def configure_log_hash_salt(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LOG_HASH_SALT", TEST_LOG_HASH_SALT)
 
 
 def load_lambda_module():
@@ -76,7 +69,7 @@ def make_result(
         ),
         changes=changes,
         telemetry=DocumentTelemetry(
-            document_correlation_key=make_document_correlation_key("set-id", 1),
+            persistence_id_with_index=make_persistence_id_with_index("2026/id", 0),
             version_number=1,
             encounter_type=encounter_type,
             unique_condition_count=unique_condition_count,
@@ -118,7 +111,7 @@ def assert_safe_processing_failure(
     *,
     stage: str,
     error_type: str,
-    document_correlation_key: str | None,
+    persistence_id_with_index: str | None,
 ) -> None:
     failure_logs = [
         record for record in caplog.records if record.message == "processing_failure"
@@ -132,10 +125,10 @@ def assert_safe_processing_failure(
     assert not log.exc_info
     assert not log.stack_info
 
-    if document_correlation_key is None:
-        assert "document_correlation_key" not in log_fields
+    if persistence_id_with_index is None:
+        assert "persistence_id_with_index" not in log_fields
     else:
-        assert log_fields["document_correlation_key"] == document_correlation_key
+        assert log_fields["persistence_id_with_index"] == persistence_id_with_index
 
     assert str(raised.value) == f"Processing failed during {stage}"
     escaped_traceback = "".join(traceback.format_exception(raised.value))
@@ -473,8 +466,8 @@ def test_process_sqs_record_logs_completed_document_and_reported_changes(
     ]
     assert len(doc_logs) == 1
     doc_fields = vars(doc_logs[0])
-    assert doc_fields["document_correlation_key"] == (
-        result.telemetry.document_correlation_key
+    assert doc_fields["persistence_id_with_index"] == (
+        result.telemetry.persistence_id_with_index
     )
     assert doc_fields["version_number"] == 1
     assert doc_fields["unique_condition_count"] == 1
@@ -494,8 +487,8 @@ def test_process_sqs_record_logs_completed_document_and_reported_changes(
     ]
     for record in change_logs:
         fields = vars(record)
-        assert fields["document_correlation_key"] == (
-            result.telemetry.document_correlation_key
+        assert fields["persistence_id_with_index"] == (
+            result.telemetry.persistence_id_with_index
         )
         assert fields["version_number"] == 1
         assert "unique_condition_count" not in fields
@@ -563,7 +556,7 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
     )
     assert result.changes == ()
     assert result.telemetry == DocumentTelemetry(
-        document_correlation_key=make_document_correlation_key("set-id", 1),
+        persistence_id_with_index=make_persistence_id_with_index("2026/id", 0),
         version_number=1,
         encounter_type="ambulatory",
         unique_condition_count=1,
@@ -624,40 +617,7 @@ def test_process_manifest_entry_propagates_final_write_failure(
         raised,
         stage="output_write",
         error_type="RuntimeError",
-        document_correlation_key=make_document_correlation_key("set-id", 1),
-    )
-
-
-def test_process_manifest_entry_rejects_missing_salt_before_side_effects(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    lambda_module = load_lambda_module()
-    monkeypatch.delenv("LOG_HASH_SALT")
-    get_before_actionable_record = Mock()
-    get_object_xml_tree = Mock()
-    put_eicr_record = Mock()
-    put_object = Mock()
-    monkeypatch.setattr(
-        lambda_module, "get_before_actionable_record", get_before_actionable_record
-    )
-    monkeypatch.setattr(lambda_module, "get_object_xml_tree", get_object_xml_tree)
-    monkeypatch.setattr(lambda_module, "put_eicr_record", put_eicr_record)
-    monkeypatch.setattr(lambda_module, "put_object", put_object)
-
-    with pytest.raises(InfraError) as raised:
-        lambda_module.process_manifest_entry("bucket", "2026/id", make_entry(), 0)
-
-    get_before_actionable_record.assert_not_called()
-    get_object_xml_tree.assert_not_called()
-    put_eicr_record.assert_not_called()
-    put_object.assert_not_called()
-    assert_safe_processing_failure(
-        caplog,
-        raised,
-        stage="telemetry_config",
-        error_type=TelemetryConfigurationError.__name__,
-        document_correlation_key=None,
+        persistence_id_with_index=make_persistence_id_with_index("2026/id", 0),
     )
 
 
@@ -715,7 +675,7 @@ def test_process_manifest_entry_sanitizes_each_processing_stage(
         raised,
         stage=stage,
         error_type="RuntimeError",
-        document_correlation_key=make_document_correlation_key("set-id", 1),
+        persistence_id_with_index=make_persistence_id_with_index("2026/id", 0),
     )
 
 
@@ -739,7 +699,7 @@ def test_process_sqs_record_sanitizes_manifest_load_failure(
         raised,
         stage="manifest_load",
         error_type="RuntimeError",
-        document_correlation_key=None,
+        persistence_id_with_index=None,
     )
 
 
@@ -787,5 +747,5 @@ def test_process_sqs_record_sanitizes_completion_write_failure(
         raised,
         stage="completion_write",
         error_type="RuntimeError",
-        document_correlation_key=None,
+        persistence_id_with_index=None,
     )

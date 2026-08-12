@@ -9,7 +9,6 @@ def aws_creds(monkeypatch):
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test")
     monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
-    monkeypatch.setenv("LOG_HASH_SALT", "a" * 32)
 
 
 @pytest.fixture(scope="function")

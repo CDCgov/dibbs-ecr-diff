@@ -46,7 +46,7 @@ from .telemetry_helpers import (
     ConditionCode,
     condition_codes_from_rr,
     encounter_type_from_eicr,
-    make_document_correlation_key,
+    make_persistence_id_with_index,
 )
 from .utils import (
     InfraError,
@@ -150,15 +150,13 @@ def process_manifest_entry(
     documents_processed_by_condition: Counter[ConditionCode] | None = None,
 ) -> ManifestEntryResult:
     """Process a single DID input manifest entry."""
-    stage = "telemetry_config"
-    document_correlation_key: str | None = None
+    stage = "document_load"
+    persistence_id_with_index = make_persistence_id_with_index(persistence_id, index)
 
     try:
         set_id = entry.setId
         version_number = entry.versionNumber
-        document_correlation_key = make_document_correlation_key(set_id, version_number)
 
-        stage = "document_load"
         jurisdiction_id = ",".join(entry.jurisdictions)
         before_record = get_before_actionable_record(set_id, version_number)
         compared_to_version = before_record.versionNumber if before_record else None
@@ -230,7 +228,7 @@ def process_manifest_entry(
             ),
             changes=tuple(diff_output.changes) if diff_output is not None else (),
             telemetry=DocumentTelemetry(
-                document_correlation_key=document_correlation_key,
+                persistence_id_with_index=persistence_id_with_index,
                 version_number=version_number,
                 encounter_type=encounter_type,
                 unique_condition_count=len(condition_codes),
@@ -240,7 +238,7 @@ def process_manifest_entry(
             documents_processed_by_condition.update(condition_codes)
         return result
     except Exception as exc:
-        raise_processing_failure(stage, exc, document_correlation_key)
+        raise_processing_failure(stage, exc, persistence_id_with_index)
 
 
 def get_augmented_eicr(

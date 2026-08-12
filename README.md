@@ -47,17 +47,6 @@ just diff
 
 ### Local AWS pipeline
 
-The committed `.env.local` contains a local-only `LOG_HASH_SALT` for Docker
-Compose. Never use this value outside local development. Generate a new salt
-with:
-
-```bash
-openssl rand -hex 32
-```
-
-Do not commit a generated non-local value or replace the committed local-only
-value with it.
-
 Start the local S3, SQS, EventBridge, DynamoDB, Lambda, and uploader services:
 
 ```bash
@@ -162,10 +151,11 @@ See [Using Lambda with Amazon
 SQS](https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html) for the AWS
 delivery and batching semantics.
 
-The `document_correlation_key` remains stable across retries, so logs can be
-grouped or approximately deduplicated by document version. CloudWatch EMF
-metrics are additive and cannot use that key to retract a duplicate. Adding the
-key as a metric dimension would also create unbounded cardinality.
+The `persistence_id_with_index` remains stable across retries of the same
+unchanged manifest, so logs can be grouped or approximately deduplicated by
+manifest entry. CloudWatch EMF metrics are additive and cannot use that field to
+retract a duplicate. Adding it as a metric dimension would also create
+unbounded cardinality.
 
 The per-manifest telemetry boundary composes cleanly with partial SQS batch
 responses if they are added later. Partial responses could isolate failures
@@ -297,7 +287,7 @@ manifest can produce this event again if its SQS record is delivered again.
 
 | Field | Meaning |
 |---|---|
-| `document_correlation_key` | Deterministic pseudonymous key for one set ID and version-number combination. |
+| `persistence_id_with_index` | Manifest persistence ID followed by the entry's zero-based index, separated by a colon. |
 | `version_number` | Plain document version number. |
 | `unique_condition_count` | Number of unique coded conditions extracted from the RR. |
 
@@ -312,7 +302,7 @@ this log event.
 
 | Field | Meaning |
 |---|---|
-| `document_correlation_key` | Pseudonymous document key. |
+| `persistence_id_with_index` | Manifest persistence ID and zero-based entry index. |
 | `version_number` | Document version number. |
 | `change_type` | `ADDED`, `UPDATED`, or `DELETED`. |
 | `change_path` | Structural XPath with numeric positional predicates removed. |
@@ -331,10 +321,10 @@ Emitted at one of the bounded application-processing failure stages.
 |---|---|
 | `failure_stage` | Bounded stage where processing failed. |
 | `error_type` | Exception class name only. |
-| `document_correlation_key` | Included only when it was safely available before the failure. |
+| `persistence_id_with_index` | Included for entry-level failures after the manifest has loaded. |
 
-Allowed failure stages are `telemetry_config`, `manifest_load`, `document_load`,
-`diff`, `augmentation`, `output_write`, and `completion_write`.
+Allowed failure stages are `manifest_load`, `document_load`, `diff`,
+`augmentation`, `output_write`, and `completion_write`.
 
 Failure logs do not include exception messages, original tracebacks, XML, S3
 keys, Lambda events, raw set IDs, or clinical document IDs. The propagated
@@ -358,30 +348,34 @@ occurrences of the same condition in one RR contribute one processed document.
 Condition counts buffered for a manifest are discarded if any entry or
 the completion-manifest write fails.
 
-These events deliberately contain no document correlation key, version number,
-or other document-level identifier. However, batch-level condition events remain
-temporally linkable within the shared Lambda log stream. Their longer-term
-handling, including possible small-cell suppression or different aggregation
-windows, remains subject to privacy guidance.
+These events deliberately contain no `persistence_id_with_index`, version
+number, or other document-level identifier. However, batch-level condition
+events remain temporally linkable within the shared Lambda log stream. Their
+longer-term handling, including possible small-cell suppression or different
+aggregation windows, remains subject to privacy guidance.
 
-### Document correlation keys
+### Manifest-entry persistence identifiers
 
-Direct document identifiers are not logged. `document_correlation_key` is
-generated using HMAC-SHA256 over the set ID and version number with
-`LOG_HASH_SALT`, then truncated to 32 hexadecimal characters.
+Raw set IDs and clinical document IDs are not logged.
+`persistence_id_with_index` is constructed as
+`<manifest-persistence-id>:<zero-based-entry-index>`. For example, entry zero in
+manifest `2026/08/12/550e8400-e29b-41d4-a716-446655440000` is logged as
+`2026/08/12/550e8400-e29b-41d4-a716-446655440000:0`.
 
-The key:
+The value:
 
-- Is deterministic for the same set ID, version number, and salt.
-- Remains stable across retries while the salt is unchanged.
-- Is different for different document versions.
-- Does not expose the salt or raw set ID.
-- Is used only to correlate telemetry events for the same document version.
+- Remains stable across retries of the same unchanged manifest.
+- Is different for each entry in a manifest.
+- Correlates telemetry events for one manifest entry.
+- Does not identify the same eCR when it arrives in a different manifest.
+- Changes if the manifest receives a different persistence ID or its entries are
+  reordered.
+- Exposes the operational manifest persistence ID in application logs, but not
+  the raw set ID or clinical document ID.
 
-`LOG_HASH_SALT` is required and must contain at least 32 bytes. A missing or
-undersized salt causes processing to fail before document reads or writes.
-Changing the salt breaks correlation continuity. Local generation instructions
-are documented above.
+This field replaces the previous salted set-ID-and-version correlation key.
+Values written before and after this telemetry schema change cannot be matched
+to each other through the correlation field.
 
 ### Example Logs Insights queries
 
@@ -414,17 +408,17 @@ fields condition_code_system, condition_code, documents_processed_count
 | sort documents_processed desc
 ```
 
-Approximate distinct completed document versions and repeated success events:
+Approximate distinct completed manifest entries and repeated success events:
 
 ```text
-fields document_correlation_key
+fields persistence_id_with_index
 | filter message = "document_processed"
 | stats count(*) as processing_events,
-        countDistinct(document_correlation_key) as approximate_document_versions
+        countDistinct(persistence_id_with_index) as approximate_manifest_entries
 ```
 
-`countDistinct` is approximate, and a changed `LOG_HASH_SALT` prevents keys from
-matching across the change.
+`countDistinct` is approximate. The same eCR arriving in a different manifest
+has a different `persistence_id_with_index` and is counted as a different entry.
 
 ### Deferred telemetry decisions
 

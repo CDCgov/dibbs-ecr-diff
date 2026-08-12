@@ -5,84 +5,33 @@ import pytest
 from core import Change, ChangeType
 from did_lambda.telemetry_helpers import (
     ConditionCode,
-    TelemetryConfigurationError,
     change_path_for_logging,
     condition_codes_from_rr,
     encounter_type_from_eicr,
-    make_document_correlation_key,
+    make_persistence_id_with_index,
 )
 from lxml import etree
 
-TEST_LOG_HASH_SALT = "a" * 32
+
+def test_persistence_id_with_index_combines_manifest_id_and_zero_based_index() -> None:
+    persistence_id = "2026/08/12/550e8400-e29b-41d4-a716-446655440000"
+
+    assert make_persistence_id_with_index(persistence_id, 0) == f"{persistence_id}:0"
+    assert make_persistence_id_with_index(persistence_id, 1) != (
+        make_persistence_id_with_index(persistence_id, 0)
+    )
+    assert make_persistence_id_with_index("2026/08/12/different", 0) != (
+        make_persistence_id_with_index(persistence_id, 0)
+    )
+    assert make_persistence_id_with_index(persistence_id, 0) == (
+        make_persistence_id_with_index(persistence_id, 0)
+    )
 
 
-def test_document_correlation_key_matches_known_hmac_vector(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    set_id = "sensitive-set-id"
-    monkeypatch.setenv("LOG_HASH_SALT", TEST_LOG_HASH_SALT)
-
-    key = make_document_correlation_key(set_id, 2)
-
-    assert key == "7d0e891727b5704803d9b3ed86bc43a4"
-    assert len(key) == 32
-    assert set(key) <= set("0123456789abcdef")
-    assert set_id not in key
-    assert TEST_LOG_HASH_SALT not in key
-
-
-def test_document_correlation_key_is_deterministic_and_identifier_specific(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("LOG_HASH_SALT", TEST_LOG_HASH_SALT)
-
-    key = make_document_correlation_key("set-id", 2)
-
-    assert make_document_correlation_key("set-id", 2) == key
-    assert make_document_correlation_key("different-set-id", 2) != key
-    assert make_document_correlation_key("set-id", 3) != key
-
-
-def test_document_correlation_key_changes_with_salt(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("LOG_HASH_SALT", "a" * 32)
-    first_key = make_document_correlation_key("set-id", 2)
-
-    monkeypatch.setenv("LOG_HASH_SALT", "b" * 32)
-    second_key = make_document_correlation_key("set-id", 2)
-
-    assert second_key != first_key
-
-
-def test_document_correlation_key_requires_salt(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv("LOG_HASH_SALT", raising=False)
-
-    with pytest.raises(TelemetryConfigurationError) as raised:
-        make_document_correlation_key("set-id", 2)
-
-    assert str(raised.value) == "LOG_HASH_SALT is required"
-
-
-def test_document_correlation_key_rejects_short_salt_without_exposing_it(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    short_salt = "sensitive-short-salt"
-    monkeypatch.setenv("LOG_HASH_SALT", short_salt)
-
-    with pytest.raises(TelemetryConfigurationError) as raised:
-        make_document_correlation_key("set-id", 2)
-
-    assert str(raised.value) == "LOG_HASH_SALT must contain at least 32 bytes"
-    assert short_salt not in str(raised.value)
-
-
-def test_document_correlation_key_accepts_only_set_id_and_version() -> None:
-    assert tuple(signature(make_document_correlation_key).parameters) == (
-        "set_id",
-        "version_number",
+def test_persistence_id_with_index_accepts_persistence_id_and_index() -> None:
+    assert tuple(signature(make_persistence_id_with_index).parameters) == (
+        "persistence_id",
+        "index",
     )
 
 

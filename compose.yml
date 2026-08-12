@@ -21,7 +21,6 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-dev}
       - POWERTOOLS_METRICS_NAMESPACE=${POWERTOOLS_METRICS_NAMESPACE:-eICRDiff}
       - POWERTOOLS_SERVICE_NAME=${POWERTOOLS_SERVICE_NAME:-difference-in-docs}
-      - LOG_HASH_SALT=${LOG_HASH_SALT:?LOG_HASH_SALT must be set}
     depends_on:
       - localstack
     restart: unless-stopped

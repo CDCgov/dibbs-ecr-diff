@@ -1,8 +1,5 @@
 """Stateless extraction and sanitization helpers for Lambda telemetry."""
 
-import hashlib
-import hmac
-import os
 import re
 from dataclasses import dataclass
 
@@ -10,8 +7,6 @@ from core import Change
 from core.constants import NAMESPACES
 from lxml.etree import ElementTree
 
-DOCUMENT_CORRELATION_KEY_HEX_LENGTH = 32
-MIN_LOG_HASH_SALT_BYTES = 32
 _NUMERIC_POSITION_PREDICATE = re.compile(r"\[\d+\]")
 _RR_CONDITION_OBSERVATION_TEMPLATE_ID = "2.16.840.1.113883.10.20.15.2.3.12"
 _RR_CONDITION_VALUE_XPATH = (
@@ -41,10 +36,6 @@ _ENCOUNTER_TYPES = {
 }
 
 
-class TelemetryConfigurationError(RuntimeError):
-    """Raised when required telemetry configuration is invalid."""
-
-
 @dataclass(frozen=True, order=True, slots=True)
 class ConditionCode:
     """A condition code without document-identifying context."""
@@ -58,22 +49,9 @@ def change_path_for_logging(change: Change) -> str:
     return _NUMERIC_POSITION_PREDICATE.sub("", change.xpath)
 
 
-def make_document_correlation_key(set_id: str, version_number: int) -> str:
-    """Create a deterministic pseudonymous document correlation key."""
-    salt_value = os.environ.get("LOG_HASH_SALT")
-    if salt_value is None:
-        raise TelemetryConfigurationError("LOG_HASH_SALT is required")
-
-    salt = salt_value.encode("utf-8")
-    if len(salt) < MIN_LOG_HASH_SALT_BYTES:
-        raise TelemetryConfigurationError(
-            "LOG_HASH_SALT must contain at least 32 bytes"
-        )
-
-    message = set_id.encode("utf-8") + b"\x00" + str(version_number).encode("ascii")
-    return hmac.new(salt, message, hashlib.sha256).hexdigest()[
-        :DOCUMENT_CORRELATION_KEY_HEX_LENGTH
-    ]
+def make_persistence_id_with_index(persistence_id: str, index: int) -> str:
+    """Identify an entry by its manifest persistence ID and zero-based index."""
+    return f"{persistence_id}:{index}"
 
 
 def condition_codes_from_rr(rr_tree: ElementTree) -> tuple[ConditionCode, ...]:

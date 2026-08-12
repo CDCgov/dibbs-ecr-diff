@@ -52,7 +52,7 @@ def make_result(
         ),
         changes=changes,
         telemetry=DocumentTelemetry(
-            document_correlation_key="test-correlation-key",
+            persistence_id_with_index="2026/id:0",
             version_number=2,
             encounter_type=encounter_type,
             unique_condition_count=unique_condition_count,
@@ -60,9 +60,9 @@ def make_result(
     )
 
 
-def test_document_telemetry_exposes_only_privacy_limited_fields() -> None:
+def test_document_telemetry_exposes_only_expected_fields() -> None:
     assert tuple(field.name for field in fields(DocumentTelemetry)) == (
-        "document_correlation_key",
+        "persistence_id_with_index",
         "version_number",
         "encounter_type",
         "unique_condition_count",
@@ -194,14 +194,14 @@ def test_logs_document_and_reported_changes(
     document_log = next(
         record for record in caplog.records if record.message == "document_processed"
     )
-    assert vars(document_log)["document_correlation_key"] == "test-correlation-key"
+    assert vars(document_log)["persistence_id_with_index"] == "2026/id:0"
     assert vars(document_log)["version_number"] == 2
     assert vars(document_log)["unique_condition_count"] == 3
 
     change_log = next(
         record for record in caplog.records if record.message == "xml_change"
     )
-    assert vars(change_log)["document_correlation_key"] == "test-correlation-key"
+    assert vars(change_log)["persistence_id_with_index"] == "2026/id:0"
     assert vars(change_log)["version_number"] == 2
     assert vars(change_log)["change_type"] == "UPDATED"
     assert vars(change_log)["change_path"] == "/hl7:ClinicalDocument/hl7:component"
@@ -227,7 +227,7 @@ def test_logs_documents_processed_by_condition_without_document_fields(
     assert condition_fields["condition_code"] == condition.code
     assert condition_fields["condition_code_system"] == condition.code_system
     assert condition_fields["documents_processed_count"] == 2
-    assert "document_correlation_key" not in condition_fields
+    assert "persistence_id_with_index" not in condition_fields
     assert "version_number" not in condition_fields
 
 
@@ -243,7 +243,7 @@ def test_processing_failure_log_and_exception_exclude_sensitive_details(
         raise_processing_failure(
             "diff",
             ValueError(sensitive_value),
-            document_correlation_key="test-correlation-key",
+            persistence_id_with_index="2026/id:0",
         )
 
     failure_log = next(
@@ -252,7 +252,7 @@ def test_processing_failure_log_and_exception_exclude_sensitive_details(
     failure_fields = vars(failure_log)
     assert failure_fields["failure_stage"] == "diff"
     assert failure_fields["error_type"] == "ValueError"
-    assert failure_fields["document_correlation_key"] == "test-correlation-key"
+    assert failure_fields["persistence_id_with_index"] == "2026/id:0"
     assert not failure_log.exc_info
     assert not failure_log.stack_info
     assert str(raised.value) == "Processing failed during diff"

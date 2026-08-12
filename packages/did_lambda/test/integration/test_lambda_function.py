@@ -86,9 +86,49 @@ def test_lambda_handler_preserves_pipeline_and_emits_success_telemetry(
     document_fields = vars(document_log)
     assert document_fields["version_number"] == 1
     assert document_fields["unique_condition_count"] == 0
-    assert document_fields["document_correlation_key"] != eicr_set_id
+    assert document_fields["persistence_id_with_index"] == f"{persistence_id}:0"
     assert eicr_set_id not in caplog.text
     assert all(record.message != "xml_change" for record in caplog.records)
+
+
+def test_lambda_handler_identifies_each_manifest_entry_by_persistence_id_and_index(
+    s3_client,
+    bucket_name,
+    dynamodb_table,
+    caplog,
+):
+    from did_lambda.lambda_function import lambda_handler
+
+    set_ids = ("first-eicr-set-id", "second-eicr-set-id")
+    manifest_key, _manifest, persistence_id = send_input_files(
+        s3_client,
+        bucket_name=bucket_name,
+        input_files=[
+            MockS3InputFile(
+                eicr_body=build_doc(1, set_id),
+                rr_body=build_doc(1, f"rr-{set_id}"),
+                set_id=set_id,
+                version_number=1,
+            )
+            for set_id in set_ids
+        ],
+    )
+    caplog.set_level("INFO")
+
+    response = lambda_handler(
+        {"Records": [build_sqs_record(bucket_name, manifest_key).raw_event]},
+        None,
+    )
+
+    assert response == {"statusCode": 200, "message": "OK"}
+    document_logs = [
+        record for record in caplog.records if record.message == "document_processed"
+    ]
+    assert [vars(record)["persistence_id_with_index"] for record in document_logs] == [
+        f"{persistence_id}:0",
+        f"{persistence_id}:1",
+    ]
+    assert all(set_id not in caplog.text for set_id in set_ids)
 
 
 def test_process_manifest_entry_with_single_file(

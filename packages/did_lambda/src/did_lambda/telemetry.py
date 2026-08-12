@@ -24,9 +24,9 @@ metrics = Metrics(namespace=METRICS_NAMESPACE, service=SERVICE_NAME)
 
 @dataclass(frozen=True, slots=True)
 class DocumentTelemetry:
-    """Privacy-limited document metadata available to telemetry consumers."""
+    """Document metadata available to telemetry consumers."""
 
-    document_correlation_key: str
+    persistence_id_with_index: str
     version_number: int
     encounter_type: str
     unique_condition_count: int = 0
@@ -90,15 +90,15 @@ class BatchProcessingStats:
 def raise_processing_failure(
     stage: str,
     exc: Exception,
-    document_correlation_key: str | None = None,
+    persistence_id_with_index: str | None = None,
 ) -> Never:
     """Log bounded failure details and raise a privacy-safe retryable error."""
     extra = {
         "failure_stage": stage,
         "error_type": type(exc).__name__,
     }
-    if document_correlation_key is not None:
-        extra["document_correlation_key"] = document_correlation_key
+    if persistence_id_with_index is not None:
+        extra["persistence_id_with_index"] = persistence_id_with_index
 
     logger.error(
         "processing_failure",
@@ -161,7 +161,7 @@ def record_processing_metrics(stats: BatchProcessingStats) -> None:
 def log_doc_and_changes(result: ManifestEntryResult) -> None:
     """Log one completed document and each of its reported changes."""
     doc_fields = {
-        "document_correlation_key": result.telemetry.document_correlation_key,
+        "persistence_id_with_index": result.telemetry.persistence_id_with_index,
         "version_number": result.telemetry.version_number,
     }
     logger.info(
@@ -184,7 +184,7 @@ def log_doc_and_changes(result: ManifestEntryResult) -> None:
 
 
 def log_documents_processed_by_condition(stats: BatchProcessingStats) -> None:
-    """Log documents processed by condition without correlation fields.
+    """Log documents processed by condition without manifest-entry identifiers.
 
     These batch records remain temporally linkable in the shared Lambda log stream;
     their longer-term privacy boundary is pending external guidance.
