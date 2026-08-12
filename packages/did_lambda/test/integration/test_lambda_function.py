@@ -1,3 +1,5 @@
+import json
+
 from did_lambda.utils import get_did_output_key
 
 from .helpers import (
@@ -9,6 +11,124 @@ from .helpers import (
 
 DID_COMPLETE_PREFIX = "DIDComplete/"
 DID_OUTPUT_PREFIX = "DIDOutput/"
+
+
+def test_lambda_handler_preserves_pipeline_and_emits_success_telemetry(
+    s3_client,
+    bucket_name,
+    dynamodb_table,
+    capsys,
+    caplog,
+):
+    from did_lambda.lambda_function import lambda_handler
+
+    eicr_set_id = "eicr-set-id-handler"
+    manifest_key, manifest, persistence_id = send_input_files(
+        s3_client,
+        bucket_name=bucket_name,
+        input_files=[
+            MockS3InputFile(
+                eicr_body=build_doc(1, eicr_set_id),
+                rr_body=build_doc(1, "rr-set-id-handler"),
+                set_id=eicr_set_id,
+                version_number=1,
+            )
+        ],
+    )
+    caplog.set_level("INFO")
+
+    response = lambda_handler(
+        {"Records": [build_sqs_record(bucket_name, manifest_key).raw_event]},
+        None,
+    )
+
+    assert response == {"statusCode": 200, "message": "OK"}
+
+    manifest_file = manifest.files[0]
+    for input_key in (manifest_file.eicr, manifest_file.rr):
+        output_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, input_key)
+        response = s3_client.get_object(Bucket=bucket_name, Key=output_key)
+        assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    completion = s3_client.get_object(
+        Bucket=bucket_name,
+        Key=f"{DID_COMPLETE_PREFIX}{persistence_id}",
+    )
+    assert completion["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    stored_record = dynamodb_table.get_item(
+        Key={"setId": eicr_set_id, "versionNumber": 1}
+    )["Item"]
+    assert stored_record["s3Key"] == manifest_file.eicr
+    assert stored_record["s3KeyRR"] == manifest_file.rr
+    assert stored_record["isActionable"] is True
+
+    emf_objects = [
+        payload
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("{") and "_aws" in (payload := json.loads(line))
+    ]
+    aggregate = next(item for item in emf_objects if "BatchDurationMs" in item)
+    assert aggregate["ManifestsProcessed"] == [1.0]
+    assert aggregate["ManifestsFailed"] == [0.0]
+    assert aggregate["DocumentsProcessed"] == [1.0]
+    assert aggregate["DocumentsFailed"] == [0.0]
+    assert aggregate["ChangesTotal"] == [0.0]
+
+    encounter = next(item for item in emf_objects if "EncountersProcessed" in item)
+    assert encounter["encounter_type"] == "unknown"
+    assert encounter["EncountersProcessed"] == [1.0]
+    assert all("SectionChanges" not in item for item in emf_objects)
+
+    document_log = next(
+        record for record in caplog.records if record.message == "document_processed"
+    )
+    document_fields = vars(document_log)
+    assert document_fields["version_number"] == 1
+    assert document_fields["unique_condition_count"] == 0
+    assert document_fields["persistence_id_with_index"] == f"{persistence_id}:0"
+    assert eicr_set_id not in caplog.text
+    assert all(record.message != "xml_change" for record in caplog.records)
+
+
+def test_lambda_handler_identifies_each_manifest_entry_by_persistence_id_and_index(
+    s3_client,
+    bucket_name,
+    dynamodb_table,
+    caplog,
+):
+    from did_lambda.lambda_function import lambda_handler
+
+    set_ids = ("first-eicr-set-id", "second-eicr-set-id")
+    manifest_key, _manifest, persistence_id = send_input_files(
+        s3_client,
+        bucket_name=bucket_name,
+        input_files=[
+            MockS3InputFile(
+                eicr_body=build_doc(1, set_id),
+                rr_body=build_doc(1, f"rr-{set_id}"),
+                set_id=set_id,
+                version_number=1,
+            )
+            for set_id in set_ids
+        ],
+    )
+    caplog.set_level("INFO")
+
+    response = lambda_handler(
+        {"Records": [build_sqs_record(bucket_name, manifest_key).raw_event]},
+        None,
+    )
+
+    assert response == {"statusCode": 200, "message": "OK"}
+    document_logs = [
+        record for record in caplog.records if record.message == "document_processed"
+    ]
+    assert [vars(record)["persistence_id_with_index"] for record in document_logs] == [
+        f"{persistence_id}:0",
+        f"{persistence_id}:1",
+    ]
+    assert all(set_id not in caplog.text for set_id in set_ids)
 
 
 def test_process_manifest_entry_with_single_file(
@@ -58,9 +178,11 @@ def test_process_manifest_entry_with_single_file(
 
 def test_process_sqs_record_with_eicr_diff(s3_client, bucket_name, dynamodb_table):
     from did_lambda.lambda_function import process_sqs_record
+    from did_lambda.telemetry import BatchProcessingStats
 
     eicr_set_id = "eicr-set-id-1"
     rr_set_id = "rr-set-id-1"
+    stats = BatchProcessingStats()
 
     eicr_body_1 = build_doc(
         version_number=1,
@@ -95,7 +217,7 @@ def test_process_sqs_record_with_eicr_diff(s3_client, bucket_name, dynamodb_tabl
     )
 
     # process first input manifest
-    process_sqs_record(build_sqs_record(bucket_name, manifest_key_1))
+    process_sqs_record(build_sqs_record(bucket_name, manifest_key_1), stats)
 
     eicr_body_2 = build_doc(
         version_number=2,
@@ -129,7 +251,9 @@ def test_process_sqs_record_with_eicr_diff(s3_client, bucket_name, dynamodb_tabl
     )
 
     # process second input manifest
-    process_sqs_record(build_sqs_record(bucket_name, manifest_key_2))
+    process_sqs_record(build_sqs_record(bucket_name, manifest_key_2), stats)
+
+    assert stats.documents_processed == 2
 
     # ensure all files exist in DIDOutput
     for manifest, persistence_id in (

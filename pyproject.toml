@@ -107,5 +107,12 @@ ignore = [
 convention = "google"
 
 [tool.pytest.ini_options]
+addopts = ["--import-mode=importlib"]
+pythonpath = [
+    "packages/core/src",
+    "packages/did_lambda/src",
+    "packages/cli/src",
+    "packages/core/test/unit",
+]
 testpaths = ["packages"]
 python_files = ["**/test/test_*.py", "**/test/**/test_*.py", "**/test/__init__.py"]

@@ -1,5 +1,6 @@
 """Core Difference in Docs functionality."""
 
+import re
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from uuid import UUID
@@ -7,6 +8,7 @@ from uuid import UUID
 from lxml import etree
 from lxml.etree import ElementTree
 
+from .cda.tags import CODE_TAG, SECTION_TAG
 from .constants import (
     DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
     DEFAULT_ACTIONABLE_RULE_ID,
@@ -27,6 +29,9 @@ from .performance import measure_time
 
 # Maps XML nodes matched by configured XPaths to all their rules.
 type RuleMatchCache = dict[etree._Element, list[Rule]]
+
+_LOINC_CODE_SYSTEM_OID = "2.16.840.1.113883.6.1"
+_LOINC_CODE_PATTERN = re.compile(r"\d{1,8}-\d")
 
 
 def eval_xpath(
@@ -101,6 +106,33 @@ def _get_document_metadata(root: etree._Element) -> Document:
     )
 
 
+def _section_loinc_code_for_change(
+    changed_element: etree._Element,
+) -> str | None:
+    """Return the nearest enclosing CDA section's well-formed LOINC code."""
+    if changed_element.tag == SECTION_TAG:
+        section = changed_element
+    else:
+        section = next(changed_element.iterancestors(tag=SECTION_TAG), None)
+
+    if section is None:
+        return None
+
+    section_code = next(section.iterchildren(tag=CODE_TAG), None)
+    if section_code is None:
+        return None
+
+    code = section_code.get("code")
+    if (
+        section_code.get("codeSystem") == _LOINC_CODE_SYSTEM_OID
+        and code is not None
+        and _LOINC_CODE_PATTERN.fullmatch(code)
+    ):
+        return code
+
+    return None
+
+
 def unique_rule_matches_for_change_type(
     rule_matches: Iterable[Rule],
     change_type: ChangeType,
@@ -139,6 +171,7 @@ def build_changes_for_rule_matches(
 ) -> list[Change]:
     """Build changes for applicable rule matches using the configured mode."""
     xpath = structural_xpath(element)
+    section_loinc_code = _section_loinc_code_for_change(element)
     applicable_rules = unique_rule_matches_for_change_type(
         rule_matches,
         change_type,
@@ -158,6 +191,7 @@ def build_changes_for_rule_matches(
                     isActionable=True,
                     actionabilityRuleId=rule.id,
                     actionabilityRuleDisplayName=rule.displayName,
+                    section_loinc_code=section_loinc_code,
                     augmentation_anchor_node=augmentation_anchor_node,
                 )
                 for rule in applicable_rules
@@ -171,6 +205,7 @@ def build_changes_for_rule_matches(
                     isActionable=False,
                     actionabilityRuleId=None,
                     actionabilityRuleDisplayName=None,
+                    section_loinc_code=section_loinc_code,
                     augmentation_anchor_node=augmentation_anchor_node,
                 )
             ]
@@ -185,6 +220,7 @@ def build_changes_for_rule_matches(
                     isActionable=False,
                     actionabilityRuleId=rule.id,
                     actionabilityRuleDisplayName=rule.displayName,
+                    section_loinc_code=section_loinc_code,
                     augmentation_anchor_node=augmentation_anchor_node,
                 )
                 for rule in applicable_rules
@@ -198,6 +234,7 @@ def build_changes_for_rule_matches(
                     isActionable=True,
                     actionabilityRuleId=DEFAULT_ACTIONABLE_RULE_ID,
                     actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
+                    section_loinc_code=section_loinc_code,
                     augmentation_anchor_node=augmentation_anchor_node,
                 )
             ]
@@ -274,7 +311,6 @@ def _process_updates(
                     right_rule_match_cache,
                 ),
             ]
-
         changes.extend(
             build_changes_for_rule_matches(
                 element=after,

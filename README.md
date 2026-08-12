@@ -10,6 +10,7 @@
 * [Disclaimer](DISCLAIMER.md)
 * [Contribution Notice](CONTRIBUTING.md)
 * [Code of Conduct](code-of-conduct.md)
+* [Telemetry Semantics](docs/Telemetry-Semantics.md)
 
 ## Overview
 
@@ -62,6 +63,8 @@ Open `http://localhost:8081` and upload an eICR and RR. The uploader:
 3. `sqs-poller.py` checks SQS, and invokes the lambda on new messages.
 
 Stop the services with `docker compose down`.
+
+## Development
 
 ### Type checking / Linting / Formatting
 
