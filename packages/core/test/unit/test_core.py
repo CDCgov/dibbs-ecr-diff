@@ -19,7 +19,7 @@ from core.constants import (
 )
 from core.models import Change, ChangeType, DiffMode, Document, Rule
 from core.paths import structural_xpath
-from helpers import HL7_NS, elem, find_one
+from helpers import HL7_NS, SECTION_LOINC_CODE_CASES, elem, find_one
 from lxml import etree
 from pydantic import ValidationError
 
@@ -98,69 +98,7 @@ def test_get_document_metadata_uses_empty_strings_for_missing_values():
 
 @pytest.mark.parametrize(
     ("xml", "expected"),
-    [
-        (
-            f"""
-            <section xmlns="{HL7_NS}">
-              <code code="10160-0" codeSystem="2.16.840.1.113883.6.1"/>
-              <component>
-                <section>
-                  <code code="18776-5" codeSystem="2.16.840.1.113883.6.1"/>
-                  <entry>
-                    <observation>
-                      <code code="718-7" codeSystem="2.16.840.1.113883.6.1"/>
-                      <value ID="target"/>
-                    </observation>
-                  </entry>
-                </section>
-              </component>
-            </section>
-            """,
-            "18776-5",
-        ),
-        (
-            f"""
-            <ClinicalDocument xmlns="{HL7_NS}">
-              <component>
-                <section ID="target">
-                  <code code="18776-5" codeSystem="2.16.840.1.113883.6.1"/>
-                </section>
-              </component>
-            </ClinicalDocument>
-            """,
-            "18776-5",
-        ),
-        (
-            f"""
-            <ClinicalDocument xmlns="{HL7_NS}">
-              <recordTarget ID="target"/>
-            </ClinicalDocument>
-            """,
-            None,
-        ),
-        (
-            f"""
-            <section xmlns="{HL7_NS}">
-              <code code="365860008" codeSystem="2.16.840.1.113883.6.96"/>
-              <observation>
-                <code code="718-7" codeSystem="2.16.840.1.113883.6.1"/>
-                <value ID="target"/>
-              </observation>
-            </section>
-            """,
-            None,
-        ),
-        (
-            f"""
-            <section xmlns="{HL7_NS}">
-              <code code="not-a-loinc-code"
-                    codeSystem="2.16.840.1.113883.6.1"/>
-              <value ID="target"/>
-            </section>
-            """,
-            None,
-        ),
-    ],
+    SECTION_LOINC_CODE_CASES,
 )
 def test_section_loinc_code_uses_only_nearest_enclosing_section(
     xml: str,
