@@ -36,8 +36,8 @@ def make_result(
     """Build a representative successful manifest-entry result."""
     return ManifestEntryResult(
         output_file=DIDOutputFile(
-            eicr="DIDOutput/2026/id/jurisdiction/eicr.xml",
-            rr="DIDOutput/2026/id/jurisdiction/rr.xml",
+            eicr="DIDOutputV2/2026/id/jurisdiction/eicr.xml",
+            rr="DIDOutputV2/2026/id/jurisdiction/rr.xml",
             setId="set-id",
             versionNumber=version_number,
             is_actionable=True,

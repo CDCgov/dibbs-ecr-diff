@@ -11,7 +11,7 @@ from .models import EICRStorageRecord
 if TYPE_CHECKING:
     from types_boto3_dynamodb import DynamoDBServiceResource
 
-DYNAMODB_TABLE = os.environ.get("DID_DYNAMO_TABLE", "did-eicr-record")
+DYNAMODB_TABLE = os.environ.get("DYNAMODB_TABLE", "did-eicr-record")
 
 dynamodb: "DynamoDBServiceResource" = boto3.resource("dynamodb")
 db = dynamodb.Table(DYNAMODB_TABLE)

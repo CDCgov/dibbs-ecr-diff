@@ -271,12 +271,12 @@ def test_process_sqs_record_preserves_completion_manifest_schema(
     put_object.assert_called_once()
     bucket, key, body = put_object.call_args.args
     assert bucket == "bucket"
-    assert key == "DIDComplete/2026/id"
+    assert key == "DIDCompleteV2/2026/id"
     assert json.loads(body) == {
         "Files": [
             {
-                "eicr": "DIDOutput/2026/id/jurisdiction/eicr.xml",
-                "rr": "DIDOutput/2026/id/jurisdiction/rr.xml",
+                "eicr": "DIDOutputV2/2026/id/jurisdiction/eicr.xml",
+                "rr": "DIDOutputV2/2026/id/jurisdiction/rr.xml",
                 "setId": "set-id",
                 "versionNumber": 1,
                 "eicr_diff_output": None,
@@ -489,8 +489,8 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
     )
 
     assert result.output_file == DIDOutputFile(
-        eicr="DIDOutput/2026/id/jurisdiction/eicr.xml",
-        rr="DIDOutput/2026/id/jurisdiction/rr.xml",
+        eicr="DIDOutputV2/2026/id/jurisdiction/eicr.xml",
+        rr="DIDOutputV2/2026/id/jurisdiction/rr.xml",
         setId="set-id",
         versionNumber=1,
         is_actionable=True,
@@ -507,8 +507,8 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
     extract_conditions.assert_called_once_with(rr_tree)
     extract_encounter_type.assert_called_once_with(eicr_tree)
     assert operations.mock_calls == [
-        call.put_object("bucket", "DIDOutput/2026/id/jurisdiction/eicr.xml", b"eicr"),
-        call.put_object("bucket", "DIDOutput/2026/id/jurisdiction/rr.xml", b"rr"),
+        call.put_object("bucket", "DIDOutputV2/2026/id/jurisdiction/eicr.xml", b"eicr"),
+        call.put_object("bucket", "DIDOutputV2/2026/id/jurisdiction/rr.xml", b"rr"),
         call.put_eicr_record(ANY),
     ]
     storage_record = put_eicr_record.call_args.args[0]

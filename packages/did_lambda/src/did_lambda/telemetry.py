@@ -14,7 +14,7 @@ from .models import DIDOutputFile
 from .telemetry_helpers import ConditionCode, change_path_for_logging
 from .utils import InfraError
 
-ENVIRONMENT = os.environ.get("ENVIRONMENT", "prod")
+ENVIRONMENT = os.environ.get("ENV", "prod")
 METRICS_NAMESPACE = os.environ.get("POWERTOOLS_METRICS_NAMESPACE", "eICRDiff")
 SERVICE_NAME = os.environ.get("POWERTOOLS_SERVICE_NAME", "difference-in-docs")
 
