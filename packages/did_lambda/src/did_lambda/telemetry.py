@@ -14,11 +14,12 @@ from .models import DIDOutputFile
 from .telemetry_helpers import ConditionCode, change_path_for_logging
 from .utils import InfraError
 
-ENVIRONMENT = os.environ.get("ENV", "prod")
+ENVIRONMENT = os.environ.get("ENV", "production")
 METRICS_NAMESPACE = os.environ.get("POWERTOOLS_METRICS_NAMESPACE", "eICRDiff")
 SERVICE_NAME = os.environ.get("POWERTOOLS_SERVICE_NAME", "difference-in-docs")
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "DEBUG")
 
-logger = Logger(SERVICE_NAME)
+logger = Logger(service=SERVICE_NAME, level=LOG_LEVEL)
 metrics = Metrics(namespace=METRICS_NAMESPACE, service=SERVICE_NAME)
 
 

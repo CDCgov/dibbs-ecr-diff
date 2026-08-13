@@ -18,6 +18,7 @@ services:
       - COMPLETE_PREFIX=${COMPLETE_PREFIX:-DIDCompleteV2/}
       - DYNAMODB_TABLE=${DYNAMODB_TABLE:-did-eicr-record}
       - ENV=${ENV:-development}
+      - LOG_LEVEL=${LOG_LEVEL-DEBUG}
       - POWERTOOLS_METRICS_NAMESPACE=${POWERTOOLS_METRICS_NAMESPACE:-eICRDiff}
       - POWERTOOLS_SERVICE_NAME=${POWERTOOLS_SERVICE_NAME:-difference-in-docs}
     depends_on:
