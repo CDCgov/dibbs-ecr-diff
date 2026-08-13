@@ -6,9 +6,8 @@ from typing import TYPE_CHECKING
 import boto3
 from boto3.dynamodb.conditions import Attr, Key
 
-from did_lambda.utils import InfraError
-
 from .models import EICRStorageRecord
+from .utils import InfraError
 
 if TYPE_CHECKING:
     from types_boto3_dynamodb import DynamoDBServiceResource
