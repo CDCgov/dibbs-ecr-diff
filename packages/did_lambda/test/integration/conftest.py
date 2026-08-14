@@ -4,14 +4,6 @@ from moto import mock_aws
 
 
 @pytest.fixture(scope="function")
-def aws_creds(monkeypatch):
-    """Mocked AWS credentials for integration tests."""
-    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test")
-    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test")
-    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
-
-
-@pytest.fixture(scope="function")
 def bucket_name():
     return "ecr-dev-data-repository"
 
@@ -19,6 +11,16 @@ def bucket_name():
 @pytest.fixture(scope="function")
 def dynamodb_table_name():
     return "did-eicr-record"
+
+
+@pytest.fixture(scope="function")
+def aws_creds(monkeypatch, dynamodb_table_name):
+    """Mocked AWS credentials for integration tests."""
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+    monkeypatch.setenv("AWS_EC2_METADATA_DISABLED", "true")
+    monkeypatch.setenv("DYNAMODB_TABLE", dynamodb_table_name)
 
 
 @pytest.fixture(scope="function")

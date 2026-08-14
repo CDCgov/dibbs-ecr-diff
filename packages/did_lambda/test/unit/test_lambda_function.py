@@ -1,6 +1,5 @@
 import importlib
 import json
-import os
 import traceback
 from collections import Counter
 from types import SimpleNamespace
@@ -40,11 +39,13 @@ SENSITIVE_TEST_VALUES = (
 SENSITIVE_FAILURE_TEXT = " ".join(SENSITIVE_TEST_VALUES)
 
 
-def load_lambda_module():
-    os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
-    os.environ.setdefault("AWS_ACCESS_KEY_ID", "testing")
-    os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "testing")
-    os.environ.setdefault("AWS_EC2_METADATA_DISABLED", "true")
+@pytest.fixture
+def lambda_module(monkeypatch):
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
+    monkeypatch.setenv("AWS_EC2_METADATA_DISABLED", "true")
+    monkeypatch.setenv("DYNAMODB_TABLE", "did-eicr-record")
     return importlib.import_module("did_lambda.lambda_function")
 
 
@@ -108,11 +109,11 @@ def assert_safe_processing_failure(
 
 
 def test_lambda_handler_rejects_multiple_manifests_before_processing(
+    lambda_module,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    lambda_module = load_lambda_module()
     process_sqs_record = Mock()
     monkeypatch.setattr(lambda_module, "process_sqs_record", process_sqs_record)
 
@@ -150,11 +151,11 @@ def test_lambda_handler_rejects_multiple_manifests_before_processing(
 
 
 def test_lambda_handler_emits_only_failure_metrics_for_failed_manifest(
+    lambda_module,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    lambda_module = load_lambda_module()
     failure = InfraError("Processing failed during output_write")
     caplog.set_level("INFO")
 
@@ -190,9 +191,9 @@ def test_lambda_handler_emits_only_failure_metrics_for_failed_manifest(
 
 
 def test_lambda_handler_counts_successful_manifest_attempt(
+    lambda_module,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    lambda_module = load_lambda_module()
     observed_stats = []
 
     def process_record(_record, stats):
@@ -209,9 +210,9 @@ def test_lambda_handler_counts_successful_manifest_attempt(
 
 
 def test_lambda_handler_counts_failure_and_rethrows_same_exception(
+    lambda_module,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    lambda_module = load_lambda_module()
     observed_stats = []
     failure = InfraError("Processing failed during manifest_load")
 
@@ -231,10 +232,10 @@ def test_lambda_handler_counts_failure_and_rethrows_same_exception(
 
 
 def test_process_sqs_record_preserves_completion_manifest_schema(
+    lambda_module,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    lambda_module = load_lambda_module()
     caplog.set_level("INFO")
     configure_manifest_record(monkeypatch, lambda_module)
     stats = BatchProcessingStats()
@@ -271,12 +272,12 @@ def test_process_sqs_record_preserves_completion_manifest_schema(
     put_object.assert_called_once()
     bucket, key, body = put_object.call_args.args
     assert bucket == "bucket"
-    assert key == "DIDComplete/2026/id"
+    assert key == "DIDCompleteV2/2026/id"
     assert json.loads(body) == {
         "Files": [
             {
-                "eicr": "DIDOutput/2026/id/jurisdiction/eicr.xml",
-                "rr": "DIDOutput/2026/id/jurisdiction/rr.xml",
+                "eicr": "DIDOutputV2/2026/id/jurisdiction/eicr.xml",
+                "rr": "DIDOutputV2/2026/id/jurisdiction/rr.xml",
                 "setId": "set-id",
                 "versionNumber": 1,
                 "eicr_diff_output": None,
@@ -287,10 +288,10 @@ def test_process_sqs_record_preserves_completion_manifest_schema(
 
 
 def test_process_sqs_record_counts_failure_and_rethrows_same_exception(
+    lambda_module,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    lambda_module = load_lambda_module()
     configure_manifest_record(monkeypatch, lambda_module)
     failure = InfraError("Processing failed during output_write")
 
@@ -316,10 +317,10 @@ def test_process_sqs_record_counts_failure_and_rethrows_same_exception(
 
 
 def test_process_sqs_record_discards_pending_telemetry_on_entry_failure(
+    lambda_module,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    lambda_module = load_lambda_module()
     configure_manifest_record(monkeypatch, lambda_module)
     monkeypatch.setattr(
         lambda_module,
@@ -371,10 +372,10 @@ def test_process_sqs_record_discards_pending_telemetry_on_entry_failure(
 
 
 def test_process_sqs_record_logs_completed_document_and_reported_changes(
+    lambda_module,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    lambda_module = load_lambda_module()
     configure_manifest_record(monkeypatch, lambda_module)
     result = make_result(
         make_change(
@@ -446,9 +447,9 @@ def test_process_sqs_record_logs_completed_document_and_reported_changes(
 
 
 def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
+    lambda_module,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    lambda_module = load_lambda_module()
     entry = make_entry()
     eicr_root = object()
     eicr_tree = SimpleNamespace(getroot=lambda: eicr_root)
@@ -489,8 +490,8 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
     )
 
     assert result.output_file == DIDOutputFile(
-        eicr="DIDOutput/2026/id/jurisdiction/eicr.xml",
-        rr="DIDOutput/2026/id/jurisdiction/rr.xml",
+        eicr="DIDOutputV2/2026/id/jurisdiction/eicr.xml",
+        rr="DIDOutputV2/2026/id/jurisdiction/rr.xml",
         setId="set-id",
         versionNumber=1,
         is_actionable=True,
@@ -507,8 +508,8 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
     extract_conditions.assert_called_once_with(rr_tree)
     extract_encounter_type.assert_called_once_with(eicr_tree)
     assert operations.mock_calls == [
-        call.put_object("bucket", "DIDOutput/2026/id/jurisdiction/eicr.xml", b"eicr"),
-        call.put_object("bucket", "DIDOutput/2026/id/jurisdiction/rr.xml", b"rr"),
+        call.put_object("bucket", "DIDOutputV2/2026/id/jurisdiction/eicr.xml", b"eicr"),
+        call.put_object("bucket", "DIDOutputV2/2026/id/jurisdiction/rr.xml", b"rr"),
         call.put_eicr_record(ANY),
     ]
     storage_record = put_eicr_record.call_args.args[0]
@@ -525,10 +526,10 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
 
 
 def test_process_manifest_entry_propagates_final_write_failure(
+    lambda_module,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    lambda_module = load_lambda_module()
     entry = make_entry()
     eicr_tree = SimpleNamespace(getroot=lambda: object())
     monkeypatch.setattr(lambda_module, "get_before_actionable_record", lambda *_: None)
@@ -567,11 +568,11 @@ def test_process_manifest_entry_propagates_final_write_failure(
     ["document_load", "diff", "augmentation"],
 )
 def test_process_manifest_entry_sanitizes_each_processing_stage(
+    lambda_module,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
     stage: str,
 ) -> None:
-    lambda_module = load_lambda_module()
     before_record = SimpleNamespace(versionNumber=0, s3Key="sensitive-prior-key")
     monkeypatch.setattr(lambda_module, "get_before_actionable_record", lambda *_: None)
     eicr_tree = SimpleNamespace(getroot=lambda: object())
@@ -621,10 +622,10 @@ def test_process_manifest_entry_sanitizes_each_processing_stage(
 
 
 def test_process_sqs_record_sanitizes_manifest_load_failure(
+    lambda_module,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    lambda_module = load_lambda_module()
     monkeypatch.setattr(
         lambda_module,
         "S3EventBridgeNotificationEvent",
@@ -645,10 +646,10 @@ def test_process_sqs_record_sanitizes_manifest_load_failure(
 
 
 def test_process_sqs_record_sanitizes_completion_write_failure(
+    lambda_module,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    lambda_module = load_lambda_module()
     configure_manifest_record(monkeypatch, lambda_module)
     condition = ConditionCode(code_system="2.16.840.1.113883.6.96", code="840539006")
     result = make_result(

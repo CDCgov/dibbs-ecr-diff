@@ -7,11 +7,15 @@ import boto3
 from boto3.dynamodb.conditions import Attr, Key
 
 from .models import EICRStorageRecord
+from .utils import InfraError
 
 if TYPE_CHECKING:
     from types_boto3_dynamodb import DynamoDBServiceResource
 
-DYNAMODB_TABLE = os.environ.get("DID_DYNAMO_TABLE", "did-eicr-record")
+DYNAMODB_TABLE = os.environ.get("DYNAMODB_TABLE")
+
+if not DYNAMODB_TABLE:
+    raise InfraError("DYNAMODB_TABLE must be set")
 
 dynamodb: "DynamoDBServiceResource" = boto3.resource("dynamodb")
 db = dynamodb.Table(DYNAMODB_TABLE)

@@ -30,9 +30,9 @@ def get_did_output_key(root_prefix: str, persistence_id: str, source_key: str) -
 
     Examples:
     RefinerOutputV2/{persistence_id}/SDDH/COVID19/cda_eicr_1.xml
-        -> DIDOutput/{persistence_id}/SDDH/COVID19/cda_eicr_1.xml
+        -> DIDOutputV2/{persistence_id}/SDDH/COVID19/cda_eicr_1.xml
 
-    eCRMessageV2/{persistence_id} -> DIDOutput/{persistence_id}
+    eCRMessageV2/{persistence_id} -> DIDOutputV2/{persistence_id}
     """
     output_path = get_did_output_path(root_prefix, persistence_id, source_key)
     source_path = source_key.strip("/").split("/", 1)[-1]
@@ -52,8 +52,8 @@ def get_did_output_path(
 ) -> str:
     """Convert an S3 key into a DIDOutput-prefixed parent path.
 
-    RefinerOutputV2/<persistence_id>/SDDH/COVID19/file.xml -> DIDOutput/<persistence_id>/SDDH/COVID19
-    eCRMessageV2/<persistence_id> -> DIDOutput/<persistence_id>
+    RefinerOutputV2/<persistence_id>/SDDH/COVID19/file.xml -> DIDOutputV2/<persistence_id>/SDDH/COVID19
+    eCRMessageV2/<persistence_id> -> DIDOutputV2/<persistence_id>
     """
     # every part after DIDInput/
     # ex: ['2026', '08', '06', '<uuid>', 'SDDH', 'COVID19', 'cda_eicr_3.xml']

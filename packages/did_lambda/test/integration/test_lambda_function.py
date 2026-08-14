@@ -9,8 +9,8 @@ from .helpers import (
     send_input_files,
 )
 
-DID_COMPLETE_PREFIX = "DIDComplete/"
-DID_OUTPUT_PREFIX = "DIDOutput/"
+COMPLETE_PREFIX = "DIDCompleteV2/"
+OUTPUT_PREFIX = "DIDOutputV2/"
 
 
 def test_lambda_handler_preserves_pipeline_and_emits_success_telemetry(
@@ -46,13 +46,13 @@ def test_lambda_handler_preserves_pipeline_and_emits_success_telemetry(
 
     manifest_file = manifest.files[0]
     for input_key in (manifest_file.eicr, manifest_file.rr):
-        output_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, input_key)
+        output_key = get_did_output_key(OUTPUT_PREFIX, persistence_id, input_key)
         response = s3_client.get_object(Bucket=bucket_name, Key=output_key)
         assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
 
     completion = s3_client.get_object(
         Bucket=bucket_name,
-        Key=f"{DID_COMPLETE_PREFIX}{persistence_id}",
+        Key=f"{COMPLETE_PREFIX}{persistence_id}",
     )
     assert completion["ResponseMetadata"]["HTTPStatusCode"] == 200
 
@@ -169,9 +169,9 @@ def test_process_manifest_entry_with_single_file(
     assert record["isActionable"] is True
     assert record["comparedToVersion"] is None
 
-    # make sure the augmented eicr/rr were correctly put in DIDOutput/
+    # make sure the augmented eicr/rr were correctly put in DIDOutputV2/
     for input_key in (manifest_file.eicr, manifest_file.rr):
-        output_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, input_key)
+        output_key = get_did_output_key(OUTPUT_PREFIX, persistence_id, input_key)
         response = s3_client.get_object(Bucket=bucket_name, Key=output_key)
         assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
 
@@ -255,7 +255,7 @@ def test_process_sqs_record_with_eicr_diff(s3_client, bucket_name, dynamodb_tabl
 
     assert stats.documents_processed == 2
 
-    # ensure all files exist in DIDOutput
+    # ensure all files exist in DIDOutputV2
     for manifest, persistence_id in (
         (manifest_1, persistence_id_1),
         (manifest_2, persistence_id_2),
@@ -263,9 +263,7 @@ def test_process_sqs_record_with_eicr_diff(s3_client, bucket_name, dynamodb_tabl
         assert len(manifest.files) == 1
         manifest_file = manifest.files[0]
         for input_key in (manifest_file.eicr, manifest_file.rr):
-            output_key = get_did_output_key(
-                DID_OUTPUT_PREFIX, persistence_id, input_key
-            )
+            output_key = get_did_output_key(OUTPUT_PREFIX, persistence_id, input_key)
             response = s3_client.get_object(Bucket=bucket_name, Key=output_key)
             assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
 
@@ -288,6 +286,6 @@ def test_process_sqs_record_with_eicr_diff(s3_client, bucket_name, dynamodb_tabl
     for persistence_id in (persistence_id_1, persistence_id_2):
         response = s3_client.get_object(
             Bucket=bucket_name,
-            Key=f"{DID_COMPLETE_PREFIX}{persistence_id}",
+            Key=f"{COMPLETE_PREFIX}{persistence_id}",
         )
         assert response["ResponseMetadata"]["HTTPStatusCode"] == 200

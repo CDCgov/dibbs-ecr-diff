@@ -56,11 +56,10 @@ from .utils import (
     persistence_id_from_manifest_key,
 )
 
-DID_OUTPUT_PREFIX = os.environ.get("DID_OUTPUT_PREFIX", "DIDOutput/")
-DID_COMPLETE_PREFIX = os.environ.get("DID_COMPLETE_PREFIX", "DIDComplete/")
-DID_CONFIGURATION_FILE = os.environ.get("DID_CONFIGURATION_FILE", "aphl_baseline.json")
+OUTPUT_PREFIX = os.environ.get("OUTPUT_PREFIX", "DIDOutputV2/")
+COMPLETE_PREFIX = os.environ.get("COMPLETE_PREFIX", "DIDCompleteV2/")
 
-config = load_configuration(DID_CONFIGURATION_FILE)
+config = load_configuration("aphl_baseline.json")
 
 
 @metrics.log_metrics
@@ -129,7 +128,7 @@ def process_sqs_record(record: SQSRecord, stats: BatchProcessingStats) -> None:
 
     try:
         did_complete_manifest = DIDCompleteManifest(Files=did_complete_output_files)
-        did_complete_manifest_key = f"{DID_COMPLETE_PREFIX}{persistence_id}"
+        did_complete_manifest_key = f"{COMPLETE_PREFIX}{persistence_id}"
         put_object(
             bucket_name,
             did_complete_manifest_key,
@@ -183,9 +182,7 @@ def process_manifest_entry(
             diff_output = diff_xml(before_tree, eicr_tree, config)
             is_actionable = diff_output.hasActionableChanges
 
-            output_path = get_did_output_path(
-                DID_OUTPUT_PREFIX, persistence_id, entry.eicr
-            )
+            output_path = get_did_output_path(OUTPUT_PREFIX, persistence_id, entry.eicr)
             diff_output_key = f"{output_path}/diff_v{compared_to_version}_to_v{version_number}_{index}"
 
             stage = "output_write"
@@ -204,10 +201,10 @@ def process_manifest_entry(
         augmented_rr = get_augmented_rr(rr_tree, augmentation_run, jurisdiction_id)
 
         stage = "output_write"
-        eicr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, entry.eicr)
+        eicr_out_key = get_did_output_key(OUTPUT_PREFIX, persistence_id, entry.eicr)
         put_object(bucket_name, eicr_out_key, augmented_eicr)
 
-        rr_out_key = get_did_output_key(DID_OUTPUT_PREFIX, persistence_id, entry.rr)
+        rr_out_key = get_did_output_key(OUTPUT_PREFIX, persistence_id, entry.rr)
         put_object(bucket_name, rr_out_key, augmented_rr)
 
         put_eicr_record(
