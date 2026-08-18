@@ -20,6 +20,7 @@ DID_INPUT_PREFIX = "DIDInput/"
 EVENT_RULE_NAME = "ecr-dev-did-input-event"
 QUEUE_NAME = "ecr-dev-did-input"
 TABLE_NAME = "did-eicr-record"
+E2E_TABLE_NAME = "e2e-did-eicr-record"  # for e2e test suite
 
 client_options = {
     "endpoint_url": AWS_ENDPOINT_URL,
@@ -112,22 +113,23 @@ s3.put_bucket_cors(Bucket=INPUT_BUCKET, CORSConfiguration=cors_configuration)
 
 # create DynamoDB table
 # see: docs/Storage-Architecture.md
-try:
-    dynamodb.describe_table(TableName=TABLE_NAME)
-except dynamodb.exceptions.ResourceNotFoundException:
-    # if doesn't exist, create the table
-    dynamodb.create_table(
-        TableName=TABLE_NAME,
-        AttributeDefinitions=[
-            {"AttributeName": "setId", "AttributeType": "S"},
-            {"AttributeName": "versionNumber", "AttributeType": "N"},
-        ],
-        KeySchema=[
-            {"AttributeName": "setId", "KeyType": "HASH"},
-            {"AttributeName": "versionNumber", "KeyType": "RANGE"},
-        ],
-        # set to PAY_PER_REQUEST to avoid setting read/write capacity for local environment/testing
-        BillingMode="PAY_PER_REQUEST",
-    )
+for table_name in (TABLE_NAME, E2E_TABLE_NAME):
+    try:
+        dynamodb.describe_table(TableName=table_name)
+    except dynamodb.exceptions.ResourceNotFoundException:
+        # if doesn't exist, create the table
+        dynamodb.create_table(
+            TableName=table_name,
+            AttributeDefinitions=[
+                {"AttributeName": "setId", "AttributeType": "S"},
+                {"AttributeName": "versionNumber", "AttributeType": "N"},
+            ],
+            KeySchema=[
+                {"AttributeName": "setId", "KeyType": "HASH"},
+                {"AttributeName": "versionNumber", "KeyType": "RANGE"},
+            ],
+            # set to PAY_PER_REQUEST to avoid setting read/write capacity for local environment/testing
+            BillingMode="PAY_PER_REQUEST",
+        )
 
 print("localstack initialization complete")
