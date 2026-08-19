@@ -21,7 +21,7 @@ from core.cda.key_models import (
 )
 from core.cda.narrative_keys import narrative_row_key, narrative_table_key
 from core.cda.root_extensions import direct_child_root_extensions_for_tag
-from core.cda.stable_key import stable_key
+from core.cda.stable_key import highest_ranked_stable_key
 from core.cda.tags import TEMPLATE_ID_TAG
 from core.constants import HL7_NS, HL7_PREFIX, NAMESPACES
 from core.xml_utils import _xpath_first_attribute_value, localname
@@ -141,7 +141,8 @@ def stable_xml_path(
 ) -> str:
     """Return a stable, human-readable path string for elem.
 
-    Uses meaningful bracket labels derived from stable_key / narrative keys
+    Uses meaningful bracket labels derived from the highest-ranked stable key /
+    narrative keys
     where available; falls back to positional [:N] notation otherwise.
     Stops ascending at the element whose local name matches `anchor`.
     """
@@ -162,7 +163,7 @@ def stable_xml_path(
             row_key = narrative_row_key(current)
             elem_key = ("narr_row", row_key) if row_key else None
         else:
-            elem_key = stable_key(current)
+            elem_key = highest_ranked_stable_key(current)
 
         label = _stable_key_to_label(elem_key)
         parent = current.getparent()
@@ -413,7 +414,7 @@ def xpath_with_predicates(
                 )
 
         else:
-            elem_key = stable_key(current)
+            elem_key = highest_ranked_stable_key(current)
             for predicate in _direct_attribute_stable_key_predicates(elem_key):
                 _append_xpath_predicate(predicates, predicate)
 

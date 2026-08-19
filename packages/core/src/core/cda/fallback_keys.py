@@ -153,7 +153,7 @@ def _weak_attribute_discriminator(elem: etree._Element) -> tuple | None:
 def secondary_discriminator(elem: etree._Element) -> tuple:
     """Return the best available secondary discriminator for elem.
 
-    This is not only used when stable_key() is unavailable. It is also used
+    This is not only used when the highest-ranked stable key is unavailable. It is also used
     after stable-key matching leaves an ambiguous bucket, especially when
     multiple elements share a broad stable key such as direct templateId
     root/extensions.

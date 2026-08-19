@@ -4,6 +4,7 @@ from core.cda.key_models import (
     DirectChildCodeElementSetKey,
     DirectChildIdElementSetKey,
     DirectChildTemplateIdElementSetKey,
+    DirectIdAttributeKey,
     NestedClinicalStatementCodeElementSetKey,
     NestedClinicalStatementIdAttributeKey,
     NestedClinicalStatementIdElementSetKey,
@@ -13,7 +14,13 @@ from core.cda.key_models import (
     RootExtension,
     RootExtensionKey,
 )
-from core.cda.stable_key import stable_key
+from core.cda.stable_key import (
+    STABLE_KEY_RANKS,
+    stable_key_candidates,
+)
+from core.cda.stable_key import (
+    highest_ranked_stable_key as stable_key,
+)
 from helpers import HL7_NS, elem, observation
 
 
@@ -48,6 +55,105 @@ def test_stable_key_does_not_use_weak_attributes_as_key():
     )
 
     assert stable_key(element) is None
+
+
+def test_stable_key_candidates_contains_every_ranked_candidate():
+    element = observation('<id root="id-root"/><templateId root="template-root"/>')
+
+    candidates = stable_key_candidates(element)
+
+    assert list(STABLE_KEY_RANKS) == sorted(STABLE_KEY_RANKS)
+    assert tuple(candidates) == STABLE_KEY_RANKS
+    assert set(candidates) == set(STABLE_KEY_RANKS)
+    assert candidates[STABLE_KEY_RANKS.ID_ATTRIBUTE_RANK] is None
+    assert candidates[STABLE_KEY_RANKS.DIRECT_CHILD_ID_RANK] is not None
+    assert candidates[STABLE_KEY_RANKS.DIRECT_CHILD_TEMPLATE_ID_RANK] is not None
+    assert all(candidate_name in candidates for candidate_name in STABLE_KEY_RANKS)
+    assert STABLE_KEY_RANKS.ID_ATTRIBUTE_RANK == 1
+    assert STABLE_KEY_RANKS.CLINICAL_STATEMENT_TEMPLATE_ID_RANK == 12
+
+
+def test_stable_key_candidates_populates_each_candidate_type():
+    candidate_cases = (
+        (
+            STABLE_KEY_RANKS.ID_ATTRIBUTE_RANK,
+            elem(f'<observation xmlns="{HL7_NS}" ID="element-id"/>'),
+            DirectIdAttributeKey,
+        ),
+        (
+            STABLE_KEY_RANKS.ROOT_EXTENSION_RANK,
+            elem(f'<id xmlns="{HL7_NS}" root="root"/>'),
+            RootExtensionKey,
+        ),
+        (
+            STABLE_KEY_RANKS.CODE_RANK,
+            elem(f'<code xmlns="{HL7_NS}" code="code" codeSystem="system"/>'),
+            CodeKey,
+        ),
+        (
+            STABLE_KEY_RANKS.DIRECT_CHILD_ID_RANK,
+            observation('<id root="child-id"/>'),
+            DirectChildIdElementSetKey,
+        ),
+        (
+            STABLE_KEY_RANKS.CLINICAL_STATEMENT_ID_ATTRIBUTE_RANK,
+            elem(f'<entry xmlns="{HL7_NS}"><observation ID="statement-id"/></entry>'),
+            NestedClinicalStatementIdAttributeKey,
+        ),
+        (
+            STABLE_KEY_RANKS.CLINICAL_STATEMENT_ID_RANK,
+            elem(
+                f'<entry xmlns="{HL7_NS}"><observation><id root="statement-id"/>'
+                "</observation></entry>"
+            ),
+            NestedClinicalStatementIdElementSetKey,
+        ),
+        (
+            STABLE_KEY_RANKS.DIRECT_CHILD_CODE_RANK,
+            observation('<code code="child-code" codeSystem="system"/>'),
+            DirectChildCodeElementSetKey,
+        ),
+        (
+            STABLE_KEY_RANKS.CLINICAL_STATEMENT_CODE_RANK,
+            elem(
+                f'<entry xmlns="{HL7_NS}"><observation><code code="statement-code" '
+                'codeSystem="system"/></observation></entry>'
+            ),
+            NestedClinicalStatementCodeElementSetKey,
+        ),
+        (
+            STABLE_KEY_RANKS.SECTION_ID_RANK,
+            elem(
+                f'<component xmlns="{HL7_NS}"><section><id root="section-id"/>'
+                "</section></component>"
+            ),
+            NestedSectionIdElementSetKey,
+        ),
+        (
+            STABLE_KEY_RANKS.DIRECT_CHILD_TEMPLATE_ID_RANK,
+            observation('<templateId root="child-template"/>'),
+            DirectChildTemplateIdElementSetKey,
+        ),
+        (
+            STABLE_KEY_RANKS.SECTION_TEMPLATE_ID_RANK,
+            elem(
+                f'<component xmlns="{HL7_NS}"><section><templateId root="section-template"/>'
+                "</section></component>"
+            ),
+            NestedSectionTemplateIdElementSetKey,
+        ),
+        (
+            STABLE_KEY_RANKS.CLINICAL_STATEMENT_TEMPLATE_ID_RANK,
+            elem(
+                f'<entry xmlns="{HL7_NS}"><observation><templateId root="statement-template"/>'
+                "</observation></entry>"
+            ),
+            NestedClinicalStatementTemplateIdElementSetKey,
+        ),
+    )
+
+    for rank, element, expected_type in candidate_cases:
+        assert isinstance(stable_key_candidates(element)[rank], expected_type)
 
 
 def test_stable_key_prefers_direct_child_id_over_template_ids():

@@ -1,5 +1,15 @@
-from core.cda.stable_key import stable_key
-from core.matching import match_children_ignore_order
+from core.cda.stable_key import (
+    STABLE_KEY_RANKS,
+    stable_key_candidates,
+)
+from core.cda.stable_key import (
+    highest_ranked_stable_key as stable_key,
+)
+from core.matching import (
+    _ranked_stable_key_pairing,
+    _unique_elements_by_key,
+    match_children_ignore_order,
+)
 from helpers import HL7_NS, elem, observation
 
 
@@ -391,6 +401,152 @@ def test_matching_pairs_template_ids_independent_of_document_order():
         (before_first, after_second),
         (before_second, after_first),
     ]
+
+
+def test_ranked_matching_uses_next_candidate_after_first_pass():
+    before_id = elem(f'<id xmlns="{HL7_NS}" ID="id-before"/>')
+    before_root = elem(f'<id xmlns="{HL7_NS}" root="shared-root"/>')
+    after_id = elem(f'<id xmlns="{HL7_NS}" ID="id-after"/>')
+    after_root = elem(f'<id xmlns="{HL7_NS}" root="shared-root"/>')
+
+    pairs, unmatched_before, unmatched_after = _ranked_stable_key_pairing(
+        [before_id, before_root],
+        [after_id, after_root],
+    )
+
+    assert pairs == [(before_root, after_root)]
+    assert unmatched_before == [before_id]
+    assert unmatched_after == [after_id]
+
+
+def test_ranked_matching_recovers_with_lower_rank_after_ambiguous_candidate():
+    before_first = elem(f'<id xmlns="{HL7_NS}" ID="shared" root="root-a"/>')
+    before_second = elem(f'<id xmlns="{HL7_NS}" ID="shared" root="root-b"/>')
+    after_first = elem(f'<id xmlns="{HL7_NS}" ID="shared" root="root-a"/>')
+    after_second = elem(f'<id xmlns="{HL7_NS}" ID="shared" root="root-b"/>')
+
+    pairs, unmatched_before, unmatched_after = _ranked_stable_key_pairing(
+        [before_first, before_second],
+        [after_first, after_second],
+    )
+
+    assert pairs == [(before_first, after_first), (before_second, after_second)]
+    assert unmatched_before == []
+    assert unmatched_after == []
+
+
+def test_ranked_matching_pairs_multiple_unique_candidates_in_one_pass():
+    before_first = elem(f'<id xmlns="{HL7_NS}" root="root-a"/>')
+    before_second = elem(f'<id xmlns="{HL7_NS}" root="root-b"/>')
+    after_first = elem(f'<id xmlns="{HL7_NS}" root="root-a"/>')
+    after_second = elem(f'<id xmlns="{HL7_NS}" root="root-b"/>')
+
+    pairs, unmatched_before, unmatched_after = _ranked_stable_key_pairing(
+        [before_first, before_second],
+        [after_first, after_second],
+    )
+
+    assert pairs == [(before_first, after_first), (before_second, after_second)]
+    assert unmatched_before == []
+    assert unmatched_after == []
+
+
+def test_ranked_matching_marks_four_duplicate_candidates_ambiguous():
+    before_elements = [
+        elem(f'<id xmlns="{HL7_NS}" root="shared-root"/>') for _ in range(4)
+    ]
+    after_elements = [
+        elem(f'<id xmlns="{HL7_NS}" root="shared-root"/>') for _ in range(4)
+    ]
+    before_candidates = {
+        element: stable_key_candidates(element) for element in before_elements
+    }
+
+    unique_elements = _unique_elements_by_key(
+        before_elements,
+        before_candidates,
+        STABLE_KEY_RANKS.ROOT_EXTENSION_RANK,
+    )
+
+    shared_root_key = stable_key_candidates(before_elements[0])[
+        STABLE_KEY_RANKS.ROOT_EXTENSION_RANK
+    ]
+    assert shared_root_key is not None
+    assert unique_elements[shared_root_key] is None
+
+    pairs, unmatched_before, unmatched_after = _ranked_stable_key_pairing(
+        before_elements,
+        after_elements,
+    )
+    assert pairs == []
+    assert unmatched_before == before_elements
+    assert unmatched_after == after_elements
+
+
+def test_ranked_matching_leaves_overlap_for_fallback_matching():
+    before = observation('<id root="stable-id" extension="1"/>')
+    after = observation(
+        '<id root="stable-id" extension="1"/><id root="new-id" extension="2"/>'
+    )
+
+    ranked_pairs, unmatched_before, unmatched_after = _ranked_stable_key_pairing(
+        [before],
+        [after],
+    )
+
+    assert ranked_pairs == []
+    assert unmatched_before == [before]
+    assert unmatched_after == [after]
+    assert list(match_children_ignore_order([before], [after])) == [(before, after)]
+
+
+def test_matching_does_not_emit_an_element_in_more_than_one_pair():
+    before_first = elem(f'<id xmlns="{HL7_NS}" root="root-a"/>')
+    before_second = elem(f'<id xmlns="{HL7_NS}" root="root-b"/>')
+    after_first = elem(f'<id xmlns="{HL7_NS}" root="root-b"/>')
+    after_second = elem(f'<id xmlns="{HL7_NS}" root="root-a"/>')
+
+    pairs = list(
+        match_children_ignore_order(
+            [before_first, before_second],
+            [after_first, after_second],
+        )
+    )
+
+    assert pairs == [
+        (before_first, after_second),
+        (before_second, after_first),
+    ]
+
+
+def test_ranked_matching_rejects_one_to_many_matches():
+    before = elem(f'<id xmlns="{HL7_NS}" root="shared-root"/>')
+    after_first = elem(f'<id xmlns="{HL7_NS}" root="shared-root"/>')
+    after_second = elem(f'<id xmlns="{HL7_NS}" root="shared-root"/>')
+
+    pairs, unmatched_before, unmatched_after = _ranked_stable_key_pairing(
+        [before],
+        [after_first, after_second],
+    )
+
+    assert pairs == []
+    assert unmatched_before == [before]
+    assert unmatched_after == [after_first, after_second]
+
+
+def test_ranked_matching_rejects_many_to_one_matches():
+    before_first = elem(f'<id xmlns="{HL7_NS}" root="shared-root"/>')
+    before_second = elem(f'<id xmlns="{HL7_NS}" root="shared-root"/>')
+    after = elem(f'<id xmlns="{HL7_NS}" root="shared-root"/>')
+
+    pairs, unmatched_before, unmatched_after = _ranked_stable_key_pairing(
+        [before_first, before_second],
+        [after],
+    )
+
+    assert pairs == []
+    assert unmatched_before == [before_first, before_second]
+    assert unmatched_after == [after]
 
 
 def test_weak_attributes_are_only_late_in_bucket_discriminators():

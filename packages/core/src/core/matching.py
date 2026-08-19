@@ -35,7 +35,12 @@ from core.cda.key_models import (
     StableKey,
 )
 from core.cda.narrative_keys import narrative_row_key, narrative_table_key
-from core.cda.stable_key import stable_key
+from core.cda.stable_key import (
+    STABLE_KEY_RANKS,
+    StableKeyCandidates,
+    highest_ranked_stable_key,
+    stable_key_candidates,
+)
 from core.xml_utils import localname
 
 type RootExtensionSetKeyTypes = tuple[type[RootExtensionSetKeyBase], ...]
@@ -216,7 +221,9 @@ def _index_elements_by_stable_key_root_extension(
     """Index elements by each allowed stable-key root/extension pair."""
     return _build_root_extension_element_index(
         elements,
-        lambda elem: stable_key_root_extension_extractor(stable_key(elem)),
+        lambda elem: stable_key_root_extension_extractor(
+            highest_ranked_stable_key(elem)
+        ),
     )
 
 
@@ -401,7 +408,7 @@ def _direct_clinical_statement_child_id_root_extensions(
     root_extensions: set[RootExtension] = set()
 
     for statement_child in element.iterchildren(tag=CDA_CLINICAL_STATEMENT_TAGS):
-        statement_key = stable_key(statement_child)
+        statement_key = highest_ranked_stable_key(statement_child)
         if isinstance(statement_key, DirectChildIdElementSetKey):
             root_extensions.update(statement_key.root_extensions)
 
@@ -477,15 +484,30 @@ def _shared_template_id_pairing(
     return matched_pairs, before_list, after_list
 
 
-def _stable_key_overlap_pairing(
+def _stable_key_overlap_or_subset_pairing(
     before_list: list[etree._Element],
     after_list: list[etree._Element],
 ) -> tuple[list[tuple], list[etree._Element], list[etree._Element]]:
-    """Apply overlap fallbacks from strongest to weakest stable-key signal.
+    """Apply overlap and subset fallbacks from strongest to weakest signal.
 
     Child IDs are more specific than nested section IDs, and both are stronger
     than direct statement ID subsets. TemplateId overlap is tried last because
     it represents conformance/type continuity rather than instance identity.
+
+    An overlap fallback can pair elements when their key sets share one
+    unambiguous value, even when the complete sets differ::
+
+        before: {id-a, id-b}
+        after:  {id-a, id-c}
+
+    A subset fallback can pair elements when every key in the smaller set is
+    present in the larger set::
+
+        before: {id-a, id-b}
+        after:  {id-a, id-b, id-c}
+
+    Both forms require the candidate value to identify exactly one element on
+    each side. Ambiguous one-to-many and many-to-one matches are not paired.
     """
     matched_pairs = []
 
@@ -519,9 +541,93 @@ def _stable_key_overlap_pairing(
 # ---------------------------------------------------------------------------
 
 
-def match_children_ignore_order(
+def _unique_elements_by_key(
+    elements: list[etree._Element],
+    candidates_by_element: dict[etree._Element, StableKeyCandidates],
+    candidate_rank: int,
+) -> dict[StableKey, etree._Element | None]:
+    """Index elements by a candidate, marking duplicate candidates ambiguous."""
+    elements_by_key: dict[StableKey, etree._Element | None] = {}
+
+    for elem in elements:
+        stable_key_candidate_for_element = candidates_by_element[elem][candidate_rank]
+        if stable_key_candidate_for_element is None:
+            continue
+
+        if stable_key_candidate_for_element not in elements_by_key:
+            elements_by_key[stable_key_candidate_for_element] = elem
+        elif elements_by_key[stable_key_candidate_for_element] is not None:
+            # A sibling element that has the same stable key violates the
+            # one-to-one matching requirement, so that key cannot be used
+            # to match across eICRs
+            elements_by_key[stable_key_candidate_for_element] = None
+
+    return elements_by_key
+
+
+def _ranked_stable_key_pairing(
     before_list: list[etree._Element],
     after_list: list[etree._Element],
+) -> tuple[
+    list[tuple[etree._Element, etree._Element]],
+    list[etree._Element],
+    list[etree._Element],
+]:
+    """Pair remaining siblings through strict one-to-one stable-key passes."""
+    before_element_to_stable_key_candidates: dict[
+        etree._Element, StableKeyCandidates
+    ] = {elem: stable_key_candidates(elem) for elem in before_list}
+    after_element_to_stable_key_candidates: dict[
+        etree._Element, StableKeyCandidates
+    ] = {elem: stable_key_candidates(elem) for elem in after_list}
+    unmatched_before_elements = list(before_list)
+    unmatched_after_elements = list(after_list)
+    matched_elements: list[tuple[etree._Element, etree._Element]] = []
+
+    for stable_key_rank in STABLE_KEY_RANKS:
+        unique_before_elements_by_key = _unique_elements_by_key(
+            unmatched_before_elements,
+            before_element_to_stable_key_candidates,
+            stable_key_rank,
+        )
+        unique_after_elements_by_key = _unique_elements_by_key(
+            unmatched_after_elements,
+            after_element_to_stable_key_candidates,
+            stable_key_rank,
+        )
+
+        matches_found: list[tuple[etree._Element, etree._Element]] = []
+        for stable_key_value, before_elem in unique_before_elements_by_key.items():
+            after_elem = unique_after_elements_by_key.get(stable_key_value)
+            if before_elem is not None and after_elem is not None:
+                matches_found.append((before_elem, after_elem))
+
+        if not matches_found:
+            continue
+
+        matched_elements.extend(matches_found)
+        before_elements_matched = {before_elem for before_elem, _ in matches_found}
+        after_elements_matched = {after_elem for _, after_elem in matches_found}
+        unmatched_before_elements = [
+            elem
+            for elem in unmatched_before_elements
+            if elem not in before_elements_matched
+        ]
+        unmatched_after_elements = [
+            elem
+            for elem in unmatched_after_elements
+            if elem not in after_elements_matched
+        ]
+
+        if not unmatched_before_elements or not unmatched_after_elements:
+            break
+
+    return matched_elements, unmatched_before_elements, unmatched_after_elements
+
+
+def match_children_ignore_order(
+    unmatched_before_elements: list[etree._Element],
+    unmatched_after_elements: list[etree._Element],
 ) -> Iterator[tuple[etree._Element | None, etree._Element | None]]:
     """Yield (before_elem, after_elem) pairs matching elements from before_list against after_list.
 
@@ -530,7 +636,8 @@ def match_children_ignore_order(
 
     Matching strategy (applied in order):
       1. Table cells (<td>/<th>) — paired by column position
-      2. Unique stable keys on both sides — direct dictionary lookup
+      2. Ranked stable-key candidates — progressively match strict one-to-one
+         candidate values and remove matched siblings after each pass
          2a. Unmatched CDA child-id keys may pair by unambiguous ID overlap
          2b. Unmatched nested-section ID keys may pair when one ID set is a
              complete subset of the other
@@ -545,73 +652,41 @@ def match_children_ignore_order(
          3b. Within remaining buckets, use secondary discriminator matching
     """
     # --- Strategy 1: column-positional pairing for table cells ---
-    if _is_table_cell_list(before_list) and _is_table_cell_list(after_list):
-        pair_count = min(len(before_list), len(after_list))
+    if _is_table_cell_list(unmatched_before_elements) and _is_table_cell_list(
+        unmatched_after_elements
+    ):
+        pair_count = min(len(unmatched_before_elements), len(unmatched_after_elements))
         for index in range(pair_count):
-            yield before_list[index], after_list[index]
-        for index in range(pair_count, len(before_list)):
-            yield before_list[index], None
-        for index in range(pair_count, len(after_list)):
-            yield None, after_list[index]
+            yield unmatched_before_elements[index], unmatched_after_elements[index]
+        for index in range(pair_count, len(unmatched_before_elements)):
+            yield unmatched_before_elements[index], None
+        for index in range(pair_count, len(unmatched_after_elements)):
+            yield None, unmatched_after_elements[index]
         return
 
-    # --- Strategy 2: unique stable-key fast path ---
-    def unique_stable_key_map(elem_list: list[etree._Element]):
-        keyed_elements = {}
-        for elem in elem_list:
-            elem_key = stable_key(elem)
-            if elem_key is None or elem_key in keyed_elements:
-                return None
-            keyed_elements[elem_key] = elem
-        return keyed_elements
-
-    before_map = unique_stable_key_map(before_list)
-    after_map = unique_stable_key_map(after_list)
-    if before_map is not None and after_map is not None and before_list and after_list:
-        exact_keys = set(before_map) & set(after_map)
-        for key in sorted(exact_keys, key=str):
-            yield before_map[key], after_map[key]
-
-        unmatched_before = [
-            before_map[key] for key in sorted(set(before_map) - exact_keys, key=str)
-        ]
-        unmatched_after = [
-            after_map[key] for key in sorted(set(after_map) - exact_keys, key=str)
-        ]
-
-        overlap_pairs, unmatched_before, unmatched_after = _stable_key_overlap_pairing(
-            unmatched_before,
-            unmatched_after,
+    # --- Strategy 2: ranked strict one-to-one stable-key passes ---
+    matched_elements, unmatched_before_elements, unmatched_after_elements = (
+        _ranked_stable_key_pairing(
+            unmatched_before_elements,
+            unmatched_after_elements,
         )
-        for before_elem, after_elem in overlap_pairs:
-            yield before_elem, after_elem
-        for before_elem in unmatched_before:
-            yield before_elem, None
-        for after_elem in unmatched_after:
-            yield None, after_elem
-        return
-
-    overlap_pairs, before_list, after_list = _stable_key_overlap_pairing(
-        before_list,
-        after_list,
     )
-    for before_elem, after_elem in overlap_pairs:
+    for before_elem, after_elem in matched_elements:
         yield before_elem, after_elem
 
-    if overlap_pairs:
-        if not before_list:
-            for after_elem in after_list:
-                yield None, after_elem
-            return
-        if not after_list:
-            for before_elem in before_list:
-                yield before_elem, None
-            return
+    overlap_or_subset_matches, unmatched_before_elements, unmatched_after_elements = (
+        _stable_key_overlap_or_subset_pairing(
+            unmatched_before_elements,
+            unmatched_after_elements,
+        )
+    )
+    for before_elem, after_elem in overlap_or_subset_matches:
+        yield before_elem, after_elem
 
-    if not before_list or not after_list:
-        for before_elem in before_list:
+    if not unmatched_before_elements or not unmatched_after_elements:
+        for before_elem in unmatched_before_elements:
             yield before_elem, None
-        for after_elem in after_list:
+        for after_elem in unmatched_after_elements:
             yield None, after_elem
         return
 
@@ -628,7 +703,7 @@ def match_children_ignore_order(
         row_key = narrative_row_key(elem)
         if row_key:
             return ("narr_row", row_key)
-        elem_stable_key = stable_key(elem)
+        elem_stable_key = highest_ranked_stable_key(elem)
         if elem_stable_key is not None:
             if isinstance(elem_stable_key, DirectChildTemplateIdElementSetKey):
                 return ("templateId.root_extensions", elem_stable_key.root_extensions)
@@ -637,9 +712,9 @@ def match_children_ignore_order(
 
     before_buckets: dict = defaultdict(list)
     after_buckets: dict = defaultdict(list)
-    for elem in before_list:
+    for elem in unmatched_before_elements:
         before_buckets[primary_bucket_key(elem)].append(elem)
-    for elem in after_list:
+    for elem in unmatched_after_elements:
         after_buckets[primary_bucket_key(elem)].append(elem)
 
     for bucket_key in sorted(set(before_buckets) | set(after_buckets), key=str):
