@@ -1,5 +1,6 @@
 import json
 
+import pytest
 from did_lambda.utils import get_did_output_key
 
 from .helpers import (
@@ -191,6 +192,119 @@ def test_process_manifest_entry_with_single_file(
         )
         response = s3_client.get_object(Bucket=bucket_name, Key=output_key)
         assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+def test_process_manifest_entry_with_unrefined_pair(
+    s3_client, bucket_name, dynamodb_table
+):
+    from did_lambda.lambda_function import process_manifest_entry
+
+    eicr_set_id = "eicr-set-id-1"
+    version_number = 1
+
+    eicr_body = build_doc(version_number, eicr_set_id)
+    rr_body = build_doc(version_number, "rr-set-id-1")
+
+    _manifest_key, manifest, persistence_id = send_input_files(
+        s3_client,
+        bucket_name=bucket_name,
+        input_files=[
+            MockS3InputFile(
+                eicr_body=eicr_body,
+                rr_body=rr_body,
+                set_id=eicr_set_id,
+                version_number=version_number,
+            )
+        ],
+    )
+
+    manifest_file = manifest.files[0]
+    process_manifest_entry(bucket_name, persistence_id, manifest_file, 0)
+
+    record = dynamodb_table.get_item(
+        Key={"setId": eicr_set_id, "versionNumber": version_number}
+    )["Item"]
+
+    # dynamodb should have a record for our processed file
+    assert record["s3Key"] == manifest_file.eicr
+    assert record["s3KeyRR"] == manifest_file.rr
+    assert record["s3KeyDiffOutput"] is None
+    assert record["isActionable"] is True
+    assert record["comparedToVersion"] is None
+
+    # make sure the augmented eicr/rr were correctly put in DIDOutputV2/
+    for fallback_basename, input_key in (
+        ("eICR.xml", manifest_file.eicr),
+        ("RR.xml", manifest_file.rr),
+    ):
+        output_key = get_did_output_key(
+            root_prefix=OUTPUT_PREFIX,
+            persistence_id=persistence_id,
+            source_key=input_key,
+            fallback_basename=fallback_basename,
+        )
+
+        response = s3_client.get_object(Bucket=bucket_name, Key=output_key)
+        assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert output_key.endswith(fallback_basename)
+
+
+def test_process_manifest_entry_with_remainder_rr(
+    s3_client, bucket_name, dynamodb_table
+):
+    from did_lambda.lambda_function import process_manifest_entry
+
+    eicr_set_id = "eicr-set-id-1"
+    version_number = 1
+
+    eicr_body = build_doc(version_number, eicr_set_id)
+    rr_body = build_doc(version_number, "rr-set-id-1")
+
+    _manifest_key, manifest, persistence_id = send_input_files(
+        s3_client,
+        bucket_name=bucket_name,
+        input_files=[
+            MockS3InputFile(
+                eicr_body=eicr_body,
+                rr_body=rr_body,
+                set_id=eicr_set_id,
+                version_number=version_number,
+                path_type="remainder_rr",
+            )
+        ],
+    )
+
+    manifest_file = manifest.files[0]
+    process_manifest_entry(bucket_name, persistence_id, manifest_file, 0)
+
+    record = dynamodb_table.get_item(
+        Key={"setId": eicr_set_id, "versionNumber": version_number}
+    )
+
+    # dynamodb should not have a record for our processed file
+    assert "Item" not in record
+
+    # make sure the remainder RR was passed to DIDOutputV2/
+    rr_out_key = get_did_output_key(
+        root_prefix=OUTPUT_PREFIX,
+        persistence_id=persistence_id,
+        source_key=manifest_file.rr,
+        fallback_basename="RR.xml",
+    )
+
+    response = s3_client.get_object(Bucket=bucket_name, Key=rr_out_key)
+    assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    # an eicr should not have been written to DIDOutputV2/
+    eicr_out_key = get_did_output_key(
+        root_prefix=OUTPUT_PREFIX,
+        persistence_id=persistence_id,
+        source_key=manifest_file.eicr,
+        fallback_basename="eICR.xml",
+    )
+
+    with pytest.raises(s3_client.exceptions.NoSuchKey):
+        s3_client.get_object(Bucket=bucket_name, Key=eicr_out_key)
 
 
 def test_process_sqs_record_with_eicr_diff(s3_client, bucket_name, dynamodb_table):

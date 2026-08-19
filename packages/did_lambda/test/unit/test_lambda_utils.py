@@ -53,6 +53,18 @@ def test_get_did_output_key_on_unrefined_eicr():
     )
 
 
+def test_get_did_output_key_on_remainder_rr():
+    assert (
+        get_did_output_key(
+            root_prefix=OUTPUT_PREFIX,
+            persistence_id=PERSISTENCE_ID,
+            source_key=f"RefinerOutputV2/{PERSISTENCE_ID}/HT/unrefined_rr/refined_RR.xml",
+            fallback_basename="eICR.xml",
+        )
+        == f"{OUTPUT_PREFIX}{PERSISTENCE_ID}/HT/unrefined_rr/refined_RR.xml"
+    )
+
+
 def test_get_did_output_path_requires_a_nested_source_key():
     with pytest.raises(InfraError):
         get_did_output_path(OUTPUT_PREFIX, PERSISTENCE_ID, "DIDInput/eicr.xml")
