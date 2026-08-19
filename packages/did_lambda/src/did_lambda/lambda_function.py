@@ -198,7 +198,7 @@ def process_manifest_entry(
                 output_path = get_did_output_path(
                     OUTPUT_PREFIX, persistence_id, entry.eicr
                 )
-                diff_output_key = f"{output_path}/diff_v{compared_to_version}_to_v{version_number}_{index}"
+                diff_output_key = f"{output_path}/diff_v{compared_to_version}_to_v{version_number}_{index}.json"
 
                 stage = "output_write"
                 put_object(
