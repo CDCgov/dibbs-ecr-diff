@@ -31,15 +31,25 @@ def test_get_did_output_path_returns_output_path():
 
 def test_get_did_output_key_preserves_path_after_input_prefix():
     assert (
-        get_did_output_key(OUTPUT_PREFIX, PERSISTENCE_ID, REFINED_EICR_KEY)
+        get_did_output_key(
+            root_prefix=OUTPUT_PREFIX,
+            persistence_id=PERSISTENCE_ID,
+            source_key=REFINED_EICR_KEY,
+            fallback_basename="eICR.xml",
+        )
         == f"{OUTPUT_PREFIX}{PERSISTENCE_ID}/SDDH/COVID19/eicr.xml"
     )
 
 
 def test_get_did_output_key_on_unrefined_eicr():
     assert (
-        get_did_output_key(OUTPUT_PREFIX, PERSISTENCE_ID, EICR_KEY)
-        == f"{OUTPUT_PREFIX}{PERSISTENCE_ID}"
+        get_did_output_key(
+            root_prefix=OUTPUT_PREFIX,
+            persistence_id=PERSISTENCE_ID,
+            source_key=EICR_KEY,
+            fallback_basename="eICR.xml",
+        )
+        == f"{OUTPUT_PREFIX}{PERSISTENCE_ID}/eICR.xml"
     )
 
 

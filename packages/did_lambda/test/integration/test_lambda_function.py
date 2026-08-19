@@ -45,8 +45,17 @@ def test_lambda_handler_preserves_pipeline_and_emits_success_telemetry(
     assert response == {"statusCode": 200, "message": "OK"}
 
     manifest_file = manifest.files[0]
-    for input_key in (manifest_file.eicr, manifest_file.rr):
-        output_key = get_did_output_key(OUTPUT_PREFIX, persistence_id, input_key)
+
+    for fallback_basename, source_key in (
+        ("eICR.xml", manifest_file.eicr),
+        ("RR.xml", manifest_file.rr),
+    ):
+        output_key = get_did_output_key(
+            root_prefix=OUTPUT_PREFIX,
+            persistence_id=persistence_id,
+            source_key=source_key,
+            fallback_basename=fallback_basename,
+        )
         response = s3_client.get_object(Bucket=bucket_name, Key=output_key)
         assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
 
@@ -170,8 +179,16 @@ def test_process_manifest_entry_with_single_file(
     assert record["comparedToVersion"] is None
 
     # make sure the augmented eicr/rr were correctly put in DIDOutputV2/
-    for input_key in (manifest_file.eicr, manifest_file.rr):
-        output_key = get_did_output_key(OUTPUT_PREFIX, persistence_id, input_key)
+    for fallback_basename, input_key in (
+        ("eICR.xml", manifest_file.eicr),
+        ("RR.xml", manifest_file.rr),
+    ):
+        output_key = get_did_output_key(
+            root_prefix=OUTPUT_PREFIX,
+            persistence_id=persistence_id,
+            source_key=input_key,
+            fallback_basename=fallback_basename,
+        )
         response = s3_client.get_object(Bucket=bucket_name, Key=output_key)
         assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
 
@@ -262,8 +279,16 @@ def test_process_sqs_record_with_eicr_diff(s3_client, bucket_name, dynamodb_tabl
     ):
         assert len(manifest.files) == 1
         manifest_file = manifest.files[0]
-        for input_key in (manifest_file.eicr, manifest_file.rr):
-            output_key = get_did_output_key(OUTPUT_PREFIX, persistence_id, input_key)
+        for fallback_basename, input_key in (
+            ("eICR.xml", manifest_file.eicr),
+            ("RR.xml", manifest_file.rr),
+        ):
+            output_key = get_did_output_key(
+                root_prefix=OUTPUT_PREFIX,
+                persistence_id=persistence_id,
+                source_key=input_key,
+                fallback_basename=fallback_basename,
+            )
             response = s3_client.get_object(Bucket=bucket_name, Key=output_key)
             assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
 

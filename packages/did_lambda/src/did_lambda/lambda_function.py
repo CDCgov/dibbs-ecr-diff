@@ -15,6 +15,7 @@ from core import DiffOutput, diff_xml
 from core.augment import (
     AugmentationRun,
     augment_eicr_in_place,
+    augment_remainder_rr_in_place,
     augment_rr_in_place,
     create_augmentation_run,
 )
@@ -159,6 +160,7 @@ def process_manifest_entry(
     persistence_id_with_index = make_persistence_id_with_index(persistence_id, index)
 
     try:
+        is_remainder_rr = entry.originalRr and "unrefined_rr" in entry.rr.lower()
         set_id = entry.setId
         version_number = entry.versionNumber
 
@@ -175,7 +177,7 @@ def process_manifest_entry(
         encounter_type = encounter_type_from_eicr(eicr_tree)
         condition_codes = condition_codes_from_rr(rr_tree)
 
-        if before_record:
+        if before_record and not is_remainder_rr:
             before_tree = get_object_xml_tree(bucket_name, before_record.s3Key)
 
             stage = "diff"
@@ -195,30 +197,47 @@ def process_manifest_entry(
         stage = "augmentation"
         eicr_root = eicr_tree.getroot()
         augmentation_run = create_augmentation_run(eicr_root)
-        augmented_eicr = get_augmented_eicr(
-            eicr_root, augmentation_run, jurisdiction_id, diff_output
+
+        rr_out_key = get_did_output_key(
+            root_prefix=OUTPUT_PREFIX,
+            persistence_id=persistence_id,
+            source_key=entry.rr,
+            fallback_basename="RR.xml",
         )
-        augmented_rr = get_augmented_rr(rr_tree, augmentation_run, jurisdiction_id)
 
-        stage = "output_write"
-        eicr_out_key = get_did_output_key(OUTPUT_PREFIX, persistence_id, entry.eicr)
-        put_object(bucket_name, eicr_out_key, augmented_eicr)
-
-        rr_out_key = get_did_output_key(OUTPUT_PREFIX, persistence_id, entry.rr)
-        put_object(bucket_name, rr_out_key, augmented_rr)
-
-        put_eicr_record(
-            EICRStorageRecord(
-                setId=set_id,
-                versionNumber=version_number,
-                s3Key=entry.eicr,
-                s3KeyRR=entry.rr,
-                s3KeyDiffOutput=diff_output_key,
-                processedAt=get_timestamp(),
-                isActionable=is_actionable,
-                comparedToVersion=compared_to_version,
+        if is_remainder_rr:
+            augmented_remainder_rr = get_augmented_remainder_rr(
+                rr_tree, augmentation_run, jurisdiction_id
             )
-        )
+        else:
+            augmented_eicr = get_augmented_eicr(
+                eicr_root, augmentation_run, jurisdiction_id, diff_output
+            )
+            augmented_rr = get_augmented_rr(rr_tree, augmentation_run, jurisdiction_id)
+
+            stage = "output_write"
+            eicr_out_key = get_did_output_key(
+                root_prefix=OUTPUT_PREFIX,
+                persistence_id=persistence_id,
+                source_key=entry.eicr,
+                fallback_basename="eICR.xml",
+            )
+
+            put_object(bucket_name, eicr_out_key, augmented_eicr)
+            put_object(bucket_name, rr_out_key, augmented_rr)
+
+            put_eicr_record(
+                EICRStorageRecord(
+                    setId=set_id,
+                    versionNumber=version_number,
+                    s3Key=entry.eicr,
+                    s3KeyRR=entry.rr,
+                    s3KeyDiffOutput=diff_output_key,
+                    processedAt=get_timestamp(),
+                    isActionable=is_actionable,
+                    comparedToVersion=compared_to_version,
+                )
+            )
 
         result = ManifestEntryResult(
             output_file=DIDOutputFile(
@@ -228,6 +247,7 @@ def process_manifest_entry(
                 rr=rr_out_key,
                 eicr_diff_output=diff_output_key,
                 is_actionable=is_actionable,
+                jurisdictions=entry.jurisdictions,
             ),
             changes=tuple(diff_output.changes) if diff_output is not None else (),
             telemetry=DocumentTelemetry(
@@ -269,6 +289,20 @@ def get_augmented_rr(
     """Return augmented RR."""
     rr_root = rr_tree.getroot()
     augment_rr_in_place(
+        rr_root=rr_root, run=augmentation_run, jurisdiction_id=jurisdiction_id
+    )
+
+    return etree.tostring(
+        rr_root, pretty_print=True, xml_declaration=True, encoding="utf-8"
+    )
+
+
+def get_augmented_remainder_rr(
+    rr_tree: ElementTree, augmentation_run: AugmentationRun, jurisdiction_id: str
+) -> bytes:
+    """Return an augmented remainder RR."""
+    rr_root = rr_tree.getroot()
+    augment_remainder_rr_in_place(
         rr_root=rr_root, run=augmentation_run, jurisdiction_id=jurisdiction_id
     )
 
