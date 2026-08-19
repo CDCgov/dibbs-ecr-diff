@@ -10,6 +10,7 @@ class DIDInputFile(BaseModel):
 
     eicr: str
     rr: str
+    originalRr: str | None = None
     setId: str
     versionNumber: int
     jurisdictions: list[str]
@@ -22,6 +23,7 @@ class DIDOutputFile(BaseModel):
     rr: str
     setId: str
     versionNumber: int
+    jurisdictions: list[str]
     eicr_diff_output: str | None = None
     is_actionable: bool
 
