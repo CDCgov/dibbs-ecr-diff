@@ -8,7 +8,7 @@ from typing import Never
 
 from aws_lambda_powertools import Logger, Metrics
 from aws_lambda_powertools.metrics import MetricUnit, single_metric
-from core import Change, ChangeType
+from core import Change
 
 from .models import DIDOutputFile
 from .telemetry_helpers import ConditionCode, change_path_for_logging
@@ -31,6 +31,14 @@ class DocumentTelemetry:
     version_number: int
     encounter_type: str
     unique_condition_count: int = 0
+    changes_added: int = field(kw_only=True)
+    changes_updated: int = field(kw_only=True)
+    changes_deleted: int = field(kw_only=True)
+
+    @property
+    def changes_total(self) -> int:
+        """Return the total number of reported changes in this eCR."""
+        return self.changes_added + self.changes_updated + self.changes_deleted
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,13 +74,13 @@ class BatchProcessingStats:
 
     def record_document_processed(self, result: ManifestEntryResult) -> None:
         """Add a successfully processed document and its reported changes."""
-        counts = Counter(change.changeType for change in result.changes)
+        document = result.telemetry
 
         self.documents_processed += 1
-        self.changes_added += counts[ChangeType.ADDED]
-        self.changes_updated += counts[ChangeType.UPDATED]
-        self.changes_deleted += counts[ChangeType.DELETED]
-        self.encounter_counts[result.telemetry.encounter_type] += 1
+        self.changes_added += document.changes_added
+        self.changes_updated += document.changes_updated
+        self.changes_deleted += document.changes_deleted
+        self.encounter_counts[document.encounter_type] += 1
         for change in result.changes:
             if change.section_loinc_code is not None:
                 self.section_change_counts[change.section_loinc_code] += 1
@@ -170,6 +178,10 @@ def log_doc_and_changes(result: ManifestEntryResult) -> None:
         extra={
             **doc_fields,
             "unique_condition_count": result.telemetry.unique_condition_count,
+            "changes_added": result.telemetry.changes_added,
+            "changes_updated": result.telemetry.changes_updated,
+            "changes_deleted": result.telemetry.changes_deleted,
+            "changes_total": result.telemetry.changes_total,
         },
     )
 

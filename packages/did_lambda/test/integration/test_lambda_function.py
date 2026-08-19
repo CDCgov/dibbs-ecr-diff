@@ -87,6 +87,10 @@ def test_lambda_handler_preserves_pipeline_and_emits_success_telemetry(
     assert document_fields["version_number"] == 1
     assert document_fields["unique_condition_count"] == 0
     assert document_fields["persistence_id_with_index"] == f"{persistence_id}:0"
+    assert document_fields["changes_added"] == 0
+    assert document_fields["changes_updated"] == 0
+    assert document_fields["changes_deleted"] == 0
+    assert document_fields["changes_total"] == 0
     assert eicr_set_id not in caplog.text
     assert all(record.message != "xml_change" for record in caplog.records)
 

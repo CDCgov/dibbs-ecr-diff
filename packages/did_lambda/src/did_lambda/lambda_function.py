@@ -11,7 +11,7 @@ from aws_lambda_powertools.utilities.data_classes import (
     event_source,
 )
 from aws_lambda_powertools.utilities.typing import LambdaContext
-from core import DiffOutput, diff_xml
+from core import ChangeType, DiffOutput, diff_xml
 from core.augment import (
     AugmentationRun,
     augment_eicr_in_place,
@@ -220,6 +220,9 @@ def process_manifest_entry(
             )
         )
 
+        changes = tuple(diff_output.changes) if diff_output is not None else ()
+        change_counts = Counter(change.changeType for change in changes)
+
         result = ManifestEntryResult(
             output_file=DIDOutputFile(
                 setId=set_id,
@@ -229,12 +232,15 @@ def process_manifest_entry(
                 eicr_diff_output=diff_output_key,
                 is_actionable=is_actionable,
             ),
-            changes=tuple(diff_output.changes) if diff_output is not None else (),
+            changes=changes,
             telemetry=DocumentTelemetry(
                 persistence_id_with_index=persistence_id_with_index,
                 version_number=version_number,
                 encounter_type=encounter_type,
                 unique_condition_count=len(condition_codes),
+                changes_added=change_counts[ChangeType.ADDED],
+                changes_updated=change_counts[ChangeType.UPDATED],
+                changes_deleted=change_counts[ChangeType.DELETED],
             ),
         )
         if documents_processed_by_condition is not None:
