@@ -2,7 +2,7 @@ import uuid
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Final, Literal
+from typing import Final
 
 from lxml import etree
 from lxml.etree import _Element
@@ -52,10 +52,9 @@ DIFF_SECTION_DISPLAY_NAME: Final[str] = "Difference in Docs eCR Diff"
 # DETERMINISTIC SEEDING FOR AUGMENTED DOCUMENT IDENTIFIERS
 # =============================================================================
 #
-# deterministic UUIDv5-based augmented identifiers; seed string shapes:
+# deterministic UUIDv5-based augmented identifiers; seed string shape:
 #
 #     {jurisdiction_id}|{prefix:}{source}
-#     {jurisdiction_id}|remainder|{prefix:}{source}  (only for remainder RRs)
 #
 # IMPORTANT:
 # the namespace UUID, the seed prefix labels, the field separator,
@@ -76,30 +75,6 @@ _SEED_PREFIX_EICR_SETID: Final[str] = "eicr-setid"
 _SEED_PREFIX_RR_SETID: Final[str] = "rr-setid"
 _SEED_FIELD_SEPARATOR: Final[str] = "|"
 
-# scope discriminator for the remainder RR
-REMAINDER_SCOPE: Final[Literal["remainder"]] = "remainder"
-
-Scope = Literal["remainder"] | None
-
-
-def _build_rr_seed(
-    jurisdiction_id: str,
-    source: str,
-    scope: Scope = None,
-) -> str:
-    """Build an RR identifier seed.
-
-    Ex:
-    `TX|<original_rr_id_root>
-    Ex for remainder RR:
-    `TX|remainder|<original_rr_id_root>`
-    """
-    fields = [jurisdiction_id]
-    if scope is not None:
-        fields.append(scope)
-    fields.append(source)
-    return _SEED_FIELD_SEPARATOR.join(fields)
-
 
 def _derive_augmented_eicr_id(original_eicr_id_root: str, jurisdiction_id: str) -> str:
     """Deterministic id for the augmented eICR."""
@@ -111,16 +86,12 @@ def _derive_augmented_eicr_id(original_eicr_id_root: str, jurisdiction_id: str) 
     )
 
 
-def _derive_augmented_rr_id(
-    original_rr_id_root: str,
-    jurisdiction_id: str,
-    scope: Scope = None,
-) -> str:
-    """Deterministic id for an ordinary or remainder augmented RR."""
+def _derive_augmented_rr_id(original_rr_id_root: str, jurisdiction_id: str) -> str:
+    """Deterministic id for the augmented RR."""
     return str(
         uuid.uuid5(
             DIFF_DETERMINISTIC_NS,
-            _build_rr_seed(jurisdiction_id, original_rr_id_root, scope),
+            f"{jurisdiction_id}{_SEED_FIELD_SEPARATOR}{original_rr_id_root}",
         )
     )
 
@@ -140,16 +111,13 @@ def _derive_augmented_eicr_setid(
 
 
 def _derive_augmented_rr_setid(
-    original_eicr_setid_root: str,
-    jurisdiction_id: str,
-    scope: Literal["remainder"] | None = None,
+    original_eicr_setid_root: str, jurisdiction_id: str
 ) -> str:
     """Deterministic setId for the augmented RR.
 
     Seeds from the original *eICR's* setId, not the RR's. This gives
     PHAs pair recoverability — the augmented RR's setId is derivable
-    from eICR-side identity alone (plus the jurisdiction and, for a
-    remainder RR, its fixed scope).
+    from eICR-side identity alone (plus the jurisdiction).
 
     See the augmentation guide §"Why both setIds seed from the eICR's
     setId" for rationale.
@@ -157,11 +125,8 @@ def _derive_augmented_rr_setid(
     return str(
         uuid.uuid5(
             DIFF_DETERMINISTIC_NS,
-            _build_rr_seed(
-                jurisdiction_id,
-                f"{_SEED_PREFIX_RR_SETID}:{original_eicr_setid_root}",
-                scope,
-            ),
+            f"{jurisdiction_id}{_SEED_FIELD_SEPARATOR}"
+            f"{_SEED_PREFIX_RR_SETID}:{original_eicr_setid_root}",
         )
     )
 
@@ -377,43 +342,6 @@ def augment_rr_in_place(
     callers always use the defaults; tests may override to simulate
     augmentations performed by other tools.
     """
-    return _augment_rr_in_place(
-        rr_root=rr_root,
-        run=run,
-        jurisdiction_id=jurisdiction_id,
-        scope=None,
-        tool_code=tool_code,
-        tool_display=tool_display,
-    )
-
-
-def augment_remainder_rr_in_place(
-    rr_root: _Element,
-    run: AugmentationRun,
-    jurisdiction_id: str,
-    tool_code: str = DIFF_TOOL_CODE,
-    tool_display: str = DIFF_TOOL_DISPLAY,
-) -> AugmentedResult:
-    """Apply document-level augmentation to a remainder RR."""
-    return _augment_rr_in_place(
-        rr_root=rr_root,
-        run=run,
-        jurisdiction_id=jurisdiction_id,
-        scope=REMAINDER_SCOPE,
-        tool_code=tool_code,
-        tool_display=tool_display,
-    )
-
-
-def _augment_rr_in_place(
-    rr_root: _Element,
-    run: AugmentationRun,
-    jurisdiction_id: str,
-    scope: Literal["remainder"] | None,
-    tool_code: str,
-    tool_display: str,
-) -> AugmentedResult:
-    """Apply shared RR augmentation with an optional remainder seed scope."""
     # STEP 1: snapshot identity before overwriting
     original = _capture_original_identity(rr_root)
 
@@ -423,12 +351,10 @@ def _augment_rr_in_place(
     augmented_rr_id_root = _derive_augmented_rr_id(
         original_rr_id_root=_get_attribute_value(original.id_element, "root"),
         jurisdiction_id=jurisdiction_id,
-        scope=scope,
     )
     augmented_rr_setid_root = _derive_augmented_rr_setid(
         original_eicr_setid_root=run.original_eicr_setid_root,
         jurisdiction_id=jurisdiction_id,
-        scope=scope,
     )
 
     # STEP 2: add RR augmentation templateId (CONF:5573-66/80/81)

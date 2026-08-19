@@ -19,7 +19,7 @@ class DIDInputFile(BaseModel):
 class DIDOutputFile(BaseModel):
     """Output EICR, RR, DiffOutput S3 keys, and related metadata."""
 
-    eicr: str
+    eicr: str | None = None
     rr: str
     setId: str
     versionNumber: int
