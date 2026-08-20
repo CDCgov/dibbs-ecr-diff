@@ -4,6 +4,8 @@ import uuid
 import pytest
 from core.augment import (
     DIFF_DETERMINISTIC_NS,
+    FUNCTION_CODE_ADD_DETECTED,
+    FUNCTION_CODE_UPDATE_DETECTED,
     AugmentationRun,
     _contains_diff_author_direct_child,
     _create_diff_author_element,
@@ -15,8 +17,6 @@ from core.augment import (
     augment_eicr_in_place,
     augment_rr_in_place,
     create_augmentation_run,
-    FUNCTION_CODE_ADD_DETECTED,
-    FUNCTION_CODE_UPDATE_DETECTED,
 )
 from core.cda.clinical_statement import CDA_CLINICAL_STATEMENT_TAGS
 from core.constants import HL7_NS, NAMESPACES
