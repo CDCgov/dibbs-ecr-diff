@@ -15,6 +15,8 @@ from core.augment import (
     augment_eicr_in_place,
     augment_rr_in_place,
     create_augmentation_run,
+    FUNCTION_CODE_ADD_DETECTED,
+    FUNCTION_CODE_UPDATE_DETECTED,
 )
 from core.cda.clinical_statement import CDA_CLINICAL_STATEMENT_TAGS
 from core.constants import HL7_NS, NAMESPACES
@@ -862,24 +864,37 @@ def test_create_diff_author_element_returns_author(diff_author: etree._Element):
 def test_create_diff_author_element_includes_function_code(diff_author: etree._Element):
     fc = diff_author.find(hl7_clark_tag("functionCode"))
     assert fc is not None
-    assert fc.get("code") == ChangeType.ADDED
+    assert fc.get("code") == FUNCTION_CODE_ADD_DETECTED
     assert fc.get("codeSystem") == "2.16.840.1.113883.10.20.15.2.7.1"
     assert fc.get("codeSystemName") == "eCRDataAugmentation"
 
 
-@pytest.mark.parametrize(
-    "change_type", [ChangeType.ADDED, ChangeType.UPDATED, ChangeType.DELETED]
-)
-def test_create_diff_author_element_function_code_reflects_change_type(
-    change_type: ChangeType,
-):
+def test_create_diff_author_element_function_code_reflects_adds():
     author = _create_diff_author_element(
-        _create_change(change_type),
+        _create_change(ChangeType.ADDED),
         _TEST_AUGMENTATION_TIME,
     )
     fc = author.find(hl7_clark_tag("functionCode"))
     assert fc is not None
-    assert fc.get("code") == change_type
+    assert fc.get("code") == FUNCTION_CODE_ADD_DETECTED
+
+
+def test_create_diff_author_element_function_code_reflects_updates():
+    author = _create_diff_author_element(
+        _create_change(ChangeType.UPDATED),
+        _TEST_AUGMENTATION_TIME,
+    )
+    fc = author.find(hl7_clark_tag("functionCode"))
+    assert fc is not None
+    assert fc.get("code") == FUNCTION_CODE_UPDATE_DETECTED
+
+
+def test_create_diff_author_element_function_code_raises_error_for_deletes():
+    with pytest.raises(ValueError):
+        _create_diff_author_element(
+            _create_change(ChangeType.DELETED),
+            _TEST_AUGMENTATION_TIME,
+        )
 
 
 def test_create_diff_author_element_includes_timestamp(diff_author: etree._Element):

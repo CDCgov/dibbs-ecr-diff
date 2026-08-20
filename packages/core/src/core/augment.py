@@ -48,6 +48,9 @@ DIFF_SECTION_CODE: Final[str] = "ecr-version-diff"
 DIFF_CODE_SYSTEM_OID: Final[str] = "2.16.840.1.113883.10.20.15.2.7.3"
 DIFF_SECTION_DISPLAY_NAME: Final[str] = "Difference in Docs eCR Diff"
 
+FUNCTION_CODE_ADD_DETECTED = "did-add-detected"
+FUNCTION_CODE_UPDATE_DETECTED = "did-update-detected"
+
 # NOTE:
 # DETERMINISTIC SEEDING FOR AUGMENTED DOCUMENT IDENTIFIERS
 # =============================================================================
@@ -810,7 +813,16 @@ def _create_diff_author_element(change: Change, timestamp: str) -> _Element:
     author = etree.Element(hl7_clark_tag("author"))
 
     function_code = etree.SubElement(author, hl7_clark_tag("functionCode"))
-    function_code.set("code", change.changeType)
+
+    if change.changeType == ChangeType.ADDED:
+        function_code.set("code", FUNCTION_CODE_ADD_DETECTED)
+    elif change.changeType == ChangeType.UPDATED:
+        function_code.set("code", FUNCTION_CODE_UPDATE_DETECTED)
+    else:
+        raise ValueError(
+            f"ChangeType '{change.changeType}' not supported for augmentation"
+        )
+
     function_code.set("codeSystem", ECR_DATA_AUG_CODE_SYSTEM)
     function_code.set("codeSystemName", ECR_DATA_AUG_CODE_SYSTEM_NAME)
 
