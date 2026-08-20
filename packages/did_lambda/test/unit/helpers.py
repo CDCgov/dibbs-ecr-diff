@@ -1,6 +1,7 @@
 """Shared builders and parsers for Lambda unit tests."""
 
 import json
+from collections import Counter
 from uuid import UUID
 
 import pytest
@@ -34,6 +35,8 @@ def make_result(
     version_number: int = 1,
 ) -> ManifestEntryResult:
     """Build a representative successful manifest-entry result."""
+    change_counts = Counter(change.changeType for change in changes)
+
     return ManifestEntryResult(
         output_file=DIDOutputFile(
             eicr="DIDOutputV2/2026/id/jurisdiction/eicr.xml",
@@ -49,6 +52,9 @@ def make_result(
             version_number=version_number,
             encounter_type=encounter_type,
             unique_condition_count=unique_condition_count,
+            changes_added=change_counts[ChangeType.ADDED],
+            changes_updated=change_counts[ChangeType.UPDATED],
+            changes_deleted=change_counts[ChangeType.DELETED],
         ),
     )
 
