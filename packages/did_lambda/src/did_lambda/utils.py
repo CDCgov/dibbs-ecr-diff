@@ -25,21 +25,25 @@ def persistence_id_from_manifest_key(key: str) -> str:
     return parts[1]
 
 
-def get_did_output_key(root_prefix: str, persistence_id: str, source_key: str) -> str:
+def get_did_output_key(
+    *, root_prefix: str, persistence_id: str, source_key: str, fallback_basename: str
+) -> str:
     """Convert an S3 key into a DIDOutput-prefixed key.
 
     Examples:
     RefinerOutputV2/{persistence_id}/SDDH/COVID19/cda_eicr_1.xml
         -> DIDOutputV2/{persistence_id}/SDDH/COVID19/cda_eicr_1.xml
 
-    eCRMessageV2/{persistence_id} -> DIDOutputV2/{persistence_id}
+    eCRMessageV2/{persistence_id} -> DIDOutputV2/{persistence_id}/{fallback_basename}
     """
     output_path = get_did_output_path(root_prefix, persistence_id, source_key)
+
+    # ex: "eCRMessageV2/2026/08/17/abc-123" -> "2026/08/17/abc-123"
     source_path = source_key.strip("/").split("/", 1)[-1]
 
     # handle s3 keys like `eCRMessageV2/<persistence_id>`
     if source_path == persistence_id.strip("/"):
-        return output_path
+        return f"{output_path}/{fallback_basename}"
 
     basename = source_path.rsplit("/", 1)[-1]
     return f"{output_path}/{basename}"

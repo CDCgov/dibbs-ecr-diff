@@ -40,6 +40,7 @@ def make_result(
             rr="DIDOutputV2/2026/id/jurisdiction/rr.xml",
             setId="set-id",
             versionNumber=version_number,
+            jurisdictions=["TX"],
             is_actionable=True,
         ),
         changes=changes,

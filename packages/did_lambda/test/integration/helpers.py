@@ -1,6 +1,7 @@
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Literal
 from uuid import uuid4
 
 from aws_lambda_powertools.utilities.data_classes import SQSRecord
@@ -13,6 +14,8 @@ class MockS3InputFile:
     rr_body: bytes
     set_id: str
     version_number: int
+    path_type: Literal["original", "refined", "remainder_rr"] = "refined"
+    jurisdiction: str = "SDDH"
 
 
 def build_persistence_id() -> str:
@@ -51,14 +54,31 @@ def send_input_files(
     bucket_name: str,
     input_files: list[MockS3InputFile],
 ) -> tuple[str, DIDInputManifest, str]:
-    """Mocks sending eICR/RR pairs to RefinerOutputV2/ and the DIDInputManifest to DIDInput/."""
+    """Mock sending original, refined, or remainder-RR manifest entries."""
     persistence_id = build_persistence_id()
     manifest_files = []
 
     for index, input_file in enumerate(input_files):
-        base_key = f"RefinerOutputV2/{persistence_id}/SDDH/CONDITION-{index}"
-        eicr_key = f"{base_key}/{index}-eicr.xml"
-        rr_key = f"{base_key}/{index}-rr.xml"
+        path_type = input_file.path_type
+
+        if path_type == "refined":
+            base_key = (
+                f"RefinerOutputV2/{persistence_id}/{input_file.jurisdiction}/"
+                f"CONDITION-{index}"
+            )
+            eicr_key = f"{base_key}/refined_eICR.xml"
+            rr_key = f"{base_key}/refined_RR.xml"
+        elif path_type == "original":
+            eicr_key = f"eCRMessageV2/{persistence_id}"
+            rr_key = f"RRMessageV2/{persistence_id}"
+        elif path_type == "remainder_rr":
+            eicr_key = f"eCRMessageV2/{persistence_id}"
+            rr_key = (
+                f"RefinerOutputV2/{persistence_id}/{input_file.jurisdiction}/"
+                "unrefined_rr/refined_RR.xml"
+            )
+        else:
+            raise ValueError(f"Unsupported input path type: {path_type}")
 
         s3_client.put_object(
             Bucket=bucket_name, Key=eicr_key, Body=input_file.eicr_body
@@ -71,7 +91,7 @@ def send_input_files(
                 rr=rr_key,
                 setId=input_file.set_id,
                 versionNumber=input_file.version_number,
-                jurisdictions=["SDDH"],
+                jurisdictions=[input_file.jurisdiction],
             )
         )
 

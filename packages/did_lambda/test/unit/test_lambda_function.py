@@ -55,7 +55,7 @@ def make_entry() -> DIDInputFile:
         rr="DIDInput/2026/id/jurisdiction/rr.xml",
         setId="set-id",
         versionNumber=1,
-        jurisdictions=["jurisdiction"],
+        jurisdictions=["TX"],
     )
 
 
@@ -280,6 +280,7 @@ def test_process_sqs_record_preserves_completion_manifest_schema(
                 "rr": "DIDOutputV2/2026/id/jurisdiction/rr.xml",
                 "setId": "set-id",
                 "versionNumber": 1,
+                "jurisdictions": ["TX"],
                 "eicr_diff_output": None,
                 "is_actionable": True,
             }
@@ -494,6 +495,7 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
         rr="DIDOutputV2/2026/id/jurisdiction/rr.xml",
         setId="set-id",
         versionNumber=1,
+        jurisdictions=["TX"],
         is_actionable=True,
     )
     assert result.changes == ()

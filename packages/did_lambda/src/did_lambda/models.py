@@ -10,6 +10,7 @@ class DIDInputFile(BaseModel):
 
     eicr: str
     rr: str
+    originalRr: str | None = None
     setId: str
     versionNumber: int
     jurisdictions: list[str]
@@ -18,10 +19,11 @@ class DIDInputFile(BaseModel):
 class DIDOutputFile(BaseModel):
     """Output EICR, RR, DiffOutput S3 keys, and related metadata."""
 
-    eicr: str
+    eicr: str | None = None
     rr: str
     setId: str
     versionNumber: int
+    jurisdictions: list[str]
     eicr_diff_output: str | None = None
     is_actionable: bool
 
