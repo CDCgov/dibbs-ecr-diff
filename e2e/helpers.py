@@ -1,11 +1,12 @@
 """Helpers for local end-to-end tests."""
 
 import json
+from collections.abc import Any, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import Literal
 from uuid import uuid4
 
 from lxml import etree
@@ -25,7 +26,7 @@ class UploadType(StrEnum):
 
 
 @dataclass(frozen=True)
-class EICRPair:
+class Pair:
     """An eICR/RR pair."""
 
     id: str
@@ -69,7 +70,7 @@ class Uploader:
             WaiterConfig={"Delay": 1, "MaxAttempts": 5},
         )
 
-    def send_manifest(self, scenario: str, pairs: list[EICRPair]) -> Manifest:
+    def send_manifest(self, scenario: str, pairs: list[Pair]) -> Manifest:
         """Upload one manifest and wait for it to be sent."""
         scenario_dir = self.assets_dir / scenario
         if not scenario_dir.is_dir():
@@ -80,10 +81,11 @@ class Uploader:
         objects: dict[str, Path] = {}  # S3 Key -> File Path
 
         for pair in pairs:
-            eicr_path = scenario_dir / f"{pair.id}_eICR.xml"
-            rr_path = scenario_dir / f"{pair.id}_RR.xml"
+            xml_paths = scenario_dir.glob("*.xml")
+            eicr_path = self._get_file_path(pair.id, "eicr", xml_paths)
+            rr_path = self._get_file_path(pair.id, "rr", xml_paths)
 
-            if not eicr_path.is_file() or not rr_path.is_file():
+            if eicr_path is None or rr_path is None:
                 raise Exception(
                     f"Invalid files for eICR pair {pair.id} at {scenario_dir}"
                 )
@@ -159,16 +161,10 @@ class Uploader:
 
         return set_id, int(version)
 
-    def _parse_xml(self, path: Path) -> etree._Element:
-        try:
-            return etree.parse(path, parser).getroot()
-        except etree.XMLSyntaxError as exc:
-            raise Exception(f"Invalid XML file: {path}") from exc
-
     def _build_pair_keys(
         self,
         persistence_id: str,
-        pair: EICRPair,
+        pair: Pair,
         eicr_name: str,
         rr_name: str,
     ) -> tuple[str, str]:
@@ -189,3 +185,18 @@ class Uploader:
             )
 
         raise Exception(f"Invalid upload type: {pair.upload_type}")
+
+    def _parse_xml(self, path: Path) -> etree._Element:
+        try:
+            return etree.parse(path, parser).getroot()
+        except etree.XMLSyntaxError as exc:
+            raise Exception(f"Invalid XML file: {path}") from exc
+
+    def _get_file_path(
+        pair_id: int, type: Literal["eicr", "rr"], xml_paths: Iterator[Path]
+    ) -> Path | None:
+        for path in xml_paths:
+            filename = path.stem.lower()
+            if filename.startswith(f"{pair_id}_{type}"):
+                return path
+        return None
