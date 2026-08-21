@@ -28,11 +28,13 @@ def run_compose(*, cmd: str = "up") -> None:
     ]
 
     if cmd == "up":
+        print("docker services starting...")
         commands = [up]
     elif cmd == "clean":
         commands = [down, up]
     elif cmd == "down":
+        print("docker services shuttin down...")
         commands = [down]
 
     for command in commands:
-        subprocess.run(command, cwd=PROJECT_ROOT, check=True)
+        subprocess.run(command, cwd=PROJECT_ROOT, stdout=subprocess.DEVNULL, check=True)

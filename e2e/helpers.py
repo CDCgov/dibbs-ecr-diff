@@ -1,12 +1,12 @@
 """Helpers for local end-to-end tests."""
 
 import json
-from collections.abc import Any, Iterator
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 from uuid import uuid4
 
 from lxml import etree
@@ -50,7 +50,7 @@ def build_persistence_id() -> str:
 
 
 class Uploader:
-    """Upload convention-based test assets through the local pipeline."""
+    """Uploader to upload assets from e2e/assets + build manifest files."""
 
     def __init__(
         self,
@@ -139,7 +139,7 @@ class Uploader:
         self.s3.get_waiter("object_exists").wait(
             Bucket=self.bucket_name,
             Key=did_input_manifest_key,
-            WaiterConfig={"Delay": 1, "MaxAttempts": 5},
+            WaiterConfig={"Delay": 1, "MaxAttempts": 30},
         )
 
         return Manifest(

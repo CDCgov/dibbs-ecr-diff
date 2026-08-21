@@ -16,19 +16,9 @@ AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "test")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "test")
 AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
 
+BUCKET_NAME = "ecr-dev-data-repository"
+DYNAMODB_TABLE = "e2e-did-eicr-record"
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
-
-
-@pytest.fixture(scope="function")
-def bucket_name() -> str:
-    """e2e S3 bucket name."""
-    return "ecr-dev-data-repository"
-
-
-@pytest.fixture(scope="function")
-def dynamodb_table_name() -> str:
-    """e2e DynamoDB table."""
-    return "e2e-did-eicr-record"
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -45,9 +35,9 @@ def compose_stack() -> Iterator[None]:
 
 
 @pytest.fixture
-def s3() -> Any:
-    """S3 client pre-configured to send requests to LocalStack."""
-    return boto3.client(
+def s3_resource() -> Any:
+    """S3 resource pre-configured to send requests to LocalStack."""
+    return boto3.resource(
         "s3",
         endpoint_url=AWS_ENDPOINT_URL,
         region_name=AWS_DEFAULT_REGION,
@@ -57,9 +47,15 @@ def s3() -> Any:
 
 
 @pytest.fixture
-def dynamodb() -> Any:
-    """DynamoDB client pre-configured for LocalStack."""
-    return boto3.client(
+def s3(s3_resource: Any) -> Any:
+    """S3 client pre-configured to send requests to LocalStack."""
+    return s3_resource.meta.client
+
+
+@pytest.fixture
+def dynamodb_resource() -> Any:
+    """DynamoDB resource pre-configured for LocalStack."""
+    return boto3.resource(
         "dynamodb",
         endpoint_url=AWS_ENDPOINT_URL,
         region_name=AWS_DEFAULT_REGION,
@@ -69,16 +65,44 @@ def dynamodb() -> Any:
 
 
 @pytest.fixture
-def uploader(
-    s3: Any, dynamodb: Any, bucket_name: str, dynamodb_table_name: str
-) -> Uploader:
+def dynamodb(dynamodb_resource: Any) -> Any:
+    """DynamoDB client pre-configured for LocalStack."""
+    return dynamodb_resource.meta.client
+
+
+@pytest.fixture
+def dynamodb_table(dynamodb_resource: Any) -> Any:
+    """DynamoDB table used by the e2e test suite."""
+    return dynamodb_resource.Table(DYNAMODB_TABLE)
+
+
+@pytest.fixture
+def uploader(s3: Any, dynamodb: Any) -> Uploader:
     """Build an Manifest builder + Uploader. Analog to docker/uploader.html."""
-    uploader = Uploader(s3, bucket_name, ASSETS_DIR)
+    uploader = Uploader(s3, BUCKET_NAME, ASSETS_DIR)
     uploader.wait_until_ready()
 
     dynamodb.get_waiter("table_exists").wait(
-        TableName=dynamodb_table_name,
-        WaiterConfig={"Delay": 1, "MaxAttempts": 5},
+        TableName=DYNAMODB_TABLE,
+        WaiterConfig={"Delay": 1, "MaxAttempts": 30},
     )
 
     return uploader
+
+
+@pytest.fixture(autouse=True)
+def clean_localstack_state(
+    uploader: Uploader, s3_resource: Any, dynamodb_table: Any
+) -> None:
+    """Empties S3 and DynamoDB before each e2e test."""
+    s3_resource.Bucket(uploader.bucket_name).objects.all().delete()
+
+    response = dynamodb_table.scan(
+        ProjectionExpression="#set_id, #version_number",
+        ExpressionAttributeNames={
+            "#set_id": "setId",
+            "#version_number": "versionNumber",
+        },
+    )
+    for item in response.get("Items", []):
+        dynamodb_table.delete_item(Key=item)
