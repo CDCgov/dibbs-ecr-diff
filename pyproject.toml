@@ -8,10 +8,12 @@ dependencies = []
 
 [dependency-groups]
 dev = [
+    "boto3>=1.43.51",
     "lefthook>=2.1.9",
     "pytest>=9.0.3",
     "ruff>=0.15.5",
     "ty>=0.0.21",
+    "types-boto3[essential]>=1.43.53",
 ]
 
 [tool.uv]

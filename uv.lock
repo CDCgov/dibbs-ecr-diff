@@ -354,20 +354,24 @@ source = { virtual = "." }
 
 [package.dev-dependencies]
 dev = [
+    { name = "boto3" },
     { name = "lefthook" },
     { name = "pytest" },
     { name = "ruff" },
     { name = "ty" },
+    { name = "types-boto3", extra = ["essential"] },
 ]
 
 [package.metadata]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "boto3", specifier = ">=1.43.51" },
     { name = "lefthook", specifier = ">=2.1.9" },
     { name = "pytest", specifier = ">=9.0.3" },
     { name = "ruff", specifier = ">=0.15.5" },
     { name = "ty", specifier = ">=0.0.21" },
+    { name = "types-boto3", extras = ["essential"], specifier = ">=1.43.53" },
 ]
 
 [[package]]
