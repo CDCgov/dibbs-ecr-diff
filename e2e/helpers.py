@@ -29,7 +29,7 @@ class UploadType(StrEnum):
 class Pair:
     """An eICR/RR pair."""
 
-    id: str
+    id: int
     upload_type: UploadType = UploadType.REFINED
     jurisdiction: str = "SDDH"
     condition: str = "COVID19"

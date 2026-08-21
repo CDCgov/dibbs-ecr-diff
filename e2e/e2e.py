@@ -4,7 +4,7 @@ from e2e.helpers import Pair, Uploader
 
 
 def test_happy_path(uploader: Uploader, s3: Any) -> None:
-    manifest = uploader.send_manifest("happy-path", [Pair("1"), Pair("2"), Pair("3")])
+    manifest = uploader.send_manifest("happy-path", [Pair(1), Pair(2), Pair(3)])
 
     did_complete_key = f"DIDCompleteV2/{manifest.persistence_id}"
 
