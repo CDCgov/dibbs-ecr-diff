@@ -40,8 +40,8 @@ class Manifest:
     """A manifest accepted and completed by the local pipeline."""
 
     persistence_id: str
-    manifest_key: str
-    manifest: dict[str, Any]
+    input_key: str
+    manifest: list[Any]  # TODO: type this
 
 
 def build_persistence_id() -> str:
@@ -144,8 +144,8 @@ class Uploader:
 
         return Manifest(
             persistence_id=persistence_id,
-            manifest_key=did_input_manifest_key,
-            manifest=manifest,
+            input_key=did_input_manifest_key,
+            files=manifest_files,
         )
 
     def _get_metadata(self, eicr_path: Path) -> tuple[str, int]:

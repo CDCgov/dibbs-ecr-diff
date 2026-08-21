@@ -17,8 +17,18 @@ AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "test")
 AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
 
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
-BUCKET_NAME = "ecr-dev-data-repository"
-DYNAMODB_TABLE = "e2e-did-eicr-record"
+
+
+@pytest.fixture(scope="function")
+def bucket_name() -> str:
+    """e2e S3 bucket name."""
+    return "ecr-dev-data-repository"
+
+
+@pytest.fixture(scope="function")
+def dynamodb_table_name() -> str:
+    """e2e DynamoDB table."""
+    return "e2e-did-eicr-record"
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -59,13 +69,15 @@ def dynamodb() -> Any:
 
 
 @pytest.fixture
-def uploader(s3: Any, dynamodb: Any) -> Uploader:
-    """Build an Manifest build + Uploader. Analog to docker/uploader.html."""
-    uploader = Uploader(s3, BUCKET_NAME, ASSETS_DIR)
+def uploader(
+    s3: Any, dynamodb: Any, bucket_name: str, dynamodb_table_name: str
+) -> Uploader:
+    """Build an Manifest builder + Uploader. Analog to docker/uploader.html."""
+    uploader = Uploader(s3, bucket_name, ASSETS_DIR)
     uploader.wait_until_ready()
 
     dynamodb.get_waiter("table_exists").wait(
-        TableName=DYNAMODB_TABLE,
+        TableName=dynamodb_table_name,
         WaiterConfig={"Delay": 1, "MaxAttempts": 5},
     )
 
