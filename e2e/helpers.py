@@ -41,7 +41,7 @@ class Manifest:
 
     persistence_id: str
     input_key: str
-    manifest: list[Any]  # TODO: type this
+    files: list[Any]  # TODO: type this
 
 
 def build_persistence_id() -> str:
@@ -81,7 +81,7 @@ class Uploader:
         objects: dict[str, Path] = {}  # S3 Key -> File Path
 
         for pair in pairs:
-            xml_paths = scenario_dir.glob("*.xml")
+            xml_paths = list(scenario_dir.glob("*.xml"))
             eicr_path = self._get_file_path(pair.id, "eicr", xml_paths)
             rr_path = self._get_file_path(pair.id, "rr", xml_paths)
 
@@ -126,7 +126,7 @@ class Uploader:
             )
 
         # upload DIDInput/ manifest
-        did_input_manifest_key = f"{INPUT_PREFIX}/{persistence_id}"
+        did_input_manifest_key = f"{INPUT_PREFIX}{persistence_id}"
         manifest = {"Files": manifest_files}
         self.s3.put_object(
             Bucket=self.bucket_name,
@@ -193,7 +193,7 @@ class Uploader:
             raise Exception(f"Invalid XML file: {path}") from exc
 
     def _get_file_path(
-        pair_id: int, type: Literal["eicr", "rr"], xml_paths: Iterator[Path]
+        self, pair_id: int, type: Literal["eicr", "rr"], xml_paths: Iterator[Path]
     ) -> Path | None:
         for path in xml_paths:
             filename = path.stem.lower()
