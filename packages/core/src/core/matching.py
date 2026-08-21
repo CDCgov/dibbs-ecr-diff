@@ -147,7 +147,7 @@ def _root_extension_set_sort_key(
 
 def _build_root_extension_element_index(
     elements: list[etree._Element],
-    provided_root_extensions_by_element: dict[
+    root_extensions_by_filtered_elements: dict[
         etree._Element,
         tuple[RootExtension, ...],
     ],
@@ -163,7 +163,7 @@ def _build_root_extension_element_index(
     ] = {}
 
     for elem in elements:
-        root_extensions = provided_root_extensions_by_element.get(elem, ())
+        root_extensions = root_extensions_by_filtered_elements.get(elem, ())
         if not root_extensions:
             continue
 
@@ -201,11 +201,11 @@ def _match_elements_by_root_extension(
     element with the smaller root/extension set must be contained in the larger
     root/extension set from the other element.
     """
-    before_index = _build_root_extension_element_index(
+    before_root_extension_element_index = _build_root_extension_element_index(
         before_elements,
         root_extensions_by_filtered_elements,
     )
-    after_index = _build_root_extension_element_index(
+    after_root_extension_element_index = _build_root_extension_element_index(
         after_elements,
         root_extensions_by_filtered_elements,
     )
@@ -222,12 +222,16 @@ def _match_elements_by_root_extension(
         set[etree._Element],
     ] = defaultdict(set)
 
-    shared_root_extensions = set(before_index.elements_by_root_extension) & set(
-        after_index.elements_by_root_extension
-    )
+    shared_root_extensions = set(
+        before_root_extension_element_index.elements_by_root_extension
+    ) & set(after_root_extension_element_index.elements_by_root_extension)
     for root_extension in sorted(shared_root_extensions, key=_root_extension_sort_key):
-        before_group = before_index.elements_by_root_extension[root_extension]
-        after_group = after_index.elements_by_root_extension[root_extension]
+        before_group = before_root_extension_element_index.elements_by_root_extension[
+            root_extension
+        ]
+        after_group = after_root_extension_element_index.elements_by_root_extension[
+            root_extension
+        ]
         if len(before_group) != 1 or len(after_group) != 1:
             continue
 
@@ -256,10 +260,14 @@ def _match_elements_by_root_extension(
             continue
         if require_complete_subset:
             before_root_extensions = set(
-                before_index.root_extensions_by_element[before_elem],
+                before_root_extension_element_index.root_extensions_by_element[
+                    before_elem
+                ],
             )
             after_root_extensions = set(
-                after_index.root_extensions_by_element[after_elem],
+                after_root_extension_element_index.root_extensions_by_element[
+                    after_elem
+                ],
             )
             shared_root_extensions_for_match = shared_root_extensions_by_element_pair[
                 before_after_pair
@@ -298,11 +306,11 @@ def _root_extension_subset_matching_for_stable_key(
     list[etree._Element],
     list[etree._Element],
 ]:
-    """Match elements using root/extensions from one ranked stable-key candidate.
+    """Match elements using root/extensions for one stable-key candidate type.
 
-    When ``require_complete_subset`` is true, every root/extension from the
-    smaller candidate set must be shared by the larger set. Otherwise, one
-    shared root/extension is sufficient.
+    When ``require_complete_subset`` is true, every root/extension from the element with
+    the smaller root/extension set must be shared by the element with the
+    larger root/extension set. Otherwise, one shared root/extension is sufficient.
     """
     root_extensions_for_key_by_element: dict[
         etree._Element,
@@ -471,15 +479,15 @@ def _template_id_complete_subset_matching(
 
 
 def _stable_key_subset_matching(
-    unmatched_before_elements: list[etree._Element],
-    unmatched_after_elements: list[etree._Element],
+    unmatched_before_sibling_elements: list[etree._Element],
+    unmatched_after_sibling_elements: list[etree._Element],
     stable_key_candidates_by_element: dict[etree._Element, StableKeyCandidates],
 ) -> tuple[
     list[tuple[etree._Element, etree._Element]],
     list[etree._Element],
     list[etree._Element],
 ]:
-    """Apply overlap and subset fallbacks from strongest to weakest key type.
+    """Apply subset fallbacks in descending order of key strength.
 
     Child IDs are more specific than nested section IDs, and both are stronger
     than direct statement ID subsets. TemplateId subset matching is tried last because
@@ -488,20 +496,20 @@ def _stable_key_subset_matching(
     classification and are used only for exact ranked matching, not as fallback
     instance-identity evidence.
 
-    An overlap fallback can match elements when their key sets share one
-    unambiguous value, even when the complete sets differ::
+    A partial subset match can match elements when their key sets share at least one
+    value::
 
         before: {id-a, id-b}
         after:  {id-a, id-c}
 
-    A subset fallback can match elements when every key in the smaller set is
+    A full subset match can match elements when every key in the smaller set is
     present in the larger set::
 
         before: {id-a, id-b}
         after:  {id-a, id-b, id-c}
 
-    Both forms require the candidate value to identify exactly one element on
-    each side. Ambiguous one-to-many and many-to-one matches are not accepted.
+    Elements must have a 1 to 1 match for any subset matching method. One-to-many and
+    many-to-one matches are not accepted.
     """
     ranked_subset_matching_methods = (
         _child_id_partial_subset_matching,
@@ -512,19 +520,26 @@ def _stable_key_subset_matching(
     subset_matches: list[tuple[etree._Element, etree._Element]] = []
 
     for subset_matching_method in ranked_subset_matching_methods:
-        matches, unmatched_before_elements, unmatched_after_elements = (
+        matches, unmatched_before_sibling_elements, unmatched_after_sibling_elements = (
             subset_matching_method(
-                unmatched_before_elements,
-                unmatched_after_elements,
+                unmatched_before_sibling_elements,
+                unmatched_after_sibling_elements,
                 stable_key_candidates_by_element,
             )
         )
         subset_matches.extend(matches)
 
-        if not unmatched_before_elements or not unmatched_after_elements:
+        if (
+            not unmatched_before_sibling_elements
+            or not unmatched_after_sibling_elements
+        ):
             break
 
-    return subset_matches, unmatched_before_elements, unmatched_after_elements
+    return (
+        subset_matches,
+        unmatched_before_sibling_elements,
+        unmatched_after_sibling_elements,
+    )
 
 
 # ---------------------------------------------------------------------------
