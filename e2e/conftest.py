@@ -25,7 +25,8 @@ ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 def compose_stack() -> Iterator[None]:
     """Context manager for tests to run against docker compose stack.
 
-    Note: `autouse=True` means this will automatically wrap e2e test cases.
+    This will automatically wrap e2e test cases (autouse).
+    This will run the stack for the duration of the test suite (scope="session")
     """
     run_compose()
     try:
