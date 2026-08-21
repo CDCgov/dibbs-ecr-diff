@@ -41,24 +41,25 @@ TAGS_HAVING_ROOT_EXTENSION_KEYS = frozenset(
     }
 )
 
-type StableKeyCandidates = dict[int, StableKey | None]
+type StableKeyRank = int
+type StableKeyCandidates = dict[StableKeyRank, StableKey | None]
 
 
 class StableKeyRanks(NamedTuple):
     """Explicit numeric ranks of stable-key candidates."""
 
-    ID_ATTRIBUTE_RANK: int = 1
-    ROOT_EXTENSION_RANK: int = 2
-    CODE_RANK: int = 3
-    DIRECT_CHILD_ID_RANK: int = 4
-    CLINICAL_STATEMENT_ID_ATTRIBUTE_RANK: int = 5
-    CLINICAL_STATEMENT_ID_RANK: int = 6
-    DIRECT_CHILD_CODE_RANK: int = 7
-    CLINICAL_STATEMENT_CODE_RANK: int = 8
-    SECTION_ID_RANK: int = 9
-    DIRECT_CHILD_TEMPLATE_ID_RANK: int = 10
-    SECTION_TEMPLATE_ID_RANK: int = 11
-    CLINICAL_STATEMENT_TEMPLATE_ID_RANK: int = 12
+    ID_ATTRIBUTE_RANK: StableKeyRank = 1
+    ROOT_EXTENSION_RANK: StableKeyRank = 2
+    CODE_RANK: StableKeyRank = 3
+    DIRECT_CHILD_ID_RANK: StableKeyRank = 4
+    CLINICAL_STATEMENT_ID_ATTRIBUTE_RANK: StableKeyRank = 5
+    CLINICAL_STATEMENT_ID_RANK: StableKeyRank = 6
+    DIRECT_CHILD_CODE_RANK: StableKeyRank = 7
+    CLINICAL_STATEMENT_CODE_RANK: StableKeyRank = 8
+    SECTION_ID_RANK: StableKeyRank = 9
+    DIRECT_CHILD_TEMPLATE_ID_RANK: StableKeyRank = 10
+    SECTION_TEMPLATE_ID_RANK: StableKeyRank = 11
+    CLINICAL_STATEMENT_TEMPLATE_ID_RANK: StableKeyRank = 12
 
 
 STABLE_KEY_RANKS = StableKeyRanks()
