@@ -55,7 +55,7 @@ def make_entry() -> DIDInputFile:
         rr="DIDInput/2026/id/jurisdiction/rr.xml",
         setId="set-id",
         versionNumber=1,
-        jurisdictions=["jurisdiction"],
+        jurisdictions=["TX"],
     )
 
 
@@ -267,7 +267,12 @@ def test_process_sqs_record_preserves_completion_manifest_schema(
     doc_log = next(
         record for record in caplog.records if record.message == "document_processed"
     )
-    assert vars(doc_log)["unique_condition_count"] == 0
+    doc_fields = vars(doc_log)
+    assert doc_fields["unique_condition_count"] == 0
+    assert doc_fields["changes_added"] == 0
+    assert doc_fields["changes_updated"] == 0
+    assert doc_fields["changes_deleted"] == 0
+    assert doc_fields["changes_total"] == 0
     assert all(record.message != "xml_change" for record in caplog.records)
     put_object.assert_called_once()
     bucket, key, body = put_object.call_args.args
@@ -280,6 +285,7 @@ def test_process_sqs_record_preserves_completion_manifest_schema(
                 "rr": "DIDOutputV2/2026/id/jurisdiction/rr.xml",
                 "setId": "set-id",
                 "versionNumber": 1,
+                "jurisdictions": ["TX"],
                 "eicr_diff_output": None,
                 "is_actionable": True,
             }
@@ -413,6 +419,10 @@ def test_process_sqs_record_logs_completed_document_and_reported_changes(
     )
     assert doc_fields["version_number"] == 1
     assert doc_fields["unique_condition_count"] == 1
+    assert doc_fields["changes_added"] == 1
+    assert doc_fields["changes_updated"] == 1
+    assert doc_fields["changes_deleted"] == 1
+    assert doc_fields["changes_total"] == 3
     assert "condition_code" not in doc_fields
     assert "condition_code_system" not in doc_fields
     assert "encounter_type" not in doc_fields
@@ -438,6 +448,10 @@ def test_process_sqs_record_logs_completed_document_and_reported_changes(
         assert "condition_code_system" not in fields
         assert "section_loinc_code" not in fields
         assert "encounter_type" not in fields
+        assert "changes_added" not in fields
+        assert "changes_updated" not in fields
+        assert "changes_deleted" not in fields
+        assert "changes_total" not in fields
 
     logged_fields = repr([vars(record) for record in doc_logs + change_logs])
     assert "radioactive-condition-code" not in logged_fields
@@ -494,6 +508,7 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
         rr="DIDOutputV2/2026/id/jurisdiction/rr.xml",
         setId="set-id",
         versionNumber=1,
+        jurisdictions=["TX"],
         is_actionable=True,
     )
     assert result.changes == ()
@@ -502,6 +517,9 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
         version_number=1,
         encounter_type="ambulatory",
         unique_condition_count=1,
+        changes_added=0,
+        changes_updated=0,
+        changes_deleted=0,
     )
     assert not hasattr(result, "condition_codes")
     assert documents_processed_by_condition == {condition_codes[0]: 1}
@@ -523,6 +541,56 @@ def test_process_manifest_entry_returns_only_after_entry_writes_succeed(
         "isActionable": True,
         "comparedToVersion": None,
     }
+
+
+def test_process_manifest_entry_counts_reported_changes_once(
+    lambda_module,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entry = make_entry()
+    eicr_tree = SimpleNamespace(getroot=lambda: object())
+    rr_tree = object()
+    before_tree = object()
+    changes = (
+        make_change(ChangeType.ADDED),
+        make_change(ChangeType.UPDATED, is_actionable=False),
+        make_change(ChangeType.UPDATED),
+        make_change(ChangeType.DELETED),
+    )
+    diff_output = SimpleNamespace(
+        changes=changes,
+        hasActionableChanges=True,
+        model_dump_json=Mock(return_value="{}"),
+    )
+
+    monkeypatch.setattr(
+        lambda_module,
+        "get_before_actionable_record",
+        lambda *_: SimpleNamespace(versionNumber=0, s3Key="previous-eicr.xml"),
+    )
+    monkeypatch.setattr(
+        lambda_module,
+        "get_object_xml_tree",
+        Mock(side_effect=[eicr_tree, rr_tree, before_tree]),
+    )
+    monkeypatch.setattr(lambda_module, "condition_codes_from_rr", lambda *_: ())
+    monkeypatch.setattr(
+        lambda_module, "encounter_type_from_eicr", lambda *_: "ambulatory"
+    )
+    monkeypatch.setattr(lambda_module, "diff_xml", Mock(return_value=diff_output))
+    monkeypatch.setattr(lambda_module, "create_augmentation_run", lambda *_: object())
+    monkeypatch.setattr(lambda_module, "get_augmented_eicr", lambda *_: b"eicr")
+    monkeypatch.setattr(lambda_module, "get_augmented_rr", lambda *_: b"rr")
+    monkeypatch.setattr(lambda_module, "put_object", Mock())
+    monkeypatch.setattr(lambda_module, "put_eicr_record", Mock())
+
+    result = lambda_module.process_manifest_entry("bucket", "2026/id", entry, 0)
+
+    assert result.changes == changes
+    assert result.telemetry.changes_added == 1
+    assert result.telemetry.changes_updated == 2
+    assert result.telemetry.changes_deleted == 1
+    assert result.telemetry.changes_total == 4
 
 
 def test_process_manifest_entry_propagates_final_write_failure(

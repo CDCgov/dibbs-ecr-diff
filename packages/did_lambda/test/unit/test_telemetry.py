@@ -29,6 +29,9 @@ def test_document_telemetry_exposes_only_expected_fields() -> None:
         "version_number",
         "encounter_type",
         "unique_condition_count",
+        "changes_added",
+        "changes_updated",
+        "changes_deleted",
     )
     assert tuple(field.name for field in fields(ManifestEntryResult)) == (
         "output_file",
@@ -152,6 +155,10 @@ def test_logs_document_and_reported_changes(
     assert vars(document_log)["persistence_id_with_index"] == "2026/id:0"
     assert vars(document_log)["version_number"] == 2
     assert vars(document_log)["unique_condition_count"] == 3
+    assert vars(document_log)["changes_added"] == 0
+    assert vars(document_log)["changes_updated"] == 1
+    assert vars(document_log)["changes_deleted"] == 0
+    assert vars(document_log)["changes_total"] == 1
 
     change_log = next(
         record for record in caplog.records if record.message == "xml_change"
@@ -161,6 +168,10 @@ def test_logs_document_and_reported_changes(
     assert vars(change_log)["change_type"] == "UPDATED"
     assert vars(change_log)["change_path"] == "/hl7:ClinicalDocument/hl7:component"
     assert "isActionable" not in vars(change_log)
+    assert "changes_added" not in vars(change_log)
+    assert "changes_updated" not in vars(change_log)
+    assert "changes_deleted" not in vars(change_log)
+    assert "changes_total" not in vars(change_log)
 
 
 def test_logs_documents_processed_by_condition_without_document_fields(

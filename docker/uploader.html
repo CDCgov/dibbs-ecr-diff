@@ -1,4 +1,4 @@
-<!-- 
+<!--
 This is a single-file web app to let devs upload eICRs/RRs to our local environment S3 buckets.
 This should be run using Docker & our compose.yml file
 to allow the uploader to send requests to our local S3 without dealing with CORS-related restrictions
@@ -15,7 +15,7 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
     body { font: 16px sans-serif; max-width: 48rem; margin: 2rem auto; padding: 0 1rem; }
     fieldset { margin: 1rem 0; padding: 1rem; }
     label { display: block; margin: .75rem 0; }
-    input { box-sizing: border-box; display: block; margin-top: .25rem; width: 100%; }
+    input, select { box-sizing: border-box; display: block; margin-top: .25rem; width: 100%; }
     button { margin: .25rem .5rem .25rem 0; }
     .status { white-space: pre-wrap; }
     .error { color: red; }
@@ -35,6 +35,7 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
     const S3_BUCKET = 'ecr-dev-data-repository';
     const DID_INPUT_PREFIX = 'DIDInput/';
     const REFINER_INPUT_PREFIX = 'RefinerOutputV2/';
+    const UPLOAD_TYPES = { REFINED: 'refined', UNREFINED: 'unrefined', REMAINDER_RR: 'remainder_rr' };
 
     const AWS_ENDPOINT_URL = 'http://localhost:4566';
     const AWS_ACCESS_KEY_ID = 'test'
@@ -117,6 +118,8 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
     }
 
     function FieldSet({ disabled, onRemove }) {
+      const [type, setType] = useState(UPLOAD_TYPES.REFINED);
+
       return html`
         <fieldset class="upload-row" disabled=${disabled}>
           <legend></legend>
@@ -129,13 +132,25 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
             <input name="rr-file" type="file" accept=".xml,application/xml,text/xml" required />
           </label>
           <label>
+            Upload Type
+            <select name="upload-type" value=${type} onChange=${e => setType(e.currentTarget.value)}>
+              <option value=${UPLOAD_TYPES.REFINED}>Refined</option>
+              <option value=${UPLOAD_TYPES.UNREFINED}>Unrefined (Original eICR/RR Pair)</option>
+              <option value=${UPLOAD_TYPES.REMAINDER_RR}>Remainder RR</option>
+            </select>
+          </label>
+
+          <label>
             Jurisdiction ID
             <input name="jurisdiction" type="text" placeholder="SDDH" value="SDDH" />
           </label>
-          <label>
-            Condition
-            <input name="condition" type="text" placeholder="COVID19" value="COVID19" />
-          </label>
+
+          ${(type === 'refined') && html`
+            <label>
+              Condition
+              <input name="condition" type="text" placeholder="COVID19" value="COVID19" />
+            </label>
+          `}
 
           <button onclick=${onRemove} type="button">Remove</button>
         </fieldset>
@@ -198,22 +213,40 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
     async function buildUpload(row, persistenceId) {
       const eicr = row.elements.namedItem('eicr-file').files[0];
       const rr = row.elements.namedItem('rr-file').files[0];
-      const jurisdiction = normalizeKeyPart(row.elements.namedItem('jurisdiction').value);
-      const condition = normalizeKeyPart(row.elements.namedItem('condition').value);
+      const uploadType = row.elements.namedItem('upload-type').value;
+      const jurisdiction = normalizeKeyPart(row.elements.namedItem('jurisdiction')?.value ?? '');
+      const condition = normalizeKeyPart(row.elements.namedItem('condition')?.value ?? '');
 
       if (!eicr) throw new Error('Each upload needs an eICR XML file.');
       if (!rr) throw new Error('Each upload needs an RR XML file.');
 
+      let eicrKey;
+      let rrKey;
+
+      if (uploadType === UPLOAD_TYPES.REFINED) {
+        eicrKey = `RefinerOutputV2/${persistenceId}/${jurisdiction}/${condition}/${eicr.name}`;
+        rrKey = `RefinerOutputV2/${persistenceId}/${jurisdiction}/${condition}/${rr.name}`;
+      } else if (uploadType === UPLOAD_TYPES.UNREFINED) {
+        eicrKey = `eCRMessageV2/${persistenceId}`;
+        rrKey = `RRMessageV2/${persistenceId}`;
+      } else if (uploadType === UPLOAD_TYPES.REMAINDER_RR) {
+        eicrKey = `eCRMessageV2/${persistenceId}`;
+        rrKey = `RefinerOutputV2/${persistenceId}/${jurisdiction}/unrefined_rr/refined_rr.xml`;
+      }
+
+      // parse both docs. parse RR for XML validation
       const eicrDoc = parseXML(await eicr.text(), eicr.name);
-      const eicrKey = normalizeS3Key(`${REFINER_INPUT_PREFIX}${persistenceId}/${jurisdiction}/${condition}/${eicr.name}`);
+      const rrDoc = parseXML(await rr.text(), rr.name);
       const metadata = getEICRMetadata(eicrDoc, eicr.name);
 
-      const rrDoc = parseXML(await rr.text(), rr.name);
-      const rrKey = normalizeS3Key(`${REFINER_INPUT_PREFIX}${persistenceId}/${jurisdiction}/${condition}/${rr.name}`);
+      // normalize keys
+      eicrKey = normalizeS3Key(eicrKey);
+      rrKey = normalizeS3Key(rrKey);
 
       const manifestRecord = {
         eicr: eicrKey,
         rr: rrKey,
+        originalRr: null, // TODO
         jurisdictions: [jurisdiction],
         ...metadata
       };

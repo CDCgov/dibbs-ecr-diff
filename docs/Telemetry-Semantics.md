@@ -223,6 +223,10 @@ manifest can produce this event again if its SQS record is delivered again.
 | `persistence_id_with_index` | Manifest persistence ID followed by the entry's zero-based index, separated by a colon. |
 | `version_number` | Plain document version number. |
 | `unique_condition_count` | Number of unique coded conditions extracted from the RR. |
+| `changes_added` | Number of reported `ADDED` changes, whether actionable or non-actionable. |
+| `changes_updated` | Number of reported `UPDATED` changes, whether actionable or non-actionable. |
+| `changes_deleted` | Number of reported `DELETED` changes, whether actionable or non-actionable. |
+| `changes_total` | Sum of the added, updated, and deleted changes. |
 
 Condition codes themselves are never included in this correlated event.
 
