@@ -8,7 +8,7 @@ from core.cda.stable_key import (
 from core.matching import (
     _stable_key_matching,
     _stable_key_subset_matching,
-    _unique_elements_by_key,
+    _unique_sibling_elements_by_key,
     match_children_ignore_order,
 )
 from helpers import HL7_NS, elem, observation
@@ -517,7 +517,7 @@ def test_ranked_matching_marks_four_duplicate_candidates_ambiguous():
         element: stable_key_candidates(element) for element in before_elements
     }
 
-    unique_elements = _unique_elements_by_key(
+    unique_elements = _unique_sibling_elements_by_key(
         before_elements,
         before_candidates,
         STABLE_KEY_RANKS.ROOT_EXTENSION_RANK,

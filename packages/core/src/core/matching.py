@@ -547,31 +547,31 @@ def _stable_key_subset_matching(
 # ---------------------------------------------------------------------------
 
 
-def _unique_elements_by_key(
-    elements: list[etree._Element],
+def _unique_sibling_elements_by_key(
+    sibling_elements: list[etree._Element],
     stable_key_candidates_by_element: dict[
         etree._Element,
         StableKeyCandidates,
     ],
     stable_key_rank: StableKeyRank,
 ) -> dict[StableKey, etree._Element | None]:
-    """Index elements by a candidate, marking duplicate candidates ambiguous."""
-    elements_by_candidate_key: dict[StableKey, etree._Element | None] = {}
+    """Only return elements that don't have a matching sibling for that key type."""
+    unique_elements_by_candidate_key: dict[StableKey, etree._Element | None] = {}
 
-    for elem in elements:
+    for elem in sibling_elements:
         stable_key_candidate = stable_key_candidates_by_element[elem][stable_key_rank]
         if stable_key_candidate is None:
             continue
 
-        if stable_key_candidate not in elements_by_candidate_key:
-            elements_by_candidate_key[stable_key_candidate] = elem
-        elif elements_by_candidate_key[stable_key_candidate] is not None:
+        if stable_key_candidate not in unique_elements_by_candidate_key:
+            unique_elements_by_candidate_key[stable_key_candidate] = elem
+        elif unique_elements_by_candidate_key[stable_key_candidate] is not None:
             # If a sibling element has the same value for its stable key candidate,
             # then it violates the one-to-one matching requirement, so that key
             # cannot be used to match across eICRs
-            elements_by_candidate_key[stable_key_candidate] = None
+            unique_elements_by_candidate_key[stable_key_candidate] = None
 
-    return elements_by_candidate_key
+    return unique_elements_by_candidate_key
 
 
 def _stable_key_matching(
@@ -586,16 +586,31 @@ def _stable_key_matching(
     list[etree._Element],
     list[etree._Element],
 ]:
-    """Match remaining siblings through strict one-to-one stable-key passes."""
+    """Match elements through ranked, strict one-to-one stable-key passes.
+
+    For each stable-key rank, from strongest to weakest, it:
+
+      1. Builds a before-side index of unique values for that stable-key rank.
+      2. Builds an after-side index of unique values for that stable-key rank.
+      3. Matches only values that occur exactly once on both sides.
+      4. Removes those matched elements from the remaining sibling lists.
+      5. Continues with the next rank.
+      6. Stops when either side is exhausted.
+
+    This implements a deterministic, multi-pass matching algorithm.
+
+    Returns the matches found and the remaining unmatched before and after
+    siblings.
+    """
     matched_elements: list[tuple[etree._Element, etree._Element]] = []
 
     for stable_key_rank in RANKS:
-        unique_before_sibling_elements_by_key = _unique_elements_by_key(
+        unique_before_sibling_elements_by_key = _unique_sibling_elements_by_key(
             unmatched_before_sibling_elements,
             stable_key_candidates_by_element,
             stable_key_rank,
         )
-        unique_after_sibling_elements_by_key = _unique_elements_by_key(
+        unique_after_sibling_elements_by_key = _unique_sibling_elements_by_key(
             unmatched_after_sibling_elements,
             stable_key_candidates_by_element,
             stable_key_rank,
