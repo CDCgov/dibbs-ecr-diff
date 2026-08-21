@@ -17,7 +17,15 @@ DOCKER_COMPOSE = (
 def run_compose(*, cmd: str = "up") -> None:
     """Start, reset, or stop the E2E Docker Compose stack."""
     down = [*DOCKER_COMPOSE, "down", "--volumes", "--remove-orphans"]
-    up = [*DOCKER_COMPOSE, "up", "--build", "--detach"]
+    up = [
+        *DOCKER_COMPOSE,
+        "up",
+        "did_lambda",
+        "localstack",
+        "sqs-poller",
+        "--build",
+        "--detach",
+    ]
 
     if cmd == "up":
         commands = [up]
