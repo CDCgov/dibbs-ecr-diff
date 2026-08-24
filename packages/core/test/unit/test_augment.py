@@ -762,6 +762,57 @@ def test_no_diff_augmentation_with_no_diff_output_changes(
     )
 
 
+def test_no_diff_augmentation_for_nonactionable_changes(
+    eicr_1_root_v3_1_1: etree.Element,
+):
+    inactionable_change = Change(
+        changeType=ChangeType.ADDED,
+        xpath="",
+        xpathDocumentId="",
+        isActionable=False,
+        actionabilityRuleId=uuid.UUID("12345678-1234-5678-1234-567812345678"),
+        actionabilityRuleDisplayName="test rule",
+    )
+
+    diff_output = DiffOutput(
+        generatedAt=datetime.datetime.strptime(
+            _TEST_AUGMENTATION_TIME, "%Y%m%d%H%M%S%z"
+        ),
+        configurationId=uuid.UUID("7f32fea9-5a2a-47de-80e5-808ee9be919b"),
+        configurationVersion="1",
+        configurationDisplayName="test",
+        setId="abc",
+        currentDocument=Document(documentId="123", versionNumber="2"),
+        previousDocument=Document(documentId="345", versionNumber="1"),
+        hasDetectedChanges=False,
+        hasActionableChanges=False,
+        changes=[inactionable_change],
+    )
+
+    augment_eicr_in_place(
+        eicr_1_root_v3_1_1,
+        _make_run(),
+        diff_output=diff_output,
+        jurisdiction_id=_TEST_JURISDICTION_ID,
+    )
+
+    # should produce no author that has a function code of added or updated
+    all_authors = eicr_1_root_v3_1_1.findall("hl7:author", NAMESPACES)
+
+    assert all(
+        not (
+            a.find(
+                "hl7:assignedAuthor/hl7:assignedAuthoringDevice/hl7:softwareName[@code='ecr-difference-in-docs']",
+                NAMESPACES,
+            )
+            is not None
+            and (fc := a.find("hl7:functionCode", NAMESPACES)) is not None
+            and fc.get("code") in ("ADDED", "UPDATED")
+        )
+        for a in all_authors
+    )
+
+
 # NOTE:
 # Find best author allowed element tests
 # =============================================================================
