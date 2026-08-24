@@ -796,7 +796,6 @@ def test_no_diff_augmentation_for_nonactionable_changes(
         jurisdiction_id=_TEST_JURISDICTION_ID,
     )
 
-    # should produce no author that has a function code of added or updated
     all_authors = eicr_1_root_v3_1_1.findall("hl7:author", NAMESPACES)
 
     assert all(
@@ -807,7 +806,7 @@ def test_no_diff_augmentation_for_nonactionable_changes(
             )
             is not None
             and (fc := a.find("hl7:functionCode", NAMESPACES)) is not None
-            and fc.get("code") in ("ADDED", "UPDATED")
+            and fc.get("code") is not None
         )
         for a in all_authors
     )
