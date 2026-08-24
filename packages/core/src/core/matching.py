@@ -193,8 +193,8 @@ def _match_elements_by_root_extension(
 ]:
     """Match elements using shared root/extension values.
 
-    Elements are first matched if a root-extension value appears on one element
-    in the before elements and one element in the after elements. This rejects both
+    Elements are first matched if a root-extension value appears on only one element
+    in the before elements and only one element in the after elements. This rejects both
     one-to-many and many-to-one matches.
 
     When ``require_complete_subset`` is true, every root/extension from the

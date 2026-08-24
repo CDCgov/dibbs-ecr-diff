@@ -135,6 +135,33 @@ def stable_key_candidates(elem: etree._Element) -> StableKeyCandidates:
     The dictionary is ordered from the most specific candidate to the weakest
     candidate.  Every element receives the same set of candidate names, with
     ``None`` used when a candidate is not available.
+
+    The candidates are derived from these sources:
+
+    1. ``ID_ATTRIBUTE_RANK`` — an ID/id attribute on ``elem``.
+    2. ``ROOT_EXTENSION_RANK`` — root/extension fields on ``elem`` when
+       ``elem`` is an ID-like CDA element.
+    3. ``CODE_RANK`` — code/codeSystem fields when ``elem`` is a ``<code>``.
+    4. ``DIRECT_CHILD_ID_RANK`` — root/extensions from direct child ``<id>``
+       elements.
+    5. ``CLINICAL_STATEMENT_ID_ATTRIBUTE_RANK`` — an ID/id attribute on a
+       nested clinical statement.
+    6. ``CLINICAL_STATEMENT_ID_RANK`` — root/extensions from child ``<id>``
+       elements on a nested clinical statement.
+    7. ``DIRECT_CHILD_CODE_RANK`` — code/codeSystem fields from direct child
+       ``<code>`` elements.
+    8. ``CLINICAL_STATEMENT_CODE_RANK`` — code fields from a nested clinical
+       statement.
+    9. ``SECTION_ID_RANK`` — root/extensions from descendant section ``<id>``
+       elements.
+    10. ``DIRECT_CHILD_TEMPLATE_ID_RANK`` — root/extensions from direct child
+        ``<templateId>`` elements.
+    11. ``SECTION_TEMPLATE_ID_RANK`` — root/extensions from descendant section
+        ``<templateId>`` elements.
+    12. ``CLINICAL_STATEMENT_TEMPLATE_ID_RANK`` — root/extensions from
+        ``<templateId>`` elements on a nested clinical statement.
+
+    Matching and candidate-selection behavior is implemented by the callers.
     """
     id_attribute_candidate = _id_attribute_key(elem)
     root_extension_candidate = _root_extension_key(elem)
@@ -258,60 +285,7 @@ def stable_key_candidates(elem: etree._Element) -> StableKeyCandidates:
 
 
 def highest_ranked_stable_key(elem: etree._Element) -> StableKey | None:
-    """Derive the most specific stable match key available for elem.
-
-    The key is used to match elements across before/after versions.  Keys are
-    tried from most to least specific; the first match wins.
-
-    Ordering rationale:
-      Direct element key priorities:
-        1. Element's own direct attribute keys: direct ID/id attributes,
-           root/extension fields that can function as keys, and code/codeSystem
-           pairs, but only code/codeSystem pairs on <code> elements. These are
-           the most specific keys because they identify the current element
-           itself.
-        2. Root-extension values within direct child <id> elements. They are
-           less specific than direct attribute keys because they come from
-           child <id> elements.
-
-      Clinical statement priorities:
-        3. Nested clinical statement direct ID/id attribute key. It is less
-           specific than direct child <id> keys because it belongs to a
-           contained clinical statement.
-        4. Nested clinical statement child <id> keys. They are less specific
-           than the clinical statement's own ID/id attribute because they come
-           from child <id> elements, similar to the difference between 1 and 2.
-
-      Child code priorities:
-        5. Direct child <code> keys. They are weaker than clinical statement ID keys
-           because a code usually identifies what kind of element this is, not the
-           specific instance. They still apply directly to the element being keyed,
-           so they are stronger than keys taken from descendant sections.
-        6. Nested clinical statement child <code> keys. They are less specific
-           than direct child <code> keys because they belong to the clinical
-           statement, which itself is a child or grandchild of the element being keyed.
-
-      Section ID priority:
-        7. Nested <section> <id> keys. They are less specific than nested
-           clinical statement child <code> keys because they identify descendant
-           document-organization containers rather than the keyed element more
-           directly.
-
-      TemplateId priorities:
-        8. Direct child <templateId> keys. They are less specific than nested
-           <section> <id> keys because templateIds identify conformance, not
-           instances.
-        9. Nested <section> <templateId> keys. They are less specific than direct child
-           templateIds because they belong to descendant sections. This method checks
-           them before nested clinical statement templateIds as a deterministic
-           tie-breaker, not because CDA makes section templateIds intrinsically more
-           specific than clinical statement templateIds.
-        10. Nested clinical statement <templateId> keys. They are not
-           intrinsically less specific than nested <section> templateIds, but
-           this method orders them last. Both are type/conformance
-           signals.
-
-    """
+    """Retrieve the most specific stable match key available for elem."""
     candidates = stable_key_candidates(elem)
     for rank in STABLE_KEY_RANKS:
         candidate = candidates[rank]
