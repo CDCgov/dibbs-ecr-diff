@@ -12,6 +12,7 @@ dev = [
     "lefthook>=2.1.9",
     "pytest>=9.0.3",
     "ruff>=0.15.5",
+    "syrupy>=6.0.0",
     "ty>=0.0.21",
     "types-boto3[essential]>=1.43.53",
 ]
@@ -109,12 +110,10 @@ ignore = [
 convention = "google"
 
 [tool.pytest.ini_options]
-addopts = ["--import-mode=importlib"]
 pythonpath = [
     "packages/core/src",
     "packages/did_lambda/src",
     "packages/cli/src",
-    "packages/core/test/unit",
 ]
 testpaths = ["packages"]
 python_files = ["**/test/test_*.py", "**/test/**/test_*.py", "**/test/__init__.py"]

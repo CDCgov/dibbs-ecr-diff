@@ -1,7 +1,7 @@
 """Helpers for local end-to-end tests."""
 
 import json
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -57,11 +57,13 @@ class Uploader:
         s3_client: Any,
         bucket_name: str,
         assets_dir: Path,
+        persistence_id_factory: Callable[[], str] = build_persistence_id,
     ) -> None:
         """Intialize an uploader."""
         self.s3 = s3_client
         self.bucket_name = bucket_name
         self.assets_dir = assets_dir
+        self.persistence_id_factory = persistence_id_factory
 
     def wait_until_ready(self) -> None:
         """Wait until the test bucket exists."""
@@ -70,13 +72,18 @@ class Uploader:
             WaiterConfig={"Delay": 1, "MaxAttempts": 5},
         )
 
+    def read_object(self, key: str) -> str:
+        """Read file frfom S3."""
+        response = self.s3.get_object(Bucket=self.bucket_name, Key=key)
+        return response["Body"].read().decode()
+
     def send_manifest(self, scenario: str, pairs: list[Pair]) -> Manifest:
         """Upload one manifest and wait for it to be sent."""
         scenario_dir = self.assets_dir / scenario
         if not scenario_dir.is_dir():
             raise Exception(f"Scenario directory doesn't exist: {scenario_dir}")
 
-        persistence_id = build_persistence_id()
+        persistence_id = self.persistence_id_factory()
         manifest_files = []
         objects: dict[str, Path] = {}  # S3 Key -> File Path
 

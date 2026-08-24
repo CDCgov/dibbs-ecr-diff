@@ -2,7 +2,10 @@
 
 import os
 from collections.abc import Iterator
+from hashlib import sha256
+from itertools import count
 from pathlib import Path
+from uuid import UUID
 
 import boto3
 import pytest
@@ -81,9 +84,28 @@ def dynamodb_table(dynamodb_resource: DynamoDBServiceResource) -> Table:
 
 
 @pytest.fixture
-def uploader(s3: S3Client, dynamodb: DynamoDBClient) -> Uploader:
+def uploader(
+    s3: S3Client,
+    dynamodb: DynamoDBClient,
+    request: pytest.FixtureRequest,
+) -> Uploader:
     """Build an Manifest builder + Uploader. Analog to docker/uploader.html."""
-    uploader = Uploader(s3, BUCKET_NAME, ASSETS_DIR)
+    # keep track of persistence_id factory calls to generate deterministic persitence_id
+    # this ensures snapshots assertions are consistent
+    persistence_id_calls = count()
+
+    def build_persistence_id() -> str:
+        seed = f"{request.node.nodeid}:{next(persistence_id_calls)}".encode()
+        seed_bytes = sha256(seed).digest()[:16]
+        uuid = UUID(bytes=seed_bytes, version=4)
+        return f"2026/08/24/{uuid}"
+
+    uploader = Uploader(
+        s3,
+        BUCKET_NAME,
+        ASSETS_DIR,
+        persistence_id_factory=build_persistence_id,
+    )
     uploader.wait_until_ready()
 
     dynamodb.get_waiter("table_exists").wait(
