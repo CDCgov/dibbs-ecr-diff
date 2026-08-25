@@ -1,21 +1,23 @@
 from syrupy import SnapshotAssertion
-from types_boto3_s3 import S3Client
 
 from e2e.helpers import Pair, Uploader
 
 
-def test_happy_path(
-    uploader: Uploader, s3: S3Client, snapshot: SnapshotAssertion
-) -> None:
+def test_happy_path(uploader: Uploader, snapshot: SnapshotAssertion) -> None:
     """Happy path test case."""
-    manifest = uploader.send_manifest("happy-path", [Pair(1), Pair(2), Pair(3)])
-
-    did_complete_key = f"DIDCompleteV2/{manifest.persistence_id}"
-
-    s3.get_waiter("object_exists").wait(
-        Bucket=uploader.bucket_name,
-        Key=did_complete_key,
-        WaiterConfig={"Delay": 1, "MaxAttempts": 30},
+    input_manifest, complete_manifest, _persistence_id = uploader.send_manifest(
+        "happy-path", [Pair(1), Pair(2), Pair(3)]
     )
 
-    assert uploader.read_object(did_complete_key) == snapshot
+    assert uploader.read_object(complete_manifest.key) == snapshot
+
+    for index, manifest_file in enumerate(complete_manifest.files):
+        for document_type, object_key in (
+            ("eicr", manifest_file.eicr),
+            ("rr", manifest_file.rr),
+            ("eicr_diff_output", manifest_file.eicr_diff_output),
+        ):
+            if object_key:
+                assert uploader.read_object_for_snapshot(object_key) == snapshot(
+                    name=f"file_{index}_{document_type}"
+                )

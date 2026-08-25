@@ -44,7 +44,8 @@ root = [
     # test directories
     "packages/cli/test",
     "packages/core/test",
-    "packages/did_lambda/test"
+    "packages/did_lambda/test",
+    "."
 ]
 
 [tool.ruff.lint]
@@ -113,7 +114,7 @@ convention = "google"
 pythonpath = [
     "packages/core/src",
     "packages/did_lambda/src",
-    "packages/cli/src",
+    "packages/cli/src"
 ]
 testpaths = ["packages"]
 python_files = ["**/test/test_*.py", "**/test/**/test_*.py", "**/test/__init__.py"]

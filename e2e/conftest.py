@@ -9,6 +9,8 @@ from uuid import UUID
 
 import boto3
 import pytest
+from syrupy import SnapshotAssertion
+from syrupy.extensions.single_file import SingleFileAmberSnapshotExtension
 from types_boto3_dynamodb import DynamoDBClient
 from types_boto3_dynamodb.service_resource import DynamoDBServiceResource, Table
 from types_boto3_s3 import S3Client
@@ -25,6 +27,15 @@ AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
 BUCKET_NAME = "ecr-dev-data-repository"
 DYNAMODB_TABLE = "e2e-did-eicr-record"
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+
+
+@pytest.fixture
+def snapshot(snapshot: SnapshotAssertion) -> SnapshotAssertion:
+    """Configure syrupy to use one snapshot file per assertion.
+
+    See: https://syrupy-project.github.io/syrupy/#built-in-extensions
+    """
+    return snapshot.use_extension(SingleFileAmberSnapshotExtension)
 
 
 @pytest.fixture(scope="session", autouse=True)
