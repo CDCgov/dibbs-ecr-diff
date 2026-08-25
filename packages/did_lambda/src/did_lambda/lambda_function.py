@@ -19,6 +19,7 @@ from core.augment import (
     create_augmentation_run,
 )
 from core.configurations import load_configuration
+from core.datetime_utils import get_current_datetime
 from lxml import etree
 from lxml.etree import ElementTree
 from pydantic import ValidationError
@@ -52,7 +53,6 @@ from .utils import (
     InfraError,
     get_did_output_key,
     get_did_output_path,
-    get_timestamp,
     persistence_id_from_manifest_key,
 )
 
@@ -232,7 +232,7 @@ def process_manifest_entry(
                     s3Key=entry.eicr,
                     s3KeyRR=entry.rr,
                     s3KeyDiffOutput=diff_output_key,
-                    processedAt=get_timestamp(),
+                    processedAt=get_current_datetime(),
                     isActionable=is_actionable,
                     comparedToVersion=compared_to_version,
                 )
