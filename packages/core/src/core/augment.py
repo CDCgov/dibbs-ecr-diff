@@ -764,27 +764,39 @@ def _process_diff_output_changes(diff_output: DiffOutput, timestamp: str) -> Non
         if author_allowed_element is None:
             continue
 
-        # If there are multiple changes on the same element, only add one diff author child
-        if not _contains_diff_author_direct_child(author_allowed_element):
-            author = _create_diff_author_element(change, timestamp)
-            insert_sequenced_child_of_parent(author_allowed_element, author)
+        function_code = _get_function_code_for_change(change)
+
+        # If there are multiple changes for the same element, avoid duplicate augmentation
+        if _contains_diff_author_direct_child_with_function_code(
+            author_allowed_element, function_code
+        ):
+            continue
+
+        author = _create_diff_author_element(function_code, timestamp)
+        insert_sequenced_child_of_parent(author_allowed_element, author)
 
 
 def _find_best_author_allowed_element(anchor: _Element) -> _Element | None:
     """Returns the best element relative to anchor that allows a CDA author tag or None.
 
-    In order, checks anchor node itself, then ancestors, finally descendants.
+    Checks anchor node itself, then ancestors
     """
-    author_allowed_tags = [*CDA_CLINICAL_STATEMENT_TAGS, hl7_clark_tag("section")]
-    # First check anchor node itself, then ancestors, finally descendants
-    for el in [anchor, *anchor.iterancestors(), *anchor.iterdescendants()]:
+    author_allowed_tags = [
+        *CDA_CLINICAL_STATEMENT_TAGS,
+        hl7_clark_tag("section"),
+        hl7_clark_tag("ClinicalDocument"),
+    ]
+    # First check anchor node itself, then ancestors
+    for el in [anchor, *anchor.iterancestors()]:
         if el.tag in author_allowed_tags:
             return el
 
     return None
 
 
-def _contains_diff_author_direct_child(element: _Element) -> bool:
+def _contains_diff_author_direct_child_with_function_code(
+    element: _Element, function_code: str
+) -> bool:
     """Returns true if the element already contains a diff author direct child."""
     software_name = element.find(
         "./hl7:author/hl7:assignedAuthor/hl7:assignedAuthoringDevice/hl7:softwareName",
@@ -793,8 +805,8 @@ def _contains_diff_author_direct_child(element: _Element) -> bool:
     if software_name is None:
         return False
 
-    function_code = element.find("./hl7:author/hl7:functionCode", NAMESPACES)
-    if function_code is None:
+    existing_function_code = element.find("./hl7:author/hl7:functionCode", NAMESPACES)
+    if existing_function_code is None:
         return False
 
     return (
@@ -802,26 +814,36 @@ def _contains_diff_author_direct_child(element: _Element) -> bool:
         and software_name.get("codeSystem") == ECR_DATA_AUG_CODE_SYSTEM
         and software_name.get("codeSystemName") == ECR_DATA_AUG_CODE_SYSTEM_NAME
         and software_name.get("displayName") == DIFF_TOOL_DISPLAY
-        and function_code.get("codeSystem") == ECR_DATA_AUG_CODE_SYSTEM
-        and function_code.get("codeSystemName") == ECR_DATA_AUG_CODE_SYSTEM_NAME
+        and existing_function_code.get("code") == function_code
+        and existing_function_code.get("codeSystem") == ECR_DATA_AUG_CODE_SYSTEM
+        and existing_function_code.get("codeSystemName")
+        == ECR_DATA_AUG_CODE_SYSTEM_NAME
     )
 
 
-def _create_diff_author_element(change: Change, timestamp: str) -> _Element:
-    """Returns a new author element populated with entry-level diff augmentation."""
+def _get_function_code_for_change(change: Change) -> str:
+    """Returns the augmentation function code to use for this change."""
+    if (
+        change.augmentation_function_code is not None
+        and change.augmentation_function_code.strip()
+    ):
+        return change.augmentation_function_code
+    elif change.changeType == ChangeType.ADDED:
+        return FUNCTION_CODE_ADD_DETECTED
+    elif change.changeType == ChangeType.UPDATED:
+        return FUNCTION_CODE_UPDATE_DETECTED
+    else:
+        raise ValueError(
+            f"ChangeType '{change.changeType}' not supported for augmentation function codes"
+        )
+
+
+def _create_diff_author_element(function_code_value: str, timestamp: str) -> _Element:
+    """Returns a new author element populated with diff info in the augmentation function code."""
     author = etree.Element(hl7_clark_tag("author"))
 
     function_code = etree.SubElement(author, hl7_clark_tag("functionCode"))
-
-    if change.changeType == ChangeType.ADDED:
-        function_code.set("code", FUNCTION_CODE_ADD_DETECTED)
-    elif change.changeType == ChangeType.UPDATED:
-        function_code.set("code", FUNCTION_CODE_UPDATE_DETECTED)
-    else:
-        raise ValueError(
-            f"ChangeType '{change.changeType}' not supported for augmentation"
-        )
-
+    function_code.set("code", value=function_code_value)
     function_code.set("codeSystem", ECR_DATA_AUG_CODE_SYSTEM)
     function_code.set("codeSystemName", ECR_DATA_AUG_CODE_SYSTEM_NAME)
 

@@ -28,12 +28,13 @@ A configuration defines a set of rules that match changes based on XPath express
 
 ### Rule object
 
-| Field         | Type                                     | Required | Description                                                                       |
-| ------------- | ---------------------------------------- | -------- | --------------------------------------------------------------------------------- |
-| `id`          | string                                   | Yes      | UUID identifying the rule. Must be unique within the configuration.               |
-| `displayName` | string                                   | Optional | Human-readable rule name.                                                         |
-| `changeTypes` | array of [ChangeType](#changetype-enum)  | Yes      | Change types this rule applies to.                                                |
-| `xpaths`      | array of string                          | Yes      | One or more XPath expressions used to match changed nodes.                        |
+| Field                      | Type                                     | Required | Description                                                           |
+| -------------------------- | ---------------------------------------- | -------- | --------------------------------------------------------------------- |
+| `id`                       | string                                   | Yes      | UUID identifying the rule. Must be unique within the configuration.   |
+| `displayName`              | string                                   | Optional | Human-readable rule name.                                             |
+| `changeTypes`              | array of [ChangeType](#changetype-enum)  | Yes      | Change types this rule applies to.                                    |
+| `xpaths`                   | array of string                          | Yes      | One or more XPath expressions used to match changed nodes.            |
+| `augmentationFunctionCode` | string                                   | Optional | Function code used in augmentation for changes detected by this rule. |
 
 ### `ConfigMode` enum
 
@@ -61,6 +62,10 @@ The matching rule's `id` and `displayName` are included in the Diff Output docum
 * XPath expressions identify locations within an eICR that should be considered by a rule.
 * A rule matches when the changed node corresponds to one of the rule's XPath expressions.
 * Attribute matching is not enabled for the default config of the MVP and may be implemented in a future version of this specification.
+
+### Augmentation function codes
+
+Code values of `augmentationFunctionCode` must be from the augmentation spec value set "Data Augmentation Tool Operation". APHL can update this value set as needed.
 
 ## Example
 

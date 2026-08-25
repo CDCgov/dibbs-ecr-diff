@@ -16,13 +16,30 @@
     },
     {
       "id": "c9e9cb5b-a331-4f6a-b19a-228aaa669166",
-      "displayName": "APHL Baseline Criteria - patient changes",
+      "displayName": "APHL Baseline Criteria - patient deceased change",
       "changeTypes": ["ADDED", "UPDATED", "DELETED"],
       "xpaths": [
-        "//hl7:patient/sdtc:deceasedInd",
-        "//hl7:patient/hl7:birthTime",
+        "//hl7:patient/sdtc:deceasedInd"
+      ],
+      "augmentationFunctionCode": "did-patient-deceased"
+    },
+    {
+      "id": "c9e9cb5b-a331-4f6a-b19a-228aaa669166",
+      "displayName": "APHL Baseline Criteria - patient birthtime change",
+      "changeTypes": ["ADDED", "UPDATED", "DELETED"],
+      "xpaths": [
+        "//hl7:patient/hl7:birthTime"
+      ],
+      "augmentationFunctionCode": "did-patient-birthTime"
+    },
+    {
+      "id": "c9e9cb5b-a331-4f6a-b19a-228aaa669166",
+      "displayName": "APHL Baseline Criteria - patient name change",
+      "changeTypes": ["ADDED", "UPDATED", "DELETED"],
+      "xpaths": [
         "//hl7:patient/hl7:name/descendant-or-self::*"
-      ]
+      ],
+      "augmentationFunctionCode": "did-patient-name"
     },
     {
       "id": "11ef22fa-f7b0-4d2c-8058-d95eb4fbe492",
@@ -30,7 +47,8 @@
       "changeTypes": ["ADDED", "UPDATED", "DELETED"],
       "xpaths": [
         "//hl7:encompassingEncounter/hl7:effectiveTime/hl7:high"
-      ]
+      ],
+      "augmentationFunctionCode": "did-encounter-closeTime"
     }
   ]
 }

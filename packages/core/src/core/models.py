@@ -45,6 +45,7 @@ class Change(BaseModel):
     augmentation_anchor_node: _Element | None = Field(
         exclude=True, default=None
     )  # needed for entry-level augmentation
+    augmentation_function_code: str | None = None
 
 
 class Document(BaseModel):
@@ -77,6 +78,7 @@ class Rule(BaseModel):
     displayName: str
     changeTypes: set[ChangeType] = Field(min_length=1)
     xpaths: list[str] = Field(default_factory=list)
+    augmentationFunctionCode: str | None = None
 
 
 class Configuration(BaseModel):
