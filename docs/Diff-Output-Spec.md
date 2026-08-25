@@ -13,8 +13,7 @@ APHL uses the diff to decide whether to send the new eICR to the receiving juris
 - Format: JSON
 - Encoding: UTF-8
 - One diff file per eICR comparison
-- File name: `diff_v{previousVersion}_to_v{currentVersion}_{manifestIndex}.json`
-- Storage location: beside the augmented eICR under its `DIDOutputV2/` path
+- File naming and storage location: **TBD** (see [Open Questions](#open-questions))
 
 ## Top-level schema
 

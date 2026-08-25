@@ -100,7 +100,7 @@ def uploader(
     dynamodb: DynamoDBClient,
     request: pytest.FixtureRequest,
 ) -> Uploader:
-    """Build an Manifest builder + Uploader. Analog to docker/uploader.html."""
+    """Build a manifest builder + uploader. Similar to docker/uploader.html."""
     # keep track of persistence_id factory calls to generate deterministic persitence_id
     # this ensures snapshots assertions are consistent
     persistence_id_calls = count()
@@ -109,7 +109,7 @@ def uploader(
         seed = f"{request.node.nodeid}:{next(persistence_id_calls)}".encode()
         seed_bytes = sha256(seed).digest()[:16]
         uuid = UUID(bytes=seed_bytes, version=4)
-        return f"2026/08/24/{uuid}"
+        return f"2026/01/01/{uuid}"
 
     uploader = Uploader(
         s3,
