@@ -1,0 +1,33 @@
+# serializer version: 1
+# name: test_happy_path[file_1_eicr_diff_output]
+  '''
+  {
+    "outputSpecVersion": "1.0",
+    "generatedAt": "2026-01-01T00:00:00Z",
+    "configurationId": "821c2832-54d7-456e-86ff-168f07a3a947",
+    "configurationVersion": "1.0",
+    "configurationDisplayName": "APHL Baseline Criteria",
+    "setId": "0a4e1679-b0a7-4e7c-b52e-55ef28289267",
+    "currentDocument": {
+      "documentId": "be9712de-e236-44b3-bf92-233132ed486f",
+      "versionNumber": "2"
+    },
+    "previousDocument": {
+      "documentId": "be9712de-e236-44b3-bf92-233132ed486e",
+      "versionNumber": "1"
+    },
+    "hasDetectedChanges": true,
+    "hasActionableChanges": true,
+    "changes": [
+      {
+        "changeType": "UPDATED",
+        "xpath": "/hl7:ClinicalDocument[1]/hl7:component[1]/hl7:structuredBody[1]/hl7:component[1]/hl7:section[1]/hl7:entry[1]/hl7:observation[1]/hl7:statusCode[1]",
+        "xpathDocumentId": "be9712de-e236-44b3-bf92-233132ed486f",
+        "isActionable": true,
+        "actionabilityRuleId": "cd2c0e77-b2e4-4a99-8750-ed4c73396a3a",
+        "actionabilityRuleDisplayName": "APHL Baseline Criteria - entry"
+      }
+    ]
+  }
+  '''
+# ---

@@ -21,6 +21,7 @@ services:
       - LOG_LEVEL=${LOG_LEVEL-DEBUG}
       - POWERTOOLS_METRICS_NAMESPACE=${POWERTOOLS_METRICS_NAMESPACE:-eICRDiff}
       - POWERTOOLS_SERVICE_NAME=${POWERTOOLS_SERVICE_NAME:-difference-in-docs}
+      - DID_FIXED_DATE_TIME
     depends_on:
       - localstack
     restart: unless-stopped

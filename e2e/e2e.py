@@ -22,6 +22,6 @@ def test_happy_path(uploader: Uploader, snapshot: SnapshotAssertion) -> None:
             ("eicr_diff_output", manifest_file.eicr_diff_output),
         ):
             if object_key:
-                assert uploader.read_object_for_snapshot(object_key) == snapshot(
+                assert uploader.read_object(object_key) == snapshot(
                     name=f"file_{index}_{document_type}"
                 )

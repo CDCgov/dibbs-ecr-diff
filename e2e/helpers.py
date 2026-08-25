@@ -1,7 +1,6 @@
 """Helpers for local end-to-end tests."""
 
 import json
-import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -86,7 +85,7 @@ class Uploader:
         """Wait until the test bucket exists."""
         self.s3.get_waiter("bucket_exists").wait(
             Bucket=self.bucket_name,
-            WaiterConfig={"Delay": 1, "MaxAttempts": 5},
+            WaiterConfig={"Delay": 1, "MaxAttempts": 10},
         )
 
     def read_object(self, key: str) -> str:

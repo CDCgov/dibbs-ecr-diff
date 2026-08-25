@@ -1,0 +1,24 @@
+# serializer version: 1
+# name: test_happy_path[file_2_eicr_diff_output]
+  '''
+  {
+    "outputSpecVersion": "1.0",
+    "generatedAt": "2026-01-01T00:00:00Z",
+    "configurationId": "821c2832-54d7-456e-86ff-168f07a3a947",
+    "configurationVersion": "1.0",
+    "configurationDisplayName": "APHL Baseline Criteria",
+    "setId": "0a4e1679-b0a7-4e7c-b52e-55ef28289267",
+    "currentDocument": {
+      "documentId": "be9712de-e236-44b3-bf92-233132ed4870",
+      "versionNumber": "3"
+    },
+    "previousDocument": {
+      "documentId": "be9712de-e236-44b3-bf92-233132ed486f",
+      "versionNumber": "2"
+    },
+    "hasDetectedChanges": false,
+    "hasActionableChanges": false,
+    "changes": []
+  }
+  '''
+# ---
