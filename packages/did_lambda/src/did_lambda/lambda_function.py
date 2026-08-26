@@ -36,11 +36,12 @@ from .telemetry import (
     BatchProcessingStats,
     DocumentTelemetry,
     ManifestEntryResult,
+    batch_telemetry,
     log_doc_and_changes,
-    log_documents_processed_by_condition,
     metrics,
-    raise_processing_failure,
-    record_processing_metrics,
+    processing_stage,
+    track_document,
+    track_manifest,
 )
 from .telemetry_helpers import (
     ConditionCode,
@@ -66,52 +67,39 @@ config = load_configuration("aphl_baseline.json")
 @event_source(data_class=SQSEvent)
 def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
     """Difference in Docs Lambda Handler."""
-    stats = BatchProcessingStats()
-    try:
-        raw_records = event.get("Records")
-        if not isinstance(raw_records, list) or not raw_records:
-            raise_processing_failure(
-                "manifest_load", InfraError("SQS event has no Records")
-            )
-        if len(raw_records) != 1:
-            stats.manifests_failed += len(raw_records)
-            raise_processing_failure(
-                "manifest_load",
-                InfraError("SQS event must contain exactly one manifest"),
-            )
+    with batch_telemetry() as stats:
+        with processing_stage("manifest_load"):
+            raw_records = event.get("Records")
 
-        record = next(event.records)
-        try:
+            if not isinstance(raw_records, list) or not raw_records:
+                raise InfraError("SQS event has no Records")
+
+            if len(raw_records) != 1:
+                stats.manifests_failed += len(raw_records)
+                raise InfraError("SQS event must contain exactly one manifest")
+
+            record = next(event.records)
+        with track_manifest(stats):
             process_sqs_record(record, stats)
-        except Exception:
-            stats.manifests_failed += 1
-            raise
-        else:
-            stats.manifests_processed += 1
 
         return {"statusCode": 200, "message": "OK"}
-    finally:
-        record_processing_metrics(stats)
-        log_documents_processed_by_condition(stats)
 
 
 def process_sqs_record(record: SQSRecord, stats: BatchProcessingStats) -> None:
     """Process an SQS record containing an S3 event."""
-    try:
+    with processing_stage("manifest_load"):
         s3_event = S3EventBridgeNotificationEvent(record.json_body)
         bucket_name = s3_event.detail.bucket.name
         did_input_manifest_key = unquote_plus(s3_event.detail.object.key)
         persistence_id = persistence_id_from_manifest_key(did_input_manifest_key)
         did_input_manifest = get_input_manifest(bucket_name, did_input_manifest_key)
-    except Exception as exc:
-        raise_processing_failure("manifest_load", exc)
 
     did_complete_output_files: list[DIDOutputFile] = []
     pending_results: list[ManifestEntryResult] = []
     pending_condition_counts: Counter[ConditionCode] = Counter()
 
     for index, entry in enumerate(did_input_manifest.files):
-        try:
+        with track_document(stats):
             result = process_manifest_entry(
                 bucket_name,
                 persistence_id,
@@ -119,14 +107,11 @@ def process_sqs_record(record: SQSRecord, stats: BatchProcessingStats) -> None:
                 index,
                 pending_condition_counts,
             )
-        except Exception:
-            stats.documents_failed += 1
-            raise
 
         pending_results.append(result)
         did_complete_output_files.append(result.output_file)
 
-    try:
+    with processing_stage("completion_write"):
         did_complete_manifest = DIDCompleteManifest(Files=did_complete_output_files)
         did_complete_manifest_key = f"{COMPLETE_PREFIX}{persistence_id}"
         put_object(
@@ -136,8 +121,6 @@ def process_sqs_record(record: SQSRecord, stats: BatchProcessingStats) -> None:
                 "utf-8"
             ),
         )
-    except Exception as exc:
-        raise_processing_failure("completion_write", exc)
 
     # Commit success telemetry only for a fully completed manifest. If entry
     # processing or the completion write fails, these local buffers are discarded.
@@ -155,10 +138,9 @@ def process_manifest_entry(
     documents_processed_by_condition: Counter[ConditionCode] | None = None,
 ) -> ManifestEntryResult:
     """Process a single DID input manifest entry."""
-    stage = "document_load"
     persistence_id_with_index = make_persistence_id_with_index(persistence_id, index)
 
-    try:
+    with processing_stage("document_load", persistence_id_with_index):
         is_remainder_rr = "unrefined_rr" in entry.rr.lower()
         set_id = entry.setId
         version_number = entry.versionNumber
@@ -184,14 +166,15 @@ def process_manifest_entry(
             fallback_basename="RR.xml",
         )
 
-        if is_remainder_rr:
-            stage = "output_write"
+    if is_remainder_rr:
+        with processing_stage("output_write", persistence_id_with_index):
             put_object(bucket_name, rr_out_key, get_object(bucket_name, entry.rr))
-        else:
-            if before_record:
+    else:
+        if before_record:
+            with processing_stage("document_load", persistence_id_with_index):
                 before_tree = get_object_xml_tree(bucket_name, before_record.s3Key)
 
-                stage = "diff"
+            with processing_stage("diff", persistence_id_with_index):
                 diff_output = diff_xml(before_tree, eicr_tree, config)
                 is_actionable = diff_output.hasActionableChanges
 
@@ -200,14 +183,14 @@ def process_manifest_entry(
                 )
                 diff_output_key = f"{output_path}/diff_v{compared_to_version}_to_v{version_number}_{index}.json"
 
-                stage = "output_write"
+            with processing_stage("output_write", persistence_id_with_index):
                 put_object(
                     bucket_name,
                     diff_output_key,
                     diff_output.model_dump_json(indent=2).encode("utf-8"),
                 )
 
-            stage = "augmentation"
+        with processing_stage("augmentation", persistence_id_with_index):
             eicr_root = eicr_tree.getroot()
             augmentation_run = create_augmentation_run(eicr_root)
             augmented_eicr = get_augmented_eicr(
@@ -215,7 +198,7 @@ def process_manifest_entry(
             )
             augmented_rr = get_augmented_rr(rr_tree, augmentation_run, jurisdiction_id)
 
-            stage = "output_write"
+        with processing_stage("output_write", persistence_id_with_index):
             eicr_out_key = get_did_output_key(
                 root_prefix=OUTPUT_PREFIX,
                 persistence_id=persistence_id,
@@ -238,6 +221,7 @@ def process_manifest_entry(
                 )
             )
 
+    with processing_stage("output_write", persistence_id_with_index):
         changes = tuple(diff_output.changes) if diff_output is not None else ()
         change_counts = Counter(change.changeType for change in changes)
 
@@ -265,8 +249,6 @@ def process_manifest_entry(
         if documents_processed_by_condition is not None:
             documents_processed_by_condition.update(condition_codes)
         return result
-    except Exception as exc:
-        raise_processing_failure(stage, exc, persistence_id_with_index)
 
 
 def get_augmented_eicr(

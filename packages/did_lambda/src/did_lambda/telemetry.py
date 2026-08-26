@@ -3,6 +3,8 @@
 import os
 import time
 from collections import Counter
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Never
 
@@ -96,7 +98,81 @@ class BatchProcessingStats:
         return (time.monotonic() - self.started_at) * 1000
 
 
-def raise_processing_failure(
+@contextmanager
+def batch_telemetry() -> Iterator[BatchProcessingStats]:
+    """Record aggregate telemetry when a batch finishes."""
+    stats = BatchProcessingStats()
+    try:
+        yield stats
+    finally:
+        _record_processing_metrics(stats)
+        _log_documents_processed_by_condition(stats)
+
+
+@contextmanager
+def track_manifest(stats: BatchProcessingStats) -> Iterator[None]:
+    """Count a manifest as processed or failed w/o swallowing failures."""
+    try:
+        yield
+    except Exception:
+        stats.manifests_failed += 1
+        raise
+    else:
+        stats.manifests_processed += 1
+
+
+@contextmanager
+def track_document(stats: BatchProcessingStats) -> Iterator[None]:
+    """Count document failures."""
+    try:
+        yield
+    except Exception:
+        stats.documents_failed += 1
+        raise
+
+
+@contextmanager
+def processing_stage(
+    stage_name: str,
+    persistence_id_with_index: str | None = None,
+) -> Iterator[None]:
+    """Raise a processing failure with its stage and document identifier."""
+    try:
+        yield
+    except Exception as exc:
+        _raise_processing_failure(stage_name, exc, persistence_id_with_index)
+
+
+def log_doc_and_changes(result: ManifestEntryResult) -> None:
+    """Log one completed document and each of its reported changes."""
+    doc_fields = {
+        "persistence_id_with_index": result.telemetry.persistence_id_with_index,
+        "version_number": result.telemetry.version_number,
+    }
+    logger.info(
+        "document_processed",
+        extra={
+            **doc_fields,
+            "unique_condition_count": result.telemetry.unique_condition_count,
+            "changes_added": result.telemetry.changes_added,
+            "changes_updated": result.telemetry.changes_updated,
+            "changes_deleted": result.telemetry.changes_deleted,
+            "changes_total": result.telemetry.changes_total,
+        },
+    )
+
+    for change in result.changes:
+        logger.info(
+            "xml_change",
+            extra={
+                **doc_fields,
+                "change_type": change.changeType.value,
+                "change_path": change_path_for_logging(change),
+            },
+        )
+
+
+def _raise_processing_failure(
     stage: str,
     exc: Exception,
     persistence_id_with_index: str | None = None,
@@ -118,7 +194,7 @@ def raise_processing_failure(
     raise InfraError(f"Processing failed during {stage}") from None
 
 
-def record_processing_metrics(stats: BatchProcessingStats) -> None:
+def _record_processing_metrics(stats: BatchProcessingStats) -> None:
     """Record metrics for one batch processing attempt."""
     metrics.add_dimension(name="environment", value=ENVIRONMENT)
     count_metrics = {
@@ -167,36 +243,7 @@ def record_processing_metrics(stats: BatchProcessingStats) -> None:
             encounter_metric.add_dimension(name="encounter_type", value=encounter_type)
 
 
-def log_doc_and_changes(result: ManifestEntryResult) -> None:
-    """Log one completed document and each of its reported changes."""
-    doc_fields = {
-        "persistence_id_with_index": result.telemetry.persistence_id_with_index,
-        "version_number": result.telemetry.version_number,
-    }
-    logger.info(
-        "document_processed",
-        extra={
-            **doc_fields,
-            "unique_condition_count": result.telemetry.unique_condition_count,
-            "changes_added": result.telemetry.changes_added,
-            "changes_updated": result.telemetry.changes_updated,
-            "changes_deleted": result.telemetry.changes_deleted,
-            "changes_total": result.telemetry.changes_total,
-        },
-    )
-
-    for change in result.changes:
-        logger.info(
-            "xml_change",
-            extra={
-                **doc_fields,
-                "change_type": change.changeType.value,
-                "change_path": change_path_for_logging(change),
-            },
-        )
-
-
-def log_documents_processed_by_condition(stats: BatchProcessingStats) -> None:
+def _log_documents_processed_by_condition(stats: BatchProcessingStats) -> None:
     """Log documents processed by condition without manifest-entry identifiers.
 
     These batch records remain temporally linkable in the shared Lambda log stream;
