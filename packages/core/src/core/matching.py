@@ -499,14 +499,14 @@ def _stable_key_subset_matching(
     A partial subset match can match elements when their key sets share at least one
     value::
 
-        before: {id-a, id-b}
-        after:  {id-a, id-c}
+        before: {value-a, value-b}
+        after:  {value-a, value-c}
 
     A full subset match can match elements when every key in the smaller set is
     present in the larger set::
 
-        before: {id-a, id-b}
-        after:  {id-a, id-b, id-c}
+        before: {value-a, value-b}
+        after:  {value-a, value-b, value-c}
 
     Elements must have a 1 to 1 match for any subset matching method. One-to-many and
     many-to-one matches are not accepted.
