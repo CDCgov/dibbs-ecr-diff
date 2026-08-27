@@ -455,6 +455,7 @@ def test_process_sqs_record_writes_complete_error_manifest(
         ],
     )
 
+    # the invalid eicr_body should raise an ApplicationError during parsing
     with pytest.raises(ApplicationError) as exc:
         process_sqs_record(build_sqs_record(bucket_name, manifest_key), stats)
 
