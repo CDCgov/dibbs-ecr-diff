@@ -303,7 +303,7 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
           Files: uploads.map((upload) => upload.manifestRecord),
         };
 
-        // emulate failure modes
+        // simulate failure modes
         if (failureMode === FAILURE_MODES.INFRA_ERROR) {
           // lambda attempts to read an object that doesn't exist
           manifest.Files[0].eicr = `UndefinedOutputV2/${persistenceId}/missing/eicr.xml`
