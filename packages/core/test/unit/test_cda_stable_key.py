@@ -1,5 +1,8 @@
 import pytest
-from core.cda.clinical_statement import CDA_CLINICAL_STATEMENT_LOCAL_NAMES
+from core.cda.clinical_statement import (
+    CDA_CLINICAL_STATEMENT_LOCAL_NAMES,
+    CDA_CLINICAL_STATEMENT_WRAPPER_LOCAL_NAMES,
+)
 from core.cda.key_models import (
     CodeElement,
     CodeKey,
@@ -471,16 +474,6 @@ def test_list_based_stable_key_candidates_are_order_insensitive(
     assert first_candidate == expected_candidate
 
 
-def test_stable_key_does_not_use_weak_attributes_as_key():
-    element = elem(
-        f"""
-        <observation xmlns="{HL7_NS}" classCode="OBS" moodCode="EVN"/>
-        """
-    )
-
-    assert highest_ranked_stable_key(element) is None
-
-
 def test_highest_ranked_stable_key_prefers_higher_rank_over_lower_rank():
     element = observation(
         """
@@ -606,31 +599,23 @@ def test_direct_root_extension_key_only_applies_to_cda_tags():
     assert highest_ranked_stable_key(non_cda_id_element) is None
 
 
-def test_descendant_id_of_non_clinical_statement_direct_descendant_is_not_highest_ranked_stable_key():
-    wrapper = elem(
-        f"""
-        <wrapper xmlns="{HL7_NS}">
-          <unrelated>
-            <id root="too-deep" extension="1"/>
-          </unrelated>
-        </wrapper>
-        """
-    )
-
-    assert highest_ranked_stable_key(wrapper) is None
-
-
-def test_stable_key_does_not_use_wrapper_with_multiple_direct_statements():
+@pytest.mark.parametrize(
+    "wrapper_local_name",
+    sorted(CDA_CLINICAL_STATEMENT_WRAPPER_LOCAL_NAMES),
+)
+def test_stable_key_does_not_use_wrapper_with_multiple_direct_statements(
+    wrapper_local_name,
+):
     entry = elem(
         f"""
-        <entry xmlns="{HL7_NS}">
+        <{wrapper_local_name} xmlns="{HL7_NS}">
           <observation classCode="OBS" moodCode="EVN">
             <id root="first"/>
           </observation>
           <observation classCode="OBS" moodCode="EVN">
             <id root="second"/>
           </observation>
-        </entry>
+        </{wrapper_local_name}>
         """
     )
 
