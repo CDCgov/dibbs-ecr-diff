@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 
 class ApplicationError(Exception):
-    """Raised for Difference in Docs application  errors."""
+    """Raised for Difference in Docs application errors."""
 
 
 class InfraError(Exception):

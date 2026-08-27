@@ -2,6 +2,7 @@
 
 import os
 from collections import Counter
+from functools import cache
 from urllib.parse import unquote_plus
 
 from aws_lambda_powertools.utilities.data_classes import (
@@ -19,12 +20,13 @@ from core.augment import (
     create_augmentation_run,
 )
 from core.configurations import load_configuration
+from core.models import Configuration
 from lxml import etree
 from lxml.etree import ElementTree
-from pydantic import ValidationError
 
 from .dynamodb import get_before_actionable_record, put_eicr_record
 from .models import (
+    DIDCompleteErrorManifest,
     DIDCompleteManifest,
     DIDInputFile,
     DIDInputManifest,
@@ -50,6 +52,7 @@ from .telemetry_helpers import (
     make_persistence_id_with_index,
 )
 from .utils import (
+    ApplicationError,
     InfraError,
     get_did_output_key,
     get_did_output_path,
@@ -60,7 +63,11 @@ from .utils import (
 OUTPUT_PREFIX = os.environ.get("OUTPUT_PREFIX", "DIDOutputV2/")
 COMPLETE_PREFIX = os.environ.get("COMPLETE_PREFIX", "DIDCompleteV2/")
 
-config = load_configuration("aphl_baseline.json")
+
+@cache
+def get_did_configuration() -> Configuration:
+    """Load configuration as a cached return value."""
+    return load_configuration("aphl_baseline.json")
 
 
 @metrics.log_metrics
@@ -79,6 +86,7 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
                 raise InfraError("SQS event must contain exactly one manifest")
 
             record = next(event.records)
+
         with track_manifest(stats):
             process_sqs_record(record, stats)
 
@@ -88,46 +96,45 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
 def process_sqs_record(record: SQSRecord, stats: BatchProcessingStats) -> None:
     """Process an SQS record containing an S3 event."""
     with processing_stage("manifest_load"):
-        s3_event = S3EventBridgeNotificationEvent(record.json_body)
-        bucket_name = s3_event.detail.bucket.name
-        did_input_manifest_key = unquote_plus(s3_event.detail.object.key)
-        persistence_id = persistence_id_from_manifest_key(did_input_manifest_key)
-        did_input_manifest = get_input_manifest(bucket_name, did_input_manifest_key)
+        try:
+            s3_event = S3EventBridgeNotificationEvent(record.json_body)
+            bucket_name = s3_event.detail.bucket.name
+            did_input_manifest_key = unquote_plus(s3_event.detail.object.key)
+            persistence_id = persistence_id_from_manifest_key(did_input_manifest_key)
+        except Exception as exc:
+            raise InfraError("Unable to load manifest metadata from S3") from exc
 
     did_complete_output_files: list[DIDOutputFile] = []
     pending_results: list[ManifestEntryResult] = []
     pending_condition_counts: Counter[ConditionCode] = Counter()
 
-    # try:
-    #     process_manifest(...)
-    # except InfraError:
-    #     raise
-    # except Exception as exc:
-    #     write_error_manifest(exc)
-    #     return
+    try:
+        with processing_stage("manifest_load"):
+            did_input_manifest = get_input_manifest(bucket_name, did_input_manifest_key)
 
-    for index, entry in enumerate(did_input_manifest.files):
-        with track_document(stats):
-            result = process_manifest_entry(
-                bucket_name,
-                persistence_id,
-                entry,
-                index,
-                pending_condition_counts,
-            )
+        for index, entry in enumerate(did_input_manifest.files):
+            with track_document(stats):
+                result = process_manifest_entry(
+                    bucket_name,
+                    persistence_id,
+                    entry,
+                    index,
+                    pending_condition_counts,
+                )
 
-        pending_results.append(result)
-        did_complete_output_files.append(result.output_file)
+            pending_results.append(result)
+            did_complete_output_files.append(result.output_file)
 
-    with processing_stage("completion_write"):
-        did_complete_manifest = DIDCompleteManifest(Files=did_complete_output_files)
-        did_complete_manifest_key = f"{COMPLETE_PREFIX}{persistence_id}"
-        put_object(
+        write_complete_manifest(
             bucket_name,
-            did_complete_manifest_key,
-            did_complete_manifest.model_dump_json(by_alias=True, indent=2).encode(
-                "utf-8"
-            ),
+            persistence_id,
+            DIDCompleteManifest(Files=did_complete_output_files),
+        )
+    except InfraError:
+        raise
+    except ApplicationError as exc:
+        write_complete_manifest(
+            bucket_name, persistence_id, DIDCompleteErrorManifest(Error=str(exc))
         )
 
     # Commit success telemetry only for a fully completed manifest. If entry
@@ -136,6 +143,21 @@ def process_sqs_record(record: SQSRecord, stats: BatchProcessingStats) -> None:
         stats.record_document_processed(result)
         log_doc_and_changes(result)
     stats.documents_processed_by_condition.update(pending_condition_counts)
+
+
+def write_complete_manifest(
+    bucket_name: str,
+    persistence_id: str,
+    manifest: DIDCompleteManifest | DIDCompleteErrorManifest,
+) -> None:
+    """Write Difference in Docs completion manifest."""
+    with processing_stage("completion_write"):
+        manifest_key = f"{COMPLETE_PREFIX}{persistence_id}"
+        put_object(
+            bucket_name,
+            manifest_key,
+            manifest.model_dump_json(by_alias=True, indent=2).encode("utf-8"),
+        )
 
 
 def process_manifest_entry(
@@ -183,6 +205,7 @@ def process_manifest_entry(
                 before_tree = get_object_xml_tree(bucket_name, before_record.s3Key)
 
             with processing_stage("diff", persistence_id_with_index):
+                config = get_did_configuration()
                 diff_output = diff_xml(before_tree, eicr_tree, config)
                 is_actionable = diff_output.hasActionableChanges
 
@@ -294,7 +317,4 @@ def get_augmented_rr(
 
 def get_input_manifest(bucket: str, key: str) -> DIDInputManifest:
     """Read and validate a manifest file from S3."""
-    try:
-        return DIDInputManifest.model_validate_json(get_object(bucket, key))
-    except ValidationError as exc:
-        raise InfraError(f"Invalid manifest s3://{bucket}/{key}") from exc
+    return DIDInputManifest.model_validate_json(get_object(bucket, key))

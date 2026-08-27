@@ -37,8 +37,8 @@ class DIDInputManifest(BaseModel):
 class DIDCompleteManifest(BaseModel):
     """A complete manifest containing DIDOutput files."""
 
-    files: list[DIDOutputFile] = Field(alias="Files")
     did_skip: bool = Field(default=False, alias="DIDSkip")
+    files: list[DIDOutputFile] = Field(alias="Files")
 
 
 class DIDCompleteErrorManifest(BaseModel):
