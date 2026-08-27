@@ -87,8 +87,11 @@ def lambda_handler(event: SQSEvent, _context: LambdaContext) -> dict:
 
             record = next(event.records)
 
-        with track_manifest(stats):
-            process_sqs_record(record, stats)
+        try:
+            with track_manifest(stats):
+                process_sqs_record(record, stats)
+        except ApplicationError:
+            pass
 
         return {"statusCode": 200, "message": "OK"}
 
@@ -101,8 +104,8 @@ def process_sqs_record(record: SQSRecord, stats: BatchProcessingStats) -> None:
             bucket_name = s3_event.detail.bucket.name
             did_input_manifest_key = unquote_plus(s3_event.detail.object.key)
             persistence_id = persistence_id_from_manifest_key(did_input_manifest_key)
-        except Exception as exc:
-            raise InfraError("Unable to load manifest metadata from S3") from exc
+        except Exception:
+            raise InfraError("Unable to load manifest metadata from S3") from None
 
     did_complete_output_files: list[DIDOutputFile] = []
     pending_results: list[ManifestEntryResult] = []
@@ -136,6 +139,7 @@ def process_sqs_record(record: SQSRecord, stats: BatchProcessingStats) -> None:
         write_complete_manifest(
             bucket_name, persistence_id, DIDCompleteErrorManifest(Error=str(exc))
         )
+        raise
 
     # Commit success telemetry only for a fully completed manifest. If entry
     # processing or the completion write fails, these local buffers are discarded.

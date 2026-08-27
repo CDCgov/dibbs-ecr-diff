@@ -24,8 +24,8 @@ def _get_object_body(bucket: str, key: str) -> "StreamingBody":
     """Get an object's streaming body from S3."""
     try:
         return s3.get_object(Bucket=bucket, Key=key)["Body"]
-    except Exception as exc:
-        raise InfraError(f"S3 get_object failed s3://{bucket}/{key}: {exc}") from exc
+    except Exception:
+        raise InfraError(f"S3 get_object failed s3://{bucket}/{key}") from None
 
 
 def get_object(bucket: str, key: str) -> bytes:
@@ -33,8 +33,8 @@ def get_object(bucket: str, key: str) -> bytes:
     body = _get_object_body(bucket, key)
     try:
         return body.read()
-    except Exception as exc:
-        raise InfraError(f"S3 get_object failed s3://{bucket}/{key}: {exc}") from exc
+    except Exception:
+        raise InfraError(f"S3 get_object failed s3://{bucket}/{key}") from None
     finally:
         body.close()
 
@@ -52,5 +52,5 @@ def put_object(bucket: str, key: str, data: bytes) -> None:
     """Put an object in S3."""
     try:
         s3.put_object(Bucket=bucket, Key=key, Body=data)
-    except Exception as exc:
-        raise InfraError(f"S3 put_object failed s3://{bucket}/{key}: {exc}") from exc
+    except Exception:
+        raise InfraError(f"S3 put_object failed s3://{bucket}/{key}") from None

@@ -167,10 +167,8 @@ def test_lambda_handler_emits_only_failure_metrics_for_failed_manifest(
 
     monkeypatch.setattr(lambda_module, "process_sqs_record", fail_record)
 
-    with pytest.raises(ApplicationError) as raised:
-        lambda_module.lambda_handler({"Records": [{"body": "{}"}]}, None)
+    lambda_module.lambda_handler({"Records": [{"body": "{}"}]}, None)
 
-    assert raised.value is failure
     emf_objects = emitted_metrics(capsys)
     aggregate = next(item for item in emf_objects if "BatchDurationMs" in item)
     assert aggregate["ManifestsProcessed"] == [0.0]
@@ -211,7 +209,7 @@ def test_lambda_handler_counts_successful_manifest_attempt(
     assert observed_stats[0].manifests_failed == 0
 
 
-def test_lambda_handler_counts_failure_and_rethrows_same_exception(
+def test_lambda_handler_counts_failure_and_returns_success(
     lambda_module,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -224,10 +222,8 @@ def test_lambda_handler_counts_failure_and_rethrows_same_exception(
 
     monkeypatch.setattr(lambda_module, "process_sqs_record", fail_record)
 
-    with pytest.raises(ApplicationError) as raised:
-        lambda_module.lambda_handler({"Records": [{"body": "{}"}]}, None)
+    lambda_module.lambda_handler({"Records": [{"body": "{}"}]}, None)
 
-    assert raised.value is failure
     assert len(observed_stats) == 1
     assert observed_stats[0].manifests_processed == 0
     assert observed_stats[0].manifests_failed == 1
@@ -296,7 +292,7 @@ def test_process_sqs_record_preserves_completion_manifest_schema(
     }
 
 
-def test_process_sqs_record_counts_failure_and_rethrows_same_exception(
+def test_process_sqs_record_counts_document_failure_writes_error_manifest_and_rethrows(
     lambda_module,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
@@ -318,7 +314,7 @@ def test_process_sqs_record_counts_failure_and_rethrows_same_exception(
     assert raised.value is failure
     assert stats.documents_processed == 0
     assert stats.documents_failed == 1
-    put_object.assert_not_called()
+    put_object.assert_called_once()
     assert all(
         record.message not in {"document_processed", "xml_change"}
         for record in caplog.records
@@ -373,7 +369,17 @@ def test_process_sqs_record_discards_pending_telemetry_on_entry_failure(
     assert stats.section_change_counts == {}
     assert stats.encounter_counts == {}
     assert stats.documents_processed_by_condition == {}
-    put_object.assert_not_called()
+
+    # should write the error manifest
+    put_object.assert_called_once()
+
+    # grab the error manifest payload from the Mock's args
+    payload = put_object.call_args.args[2]
+    assert json.loads(payload) == {
+        "DIDSkip": True,
+        "Error": str(failure),
+    }
+
     assert all(
         record.message not in {"document_processed", "xml_change"}
         for record in caplog.records
@@ -706,20 +712,20 @@ def test_process_sqs_record_sanitizes_manifest_load_failure(
     )
     stats = BatchProcessingStats()
 
-    with pytest.raises(ApplicationError) as raised:
+    with pytest.raises(InfraError) as raised:
         lambda_module.process_sqs_record(SimpleNamespace(json_body={}), stats)
 
     assert_safe_processing_failure(
         caplog,
         raised,
         stage="manifest_load",
-        error_type="RuntimeError",
-        expected_message="Processing failed during manifest_load",
+        error_type="InfraError",
+        expected_message="Unable to load manifest metadata from S3",
         persistence_id_with_index=None,
     )
 
 
-def test_process_sqs_record_sanitizes_completion_write_failure(
+def test_process_sqs_record_propagates_completion_write_infra_error(
     lambda_module,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
@@ -738,14 +744,14 @@ def test_process_sqs_record_sanitizes_completion_write_failure(
         return result
 
     monkeypatch.setattr(lambda_module, "process_manifest_entry", process_entry)
-    monkeypatch.setattr(
-        lambda_module,
-        "put_object",
-        Mock(side_effect=RuntimeError(SENSITIVE_FAILURE_TEXT)),
-    )
+
+    # encountering an error while writing the completion manifest should result in an InfraError
+    failure = InfraError("S3 put_object failed")
+    put_object = Mock(side_effect=failure)
+    monkeypatch.setattr(lambda_module, "put_object", put_object)
     stats = BatchProcessingStats()
 
-    with pytest.raises(ApplicationError) as raised:
+    with pytest.raises(InfraError) as raised:
         lambda_module.process_sqs_record(SimpleNamespace(json_body={}), stats)
 
     assert stats.documents_processed == 0
@@ -762,7 +768,7 @@ def test_process_sqs_record_sanitizes_completion_write_failure(
         caplog,
         raised,
         stage="completion_write",
-        error_type="RuntimeError",
-        expected_message="Processing failed during completion_write",
+        error_type="InfraError",
+        expected_message="S3 put_object failed",
         persistence_id_with_index=None,
     )
