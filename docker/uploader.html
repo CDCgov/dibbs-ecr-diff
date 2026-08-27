@@ -35,7 +35,9 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
     const S3_BUCKET = 'ecr-dev-data-repository';
     const DID_INPUT_PREFIX = 'DIDInput/';
     const REFINER_INPUT_PREFIX = 'RefinerOutputV2/';
+
     const UPLOAD_TYPES = { REFINED: 'refined', UNREFINED: 'unrefined', REMAINDER_RR: 'remainder_rr' };
+    const FAILURE_MODES = { NONE: 'none', INFRA_ERROR: 'infra_error', APP_ERROR: 'app_error' };
 
     const AWS_ENDPOINT_URL = 'http://localhost:4566';
     const AWS_ACCESS_KEY_ID = 'test'
@@ -97,6 +99,15 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
           <div class="rows">
             ${fieldsets}
           </div>
+
+          <label>
+            Failure mode
+            <select name="failure-mode" disabled=${uploading}>
+              <option value=${FAILURE_MODES.NONE}>None</option>
+              <option value=${FAILURE_MODES.INFRA_ERROR}>InfraError</option>
+              <option value=${FAILURE_MODES.APP_ERROR}>ApplicationError</option>
+            </select>
+          </label>
 
           <button
             disabled=${uploading}
@@ -258,6 +269,7 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
     async function submitForm(ev) {
       ev.preventDefault();
       const form = ev.currentTarget;
+      const failureMode = form.elements.namedItem('failure-mode').value;
 
       try {
         const datePath = new Date().toISOString().slice(0, 10).replaceAll('-', '/'); // ex: 2026/07/22
@@ -290,6 +302,15 @@ to allow the uploader to send requests to our local S3 without dealing with CORS
         const manifest = {
           Files: uploads.map((upload) => upload.manifestRecord),
         };
+
+        // emulate failure modes
+        if (failureMode === FAILURE_MODES.INFRA_ERROR) {
+          // lambda attempts to read an object that doesn't exist
+          manifest.Files[0].eicr = `UndefinedOutputV2/${persistenceId}/missing/eicr.xml`
+        } else if (failureMode === FAILURE_MODES.APP_ERROR) {
+          // lambda validation rejects the input manifest shape
+          manifest.Files[0].versionNumber = 'not-an-integer';
+        }
 
         await s3.send(new PutObjectCommand({
           Bucket: S3_BUCKET,
