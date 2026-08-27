@@ -14,7 +14,7 @@ from core import Change
 
 from .models import DIDOutputFile
 from .telemetry_helpers import ConditionCode, change_path_for_logging
-from .utils import InfraError
+from .utils import ApplicationError, InfraError
 
 ENVIRONMENT = os.environ.get("ENV", "production")
 METRICS_NAMESPACE = os.environ.get("POWERTOOLS_METRICS_NAMESPACE", "eICRDiff")
@@ -133,14 +133,17 @@ def track_document(stats: BatchProcessingStats) -> Iterator[None]:
 
 @contextmanager
 def processing_stage(
-    stage_name: str,
+    stage: str,
     persistence_id_with_index: str | None = None,
 ) -> Iterator[None]:
     """Raise a processing failure with its stage and document identifier."""
     try:
         yield
+    except InfraError as exc:
+        _log_processing_failure(stage, exc, persistence_id_with_index)
+        raise
     except Exception as exc:
-        _raise_processing_failure(stage_name, exc, persistence_id_with_index)
+        _raise_application_error(stage, exc, persistence_id_with_index)
 
 
 def log_doc_and_changes(result: ManifestEntryResult) -> None:
@@ -172,11 +175,11 @@ def log_doc_and_changes(result: ManifestEntryResult) -> None:
         )
 
 
-def _raise_processing_failure(
+def _log_processing_failure(
     stage: str,
     exc: Exception,
     persistence_id_with_index: str | None = None,
-) -> Never:
+) -> None:
     """Log bounded failure details and raise a privacy-safe retryable error."""
     extra = {
         "failure_stage": stage,
@@ -191,7 +194,15 @@ def _raise_processing_failure(
         exc_info=False,
         stack_info=False,
     )
-    raise InfraError(f"Processing failed during {stage}") from None
+
+
+def _raise_application_error(
+    stage: str,
+    exc: Exception,
+    persistence_id_with_index: str | None = None,
+) -> Never:
+    _log_processing_failure(stage, exc, persistence_id_with_index)
+    raise ApplicationError(f"Processing failed during {stage}") from None
 
 
 def _record_processing_metrics(stats: BatchProcessingStats) -> None:

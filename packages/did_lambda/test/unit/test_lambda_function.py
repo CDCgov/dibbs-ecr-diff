@@ -21,7 +21,7 @@ from did_lambda.telemetry_helpers import (
     ConditionCode,
     make_persistence_id_with_index,
 )
-from did_lambda.utils import InfraError
+from did_lambda.utils import ApplicationError, InfraError
 
 from .helpers import (
     emitted_metrics,
@@ -82,6 +82,7 @@ def assert_safe_processing_failure(
     *,
     stage: str,
     error_type: str,
+    expected_message: str,
     persistence_id_with_index: str | None,
 ) -> None:
     failure_logs = [
@@ -101,7 +102,7 @@ def assert_safe_processing_failure(
     else:
         assert log_fields["persistence_id_with_index"] == persistence_id_with_index
 
-    assert str(raised.value) == f"Processing failed during {stage}"
+    assert str(raised.value) == expected_message
     escaped_traceback = "".join(traceback.format_exception(raised.value))
     for sensitive_value in SENSITIVE_TEST_VALUES:
         assert sensitive_value not in caplog.text
@@ -146,6 +147,7 @@ def test_lambda_handler_rejects_multiple_manifests_before_processing(
         raised,
         stage="manifest_load",
         error_type="InfraError",
+        expected_message="SQS event must contain exactly one manifest",
         persistence_id_with_index=None,
     )
 
@@ -156,7 +158,7 @@ def test_lambda_handler_emits_only_failure_metrics_for_failed_manifest(
     capsys: pytest.CaptureFixture[str],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    failure = InfraError("Processing failed during output_write")
+    failure = ApplicationError("Processing failed during output_write")
     caplog.set_level("INFO")
 
     def fail_record(_record, stats):
@@ -165,7 +167,7 @@ def test_lambda_handler_emits_only_failure_metrics_for_failed_manifest(
 
     monkeypatch.setattr(lambda_module, "process_sqs_record", fail_record)
 
-    with pytest.raises(InfraError) as raised:
+    with pytest.raises(ApplicationError) as raised:
         lambda_module.lambda_handler({"Records": [{"body": "{}"}]}, None)
 
     assert raised.value is failure
@@ -214,7 +216,7 @@ def test_lambda_handler_counts_failure_and_rethrows_same_exception(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     observed_stats = []
-    failure = InfraError("Processing failed during manifest_load")
+    failure = ApplicationError("Processing failed during manifest_load")
 
     def fail_record(_record, stats):
         observed_stats.append(stats)
@@ -222,7 +224,7 @@ def test_lambda_handler_counts_failure_and_rethrows_same_exception(
 
     monkeypatch.setattr(lambda_module, "process_sqs_record", fail_record)
 
-    with pytest.raises(InfraError) as raised:
+    with pytest.raises(ApplicationError) as raised:
         lambda_module.lambda_handler({"Records": [{"body": "{}"}]}, None)
 
     assert raised.value is failure
@@ -279,6 +281,7 @@ def test_process_sqs_record_preserves_completion_manifest_schema(
     assert bucket == "bucket"
     assert key == "DIDCompleteV2/2026/id"
     assert json.loads(body) == {
+        "DIDSkip": False,
         "Files": [
             {
                 "eicr": "DIDOutputV2/2026/id/jurisdiction/eicr.xml",
@@ -289,7 +292,7 @@ def test_process_sqs_record_preserves_completion_manifest_schema(
                 "eicr_diff_output": None,
                 "is_actionable": True,
             }
-        ]
+        ],
     }
 
 
@@ -299,7 +302,7 @@ def test_process_sqs_record_counts_failure_and_rethrows_same_exception(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     configure_manifest_record(monkeypatch, lambda_module)
-    failure = InfraError("Processing failed during output_write")
+    failure = ApplicationError("Processing failed during output_write")
 
     def fail_entry(*_args):
         raise failure
@@ -309,7 +312,7 @@ def test_process_sqs_record_counts_failure_and_rethrows_same_exception(
     monkeypatch.setattr(lambda_module, "put_object", put_object)
     stats = BatchProcessingStats()
 
-    with pytest.raises(InfraError) as raised:
+    with pytest.raises(ApplicationError) as raised:
         lambda_module.process_sqs_record(SimpleNamespace(json_body={}), stats)
 
     assert raised.value is failure
@@ -333,7 +336,7 @@ def test_process_sqs_record_discards_pending_telemetry_on_entry_failure(
         "get_input_manifest",
         lambda _bucket, _key: DIDInputManifest(Files=[make_entry(), make_entry()]),
     )
-    failure = InfraError("Processing failed during output_write")
+    failure = ApplicationError("Processing failed during output_write")
     condition = ConditionCode(code_system="2.16.840.1.113883.6.96", code="840539006")
     successful_result = make_result(
         make_change(
@@ -359,7 +362,7 @@ def test_process_sqs_record_discards_pending_telemetry_on_entry_failure(
     caplog.set_level("INFO")
     stats = BatchProcessingStats()
 
-    with pytest.raises(InfraError) as raised:
+    with pytest.raises(ApplicationError) as raised:
         lambda_module.process_sqs_record(SimpleNamespace(json_body={}), stats)
 
     assert raised.value is failure
@@ -618,7 +621,7 @@ def test_process_manifest_entry_propagates_final_write_failure(
     put_object = Mock(side_effect=[None, failure])
     monkeypatch.setattr(lambda_module, "put_object", put_object)
 
-    with pytest.raises(InfraError) as raised:
+    with pytest.raises(ApplicationError) as raised:
         lambda_module.process_manifest_entry("bucket", "2026/id", entry, 0)
 
     assert put_object.call_count == 2
@@ -627,6 +630,7 @@ def test_process_manifest_entry_propagates_final_write_failure(
         raised,
         stage="output_write",
         error_type="RuntimeError",
+        expected_message="Processing failed during output_write",
         persistence_id_with_index=make_persistence_id_with_index("2026/id", 0),
     )
 
@@ -677,7 +681,7 @@ def test_process_manifest_entry_sanitizes_each_processing_stage(
             Mock(side_effect=RuntimeError(SENSITIVE_FAILURE_TEXT)),
         )
 
-    with pytest.raises(InfraError) as raised:
+    with pytest.raises(ApplicationError) as raised:
         lambda_module.process_manifest_entry("bucket", "2026/id", make_entry(), 0)
 
     assert_safe_processing_failure(
@@ -685,6 +689,7 @@ def test_process_manifest_entry_sanitizes_each_processing_stage(
         raised,
         stage=stage,
         error_type="RuntimeError",
+        expected_message=f"Processing failed during {stage}",
         persistence_id_with_index=make_persistence_id_with_index("2026/id", 0),
     )
 
@@ -701,7 +706,7 @@ def test_process_sqs_record_sanitizes_manifest_load_failure(
     )
     stats = BatchProcessingStats()
 
-    with pytest.raises(InfraError) as raised:
+    with pytest.raises(ApplicationError) as raised:
         lambda_module.process_sqs_record(SimpleNamespace(json_body={}), stats)
 
     assert_safe_processing_failure(
@@ -709,6 +714,7 @@ def test_process_sqs_record_sanitizes_manifest_load_failure(
         raised,
         stage="manifest_load",
         error_type="RuntimeError",
+        expected_message="Processing failed during manifest_load",
         persistence_id_with_index=None,
     )
 
@@ -739,7 +745,7 @@ def test_process_sqs_record_sanitizes_completion_write_failure(
     )
     stats = BatchProcessingStats()
 
-    with pytest.raises(InfraError) as raised:
+    with pytest.raises(ApplicationError) as raised:
         lambda_module.process_sqs_record(SimpleNamespace(json_body={}), stats)
 
     assert stats.documents_processed == 0
@@ -757,5 +763,6 @@ def test_process_sqs_record_sanitizes_completion_write_failure(
         raised,
         stage="completion_write",
         error_type="RuntimeError",
+        expected_message="Processing failed during completion_write",
         persistence_id_with_index=None,
     )

@@ -9,12 +9,12 @@ from did_lambda.telemetry import (
     DocumentTelemetry,
     ManifestEntryResult,
     _log_documents_processed_by_condition,
-    _raise_processing_failure,
+    _raise_application_error,
     _record_processing_metrics,
     log_doc_and_changes,
 )
 from did_lambda.telemetry_helpers import ConditionCode
-from did_lambda.utils import InfraError
+from did_lambda.utils import ApplicationError
 
 from .helpers import (
     emitted_metrics,
@@ -205,8 +205,8 @@ def test_processing_failure_log_and_exception_exclude_sensitive_details(
     )
     caplog.set_level("INFO")
 
-    with pytest.raises(InfraError) as raised:
-        _raise_processing_failure(
+    with pytest.raises(ApplicationError) as raised:
+        _raise_application_error(
             "diff",
             ValueError(sensitive_value),
             persistence_id_with_index="2026/id:0",

@@ -98,6 +98,14 @@ def process_sqs_record(record: SQSRecord, stats: BatchProcessingStats) -> None:
     pending_results: list[ManifestEntryResult] = []
     pending_condition_counts: Counter[ConditionCode] = Counter()
 
+    # try:
+    #     process_manifest(...)
+    # except InfraError:
+    #     raise
+    # except Exception as exc:
+    #     write_error_manifest(exc)
+    #     return
+
     for index, entry in enumerate(did_input_manifest.files):
         with track_document(stats):
             result = process_manifest_entry(

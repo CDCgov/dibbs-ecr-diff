@@ -35,9 +35,17 @@ class DIDInputManifest(BaseModel):
 
 
 class DIDCompleteManifest(BaseModel):
-    """A manifest containing DIDOutput files."""
+    """A complete manifest containing DIDOutput files."""
 
     files: list[DIDOutputFile] = Field(alias="Files")
+    did_skip: bool = Field(default=False, alias="DIDSkip")
+
+
+class DIDCompleteErrorManifest(BaseModel):
+    """A complete manifest in application-error cases."""
+
+    did_skip: bool = Field(default=True, alias="DIDSkip")
+    error: str = Field(alias="Error")
 
 
 class EICRStorageRecord(BaseModel):
