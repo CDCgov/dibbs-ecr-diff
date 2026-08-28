@@ -104,7 +104,7 @@ def process_sqs_record(record: SQSRecord, stats: BatchProcessingStats) -> None:
             bucket_name = s3_event.detail.bucket.name
             did_input_manifest_key = unquote_plus(s3_event.detail.object.key)
             persistence_id = persistence_id_from_manifest_key(did_input_manifest_key)
-        except (KeyError, TypeError, ValueError):
+        except (KeyError, TypeError, ValueError, RuntimeError):
             raise InfraError("Unable to load manifest metadata from S3") from None
 
     did_complete_output_files: list[DIDOutputFile] = []
