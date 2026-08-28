@@ -142,7 +142,7 @@ def processing_stage(
     except InfraError as exc:
         _log_processing_failure(stage, exc, persistence_id_with_index)
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         _raise_application_error(stage, exc, persistence_id_with_index)
 
 
