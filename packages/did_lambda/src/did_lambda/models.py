@@ -1,6 +1,7 @@
 """Models for S3 manifest files."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -37,14 +38,14 @@ class DIDInputManifest(BaseModel):
 class DIDCompleteManifest(BaseModel):
     """A complete manifest containing DIDOutput files."""
 
-    did_skip: bool = Field(default=False, alias="DIDSkip")
+    did_skip: Literal[False] = Field(default=False, alias="DIDSkip")
     files: list[DIDOutputFile] = Field(alias="Files")
 
 
 class DIDCompleteErrorManifest(BaseModel):
     """A complete manifest in application-error cases."""
 
-    did_skip: bool = Field(default=True, alias="DIDSkip")
+    did_skip: Literal[True] = Field(default=True, alias="DIDSkip")
     error: str = Field(alias="Error")
 
 
