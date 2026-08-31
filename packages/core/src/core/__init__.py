@@ -193,7 +193,7 @@ def build_changes_for_rule_matches(
                     actionabilityRuleDisplayName=rule.displayName,
                     section_loinc_code=section_loinc_code,
                     augmentation_anchor_node=augmentation_anchor_node,
-                    augmentation_function_code=rule.augmentationFunctionCode,
+                    augmentationFunctionCode=rule.augmentationFunctionCode,
                 )
                 for rule in applicable_rules
             ]
@@ -223,7 +223,7 @@ def build_changes_for_rule_matches(
                     actionabilityRuleDisplayName=rule.displayName,
                     section_loinc_code=section_loinc_code,
                     augmentation_anchor_node=augmentation_anchor_node,
-                    augmentation_function_code=rule.augmentationFunctionCode,
+                    augmentationFunctionCode=rule.augmentationFunctionCode,
                 )
                 for rule in applicable_rules
             ]
