@@ -824,10 +824,10 @@ def _contains_diff_author_direct_child_with_function_code(
 def _get_function_code_for_change(change: Change) -> str:
     """Returns the augmentation function code to use for this change."""
     if (
-        change.augmentation_function_code is not None
-        and change.augmentation_function_code.strip()
+        change.augmentationFunctionCode is not None
+        and change.augmentationFunctionCode.strip()
     ):
-        return change.augmentation_function_code
+        return change.augmentationFunctionCode
     elif change.changeType == ChangeType.ADDED:
         return FUNCTION_CODE_ADD_DETECTED
     elif change.changeType == ChangeType.UPDATED:

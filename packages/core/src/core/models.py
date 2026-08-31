@@ -45,7 +45,7 @@ class Change(BaseModel):
     augmentation_anchor_node: _Element | None = Field(
         exclude=True, default=None
     )  # needed for entry-level augmentation
-    augmentation_function_code: str | None = None
+    augmentationFunctionCode: str | None = None
 
 
 class Document(BaseModel):
