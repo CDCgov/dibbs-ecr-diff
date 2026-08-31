@@ -284,6 +284,8 @@ def stable_key_candidates(elem: etree._Element) -> StableKeyCandidates:
     }
 
 
+# TODO: refactor to get rid of this. Likely as part of deleting paths.py and
+# json_output.py
 def highest_ranked_stable_key(elem: etree._Element) -> StableKey | None:
     """Retrieve the most specific stable match key available for elem."""
     candidates = stable_key_candidates(elem)

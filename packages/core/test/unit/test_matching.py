@@ -9,7 +9,6 @@ from core.cda.stable_key import (
 )
 from core.matching import (
     _stable_key_matching,
-    _stable_key_subset_matching,
     _unique_sibling_elements_by_key,
     match_children_ignore_order,
 )
@@ -247,19 +246,9 @@ def test_overlap_fallback_uses_section_ids_when_a_higher_ranked_key_changes():
         """
     )
 
-    stable_key_candidates_by_element = _stable_key_candidates_by_element(
-        [before],
-        [after],
-    )
-    pairs, unmatched_before, unmatched_after = _stable_key_subset_matching(
-        [before],
-        [after],
-        stable_key_candidates_by_element,
-    )
+    pairs = list(match_children_ignore_order([before], [after]))
 
     assert pairs == [(before, after)]
-    assert not unmatched_before
-    assert not unmatched_after
 
 
 @pytest.mark.parametrize(
