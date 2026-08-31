@@ -1,5 +1,5 @@
 # serializer version: 1
-# name: test_happy_path[file_1_eicr]
+# name: test_refined_pairs[file_1_eicr]
   '''
   <?xml version='1.0' encoding='utf-8'?>
   <ClinicalDocument xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="urn:hl7-org:v3" xmlns:cda="urn:hl7-org:v3" xmlns:sdtc="urn:hl7-org:sdtc" xmlns:voc="http://www.lantanagroup.com/voc" xsi:schemaLocation="urn:hl7-org:v3 ../../../cda-core-2.0/schema/extensions/SDTC/infrastructure/cda/CDA_SDTC.xsd">

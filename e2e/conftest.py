@@ -102,7 +102,7 @@ def uploader(
 ) -> Uploader:
     """Build a manifest builder + uploader. Similar to docker/uploader.html."""
     # keep track of persistence_id factory calls to generate deterministic persitence_id
-    # this ensures snapshots assertions are consistent
+    # this ensures snapshot assertions are consistent
     persistence_id_calls = count()
 
     def build_persistence_id() -> str:
@@ -117,8 +117,10 @@ def uploader(
         ASSETS_DIR,
         persistence_id_factory=build_persistence_id,
     )
-    uploader.wait_until_ready()
 
+    uploader.wait_for_s3_bucket()
+
+    # wait for dynamodb table to exist
     dynamodb.get_waiter("table_exists").wait(
         TableName=DYNAMODB_TABLE,
         WaiterConfig={"Delay": 1, "MaxAttempts": 30},
@@ -141,5 +143,6 @@ def clean_localstack_state(
             "#version_number": "versionNumber",
         },
     )
+
     for item in response.get("Items", []):
         dynamodb_table.delete_item(Key=item)

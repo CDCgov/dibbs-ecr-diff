@@ -1,5 +1,5 @@
 # serializer version: 1
-# name: test_happy_path[file_0_eicr]
+# name: test_refined_pairs[file_2_eicr]
   '''
   <?xml version='1.0' encoding='utf-8'?>
   <ClinicalDocument xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="urn:hl7-org:v3" xmlns:cda="urn:hl7-org:v3" xmlns:sdtc="urn:hl7-org:sdtc" xmlns:voc="http://www.lantanagroup.com/voc" xsi:schemaLocation="urn:hl7-org:v3 ../../../cda-core-2.0/schema/extensions/SDTC/infrastructure/cda/CDA_SDTC.xsd">
@@ -17,7 +17,7 @@
     <templateId root="2.16.840.1.113883.10.20.15.2" extension="2022-05-01"/>
     <!-- Globally unique document ID (extension) is scoped by vendor/software -->
     <templateId root="2.16.840.1.113883.10.20.15.2.1.3" extension="2025-11-01"/>
-    <id root="a7711e1b-dbca-53ac-8d28-661514b7ac7a" assigningAuthorityName="ecr-difference-in-docs"/>
+    <id root="2e047ca0-0941-534c-8ed2-1ed19ef6dba5" assigningAuthorityName="ecr-difference-in-docs"/>
     <!-- Document Code -->
     <code code="55751-2" codeSystem="2.16.840.1.113883.6.1" displayName="Public Health Case Report" codeSystemName="LOINC"/>
     <title>Initial Public Health Case Report</title>
@@ -25,7 +25,7 @@
     <confidentialityCode code="N" codeSystem="2.16.840.1.113883.5.25" displayName="Normal"/>
     <languageCode code="en-US"/>
     <setId root="3a85fb7a-8126-5508-a1de-a87911c1b185" assigningAuthorityName="ecr-difference-in-docs"/>
-    <versionNumber value="1"/>
+    <versionNumber value="3"/>
     <!-- recordTarget: The patient -->
     <recordTarget>
       <!-- Patient demographic information -->
@@ -238,9 +238,9 @@
     <!-- componentOf: contains the encompassingEncouter and the provider and facility infomation for the case -->
     <relatedDocument typeCode="XFRM">
       <parentDocument>
-        <id root="be9712de-e236-44b3-bf92-233132ed486e" assigningAuthorityName="original-document"/>
+        <id root="be9712de-e236-44b3-bf92-233132ed4870" assigningAuthorityName="original-document"/>
         <setId root="0a4e1679-b0a7-4e7c-b52e-55ef28289267" assigningAuthorityName="original-document"/>
-        <versionNumber value="1"/>
+        <versionNumber value="3"/>
       </parentDocument>
     </relatedDocument>
     <componentOf>
@@ -393,7 +393,7 @@
                 <!-- This code is from the trigger codes for laboratory test order 
                      value set (2.16.840.1.113762.1.4.1146.166) -->
                 <code code="105066-5" codeSystem="2.16.840.1.113883.6.1" codeSystemName="LOINC" displayName="SARS-CoV+SARS-CoV-2 (COVID-19) Ag [Presence] in Specimen" sdtc:valueSet="2.16.840.1.114222.4.11.7508" sdtc:valueSetVersion="2020-11-13"/>
-                <statusCode code="active"/>
+                <statusCode code="completed"/>
                 <!-- Date on which the lab test should take place -->
                 <effectiveTime value="20201108"/>
                 <performer>

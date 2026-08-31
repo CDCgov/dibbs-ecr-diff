@@ -81,7 +81,7 @@ class Uploader:
         self.assets_dir = assets_dir
         self.persistence_id_factory = persistence_id_factory
 
-    def wait_until_ready(self) -> None:
+    def wait_for_s3_bucket(self) -> None:
         """Wait until the test bucket exists."""
         self.s3.get_waiter("bucket_exists").wait(
             Bucket=self.bucket_name,

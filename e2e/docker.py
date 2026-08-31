@@ -27,14 +27,12 @@ def run_compose(*, cmd: str = "up") -> None:
         "--detach",
     ]
 
-    if cmd == "up":
-        print("docker services starting...")
-        commands = [up]
-    elif cmd == "clean":
-        commands = [down, up]
-    elif cmd == "down":
+    if cmd == "down":
         print("docker services shuttin down...")
         commands = [down]
+    else:
+        print("docker services starting...")
+        commands = [up]
 
     for command in commands:
         subprocess.run(command, cwd=PROJECT_ROOT, stdout=subprocess.DEVNULL, check=True)

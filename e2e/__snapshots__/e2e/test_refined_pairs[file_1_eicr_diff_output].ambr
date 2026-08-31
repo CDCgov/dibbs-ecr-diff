@@ -1,5 +1,5 @@
 # serializer version: 1
-# name: test_happy_path[file_1_eicr_diff_output]
+# name: test_refined_pairs[file_1_eicr_diff_output]
   '''
   {
     "outputSpecVersion": "1.0",
