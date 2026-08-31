@@ -797,28 +797,37 @@ def _find_best_author_allowed_element(anchor: _Element) -> _Element | None:
 def _contains_diff_author_direct_child_with_function_code(
     element: _Element, function_code: str
 ) -> bool:
-    """Returns true if the element already contains a diff author direct child."""
-    software_name = element.find(
-        "./hl7:author/hl7:assignedAuthor/hl7:assignedAuthoringDevice/hl7:softwareName",
-        NAMESPACES,
-    )
-    if software_name is None:
-        return False
+    """Returns true if the element already contains a diff author direct child with matching function code."""
+    author_children = element.findall("./hl7:author", NAMESPACES)
 
-    existing_function_code = element.find("./hl7:author/hl7:functionCode", NAMESPACES)
-    if existing_function_code is None:
-        return False
+    for author in author_children:
+        software_name = author.find(
+            "./hl7:assignedAuthor/hl7:assignedAuthoringDevice/hl7:softwareName",
+            NAMESPACES,
+        )
+        if software_name is None:
+            continue
 
-    return (
-        software_name.get("code") == DIFF_TOOL_CODE
-        and software_name.get("codeSystem") == ECR_DATA_AUG_CODE_SYSTEM
-        and software_name.get("codeSystemName") == ECR_DATA_AUG_CODE_SYSTEM_NAME
-        and software_name.get("displayName") == DIFF_TOOL_DISPLAY
-        and existing_function_code.get("code") == function_code
-        and existing_function_code.get("codeSystem") == ECR_DATA_AUG_CODE_SYSTEM
-        and existing_function_code.get("codeSystemName")
-        == ECR_DATA_AUG_CODE_SYSTEM_NAME
-    )
+        existing_function_code = author.find("hl7:functionCode", NAMESPACES)
+
+        if existing_function_code is None:
+            continue
+
+        match = (
+            software_name.get("code") == DIFF_TOOL_CODE
+            and software_name.get("codeSystem") == ECR_DATA_AUG_CODE_SYSTEM
+            and software_name.get("codeSystemName") == ECR_DATA_AUG_CODE_SYSTEM_NAME
+            and software_name.get("displayName") == DIFF_TOOL_DISPLAY
+            and existing_function_code.get("code") == function_code
+            and existing_function_code.get("codeSystem") == ECR_DATA_AUG_CODE_SYSTEM
+            and existing_function_code.get("codeSystemName")
+            == ECR_DATA_AUG_CODE_SYSTEM_NAME
+        )
+
+        if match:
+            return True
+
+    return False
 
 
 def _get_function_code_for_change(change: Change) -> str:

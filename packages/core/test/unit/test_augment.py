@@ -1211,3 +1211,45 @@ def test_contains_diff_author_direct_child_false_when_function_code_missing():
         )
         is False
     )
+
+
+def test_contains_diff_author_direct_child_true_for_multiple_authors():
+    xml = f"""
+            <root>
+                {_diff_author_override({"fc_code": "did-add-detected"})}
+                {_diff_author_override({"fc_code": "did-custom-code-1"})}
+            </root>
+        """
+    assert (
+        _contains_diff_author_direct_child_with_function_code(
+            elem(xml), "did-add-detected"
+        )
+        is True
+    )
+    assert (
+        _contains_diff_author_direct_child_with_function_code(
+            elem(xml), "did-custom-code-1"
+        )
+        is True
+    )
+
+
+def test_contains_diff_author_direct_child_false_for_multiple_authors():
+    xml = f"""
+            <root>
+                {_diff_author_override({"fc_code": "did-add-detected"})}
+                {_diff_author_override({"fc_code": "did-custom-code-1"})}
+            </root>
+        """
+    assert (
+        _contains_diff_author_direct_child_with_function_code(
+            elem(xml), "did-update-detected"
+        )
+        is False
+    )
+    assert (
+        _contains_diff_author_direct_child_with_function_code(
+            elem(xml), "did-custom-code-2"
+        )
+        is False
+    )
