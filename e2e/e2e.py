@@ -15,7 +15,6 @@ def test_refined_pairs(uploader: Uploader, snapshot: SnapshotAssertion) -> None:
 
     assert len(complete_manifest.files) == 3
 
-    # actionability
     assert complete_manifest.files[0].is_actionable
     assert complete_manifest.files[1].is_actionable
     assert not complete_manifest.files[2].is_actionable
