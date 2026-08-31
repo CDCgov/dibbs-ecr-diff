@@ -909,7 +909,7 @@ def test_get_function_code_for_change_uses_change_specific_function_code():
         isActionable=True,
         actionabilityRuleId=uuid.UUID("12345678-1234-5678-1234-567812345678"),
         actionabilityRuleDisplayName="test rule",
-        augmentation_function_code="did-custom-code",
+        augmentationFunctionCode="did-custom-code",
     )
 
     assert _get_function_code_for_change(change) == "did-custom-code"
