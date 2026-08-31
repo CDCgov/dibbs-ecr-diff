@@ -13,7 +13,7 @@
   <!-- [eICR R2 STU3] Initial Public Health Case Report Document (eICR) (V5) -->
   <templateId root="2.16.840.1.113883.10.20.15.2" extension="2022-05-01" />
   <!-- Globally unique document ID (extension) is scoped by vendor/software -->
-  <id root="be9712de-e236-44b3-bf92-233132ed4870"/>
+  <id root="497dcba3-ecbf-4587-a2dd-5eb0665e6880"/>
   <!-- Document Code -->
   <code code="55751-2" codeSystem="2.16.840.1.113883.6.1" displayName="Public Health Case Report" codeSystemName="LOINC" />
   <title>Initial Public Health Case Report</title>
@@ -22,7 +22,7 @@
   <languageCode code="en-US" />
 
   <setId root="0a4e1679-b0a7-4e7c-b52e-55ef28289267" />
-  <versionNumber value="3" />
+  <versionNumber value="2" />
 
   <!-- recordTarget: The patient -->
   <recordTarget>
@@ -32,25 +32,25 @@
       <id extension="123453" root="2.16.840.1.113883.19.5" />
       <!--SSN-->
       <id extension="444-22-2222" root="2.16.840.1.113883.4.1" />
-      <!-- For greatest utility to public health, a patient's address 
-        should be a home address if available (PostalAddressUse = 'H' or 'HP'); 
-        would also request a second address, preferably a work address, 
-        (PostalAddressUse='WP') if available. 
+      <!-- For greatest utility to public health, a patient's address
+        should be a home address if available (PostalAddressUse = 'H' or 'HP');
+        would also request a second address, preferably a work address,
+        (PostalAddressUse='WP') if available.
 
-        If the patient is homeless, complete as much address information 
-        as possible (city, zip, county, etc.) and use the 
-        Characteristics of Home Environment template in the 
+        If the patient is homeless, complete as much address information
+        as possible (city, zip, county, etc.) and use the
+        Characteristics of Home Environment template in the
         Social History Section to indicate that the patient is homeless. -->
       <addr use="H">
         <streetAddressLine>2222 Home Street</streetAddressLine>
         <city>Provo</city>
         <state>UT</state>
-        <postalCode>84097</postalCode> 
+        <postalCode>84097</postalCode>
         <country>US</country>
         <!-- usablePeriod is an optional element
                      If present and high is missing, this indicates a current addres
                      If present and high is present, this indicates this address is historical
-                     If present, low indicates the starting period for this address 
+                     If present, low indicates the starting period for this address
                      The following example indicates a current address-->
         <useablePeriod xsi:type="IVL_TS">
           <low value="200007200845" />
@@ -89,7 +89,7 @@
             <streetAddressLine>4444 Home Street</streetAddressLine>
             <city>Provo</city>
             <state>UT</state>
-            <postalCode>84097</postalCode> 
+            <postalCode>84097</postalCode>
             <country>US</country>
           </addr>
           <!-- Parent/Guardian phone -->
@@ -116,7 +116,7 @@
     </patientRole>
   </recordTarget>
   <!-- author -->
-  <!-- Where a trigger occurs outside of an encounter the author/assignedAuthor/authorPerson and 
+  <!-- Where a trigger occurs outside of an encounter the author/assignedAuthor/authorPerson and
        author/assignedAuthor/representedOrganization will represent the Provider and Facility for reporting purposes. -->
   <author>
     <time value="201209151030-0800" />
@@ -217,7 +217,7 @@
           <streetAddressLine>1000 Hospital Lane</streetAddressLine>
           <city>Provo</city>
           <state>UT</state>
-          <postalCode>84097</postalCode> 
+          <postalCode>84097</postalCode>
           <country>US</country>
         </addr>
       </representedCustodianOrganization>
@@ -228,11 +228,11 @@
     <encompassingEncounter>
       <!-- Encounter iD-->
       <id extension="9937012" root="2.16.840.1.113883.19" />
-      <!-- Where a trigger occurs outside of an encounter use 
-              code="PHC2237" | 
-              codeSystem="2.16.840.1.114222.4.5.274" | 
-              codeSystemName="PHIN VS (CDC Local Coding System)" 
-              (External Historical Encounter) 
+      <!-- Where a trigger occurs outside of an encounter use
+              code="PHC2237" |
+              codeSystem="2.16.840.1.114222.4.5.274" |
+              codeSystemName="PHIN VS (CDC Local Coding System)"
+              (External Historical Encounter)
            and set effectiveTime/low/@nullFlavor="NA" and omit responsibleParty and location. -->
       <!-- Encounter Type -->
       <code code="AMB" codeSystem="2.16.840.1.113883.5.4" codeSystemName="HL7 ActEncounterCode" displayName="Ambulatory" />
@@ -253,7 +253,7 @@
             <streetAddressLine>1002 Healthcare Drive</streetAddressLine>
             <city>Provo</city>
             <state>UT</state>
-            <postalCode>84097</postalCode> 
+            <postalCode>84097</postalCode>
             <country>US</country>
           </addr>
           <!-- Provider Telecom: A telecom address (phone, email, fax, etc.) for the provider responsibe for the patient's care when the case was triggered -->
@@ -280,7 +280,7 @@
               <streetAddressLine>1002 Healthcare Drive</streetAddressLine>
               <city>Provo</city>
               <state>UT</state>
-              <postalCode>84097</postalCode> 
+              <postalCode>84097</postalCode>
               <country>US</country>
             </addr>
           </representedOrganization>
@@ -300,7 +300,7 @@
               <streetAddressLine>1000 Hospital Lane</streetAddressLine>
               <city>Provo</city>
               <state>UT</state>
-              <postalCode>84097</postalCode> 
+              <postalCode>84097</postalCode>
               <country>US</country>
             </addr>
           </location>
@@ -318,7 +318,7 @@
               <streetAddressLine>1000 Hospital Lane</streetAddressLine>
               <city>Provo</city>
               <state>UT</state>
-              <postalCode>84097</postalCode> 
+              <postalCode>84097</postalCode>
               <country>US</country>
             </addr>
           </serviceProviderOrganization>
@@ -371,14 +371,14 @@
               <!-- [eICR R2 STU2] Initial Case Report Trigger Code Lab Test Order (V2) -->
               <templateId root="2.16.840.1.113883.10.20.15.2.3.4" extension="2019-04-01" />
               <id root="b52bee94-c34b-4e2c-8c15-5ad9d6def205" />
-              <!-- This code is from the trigger codes for laboratory test order 
+              <!-- This code is from the trigger codes for laboratory test order
                    value set (2.16.840.1.113762.1.4.1146.166) -->
               <code code="105066-5" codeSystem="2.16.840.1.113883.6.1" codeSystemName="LOINC" displayName="SARS-CoV+SARS-CoV-2 (COVID-19) Ag [Presence] in Specimen" sdtc:valueSet="2.16.840.1.114222.4.11.7508"
                 sdtc:valueSetVersion="2020-11-13" />
-              <statusCode code="completed" />
+              <statusCode code="active" />
               <!-- Date on which the lab test should take place -->
               <effectiveTime value="20201108" />
-              
+
               <performer>
                 <assignedEntity>
                   <id root="2.16.840.1.113883.19" extension="1234" />
@@ -386,7 +386,7 @@
                     <streetAddressLine>1001 Village Avenue</streetAddressLine>
                     <city>Provo</city>
                     <state>UT</state>
-                    <postalCode>84097</postalCode> 
+                    <postalCode>84097</postalCode>
                     <country>US</country>
                   </addr>
                   <telecom use="WP" value="tel: +1(555)-555-5000" />
@@ -397,7 +397,7 @@
                     <addr>
                       <city>Provo</city>
                       <state>UT</state>
-                      <postalCode>84097</postalCode> 
+                      <postalCode>84097</postalCode>
                       <country>US</country>
                     </addr>
                   </representedOrganization>
@@ -435,14 +435,14 @@
               <!-- [eICR R2 STU2] Initial Case Report Trigger Code Lab Test Order (V2) -->
               <templateId root="2.16.840.1.113883.10.20.15.2.3.4" extension="2019-04-01" />
               <id root="b52bee94-c34b-4e2c-8c15-5ad9d6def205" />
-              <!-- This code is from the trigger codes for laboratory test order 
+              <!-- This code is from the trigger codes for laboratory test order
                    value set (2.16.840.1.113762.1.4.1146.166) -->
               <code code="105232-3" codeSystem="2.16.840.1.113883.6.1" codeSystemName="LOINC" displayName="	Influenza virus A+B RNA [Presence] in Sputum by NAA with probe detection" sdtc:valueSet="2.16.840.1.114222.4.11.7508"
                 sdtc:valueSetVersion="2020-11-13" />
               <statusCode code="active" />
               <!-- Date on which the lab test should take place -->
               <effectiveTime value="20201108" />
-              
+
               <performer>
                 <assignedEntity>
                   <id root="2.16.840.1.113883.19" extension="1234" />
@@ -450,7 +450,7 @@
                     <streetAddressLine>1001 Village Avenue</streetAddressLine>
                     <city>Provo</city>
                     <state>UT</state>
-                    <postalCode>84097</postalCode> 
+                    <postalCode>84097</postalCode>
                     <country>US</country>
                   </addr>
                   <telecom use="WP" value="tel: +1(555)-555-5000" />
@@ -461,7 +461,7 @@
                     <addr>
                       <city>Provo</city>
                       <state>UT</state>
-                      <postalCode>84097</postalCode> 
+                      <postalCode>84097</postalCode>
                       <country>US</country>
                     </addr>
                   </representedOrganization>
@@ -706,7 +706,7 @@
               </entryRelationship>
             </substanceAdministration>
           </entry>
-         
+
         </section>
       </component>
       <!--  Encounters Section (entries required) (V3) -->
@@ -893,7 +893,7 @@
                   <!-- [C-CDA R2.1] Encounter Diagnosis (V3) -->
                   <templateId root="2.16.840.1.113883.10.20.22.4.80" extension="2015-08-01" />
                   <code code="29308-4" codeSystem="2.16.840.1.113883.6.1" codeSystemName="LOINC" displayName="Diagnosis" />
-                  
+
                   <entryRelationship typeCode="SUBJ">
                     <observation classCode="OBS" moodCode="EVN" negationInd="false">
                       <!-- [C-CDA R1.1] Problem Observation -->
@@ -1029,7 +1029,7 @@
               </observation>
             </entry>
           </section>
-        
+
       </component>
       <!--  Medications Administered Section (V2) -->
       <component>
@@ -1599,7 +1599,7 @@
                 displayName="ORAL"/>
               <doseQuantity value="1"/>
               <consumable>
-                
+
                 <manufacturedProduct classCode="MANU">
                   <!-- ** Medication information ** -->
                   <templateId root="2.16.840.1.113883.10.20.22.4.23"
@@ -1633,7 +1633,7 @@
             </substanceAdministration>
           </entry>
         </section>
-        
+
       </component>
       <!--**Admission MEDICATION SECTION (coded entries required) ** -->
       <component>
@@ -1660,7 +1660,7 @@
                       <!-- [C-CDA R2.0] Medication Information (V2) -->
                       <templateId root="2.16.840.1.113883.10.20.22.4.23" extension="2014-06-09" />
                       <!-- [eICR R2 STU2] Initial Case Report Trigger Code Medication Information -->
-                     
+
                       <id root="2a620155-9d11-439e-92b3-5d9815ff4ee8" />
                       <manufacturedMaterial>
                         <code code="1115699" codeSystem="2.16.840.1.113883.6.88" codeSystemName="RxNorm" displayName="oseltamivir 6 MG/ML [Tamiflu]" />
@@ -1717,7 +1717,7 @@
                         <low value="20201101" />
                       </effectiveTime>
                       <value code="268910001" codeSystem="2.16.840.1.113883.6.96" codeSystemName="SNOMED CT" displayName="Patient's condition improved (finding)" xsi:type="CD" />
-                      
+
                     </observation>
                   </entryRelationship>
                 </substanceAdministration>
@@ -1742,7 +1742,7 @@
                       <!-- [C-CDA R2.0] Medication Information (V2) -->
                       <templateId root="2.16.840.1.113883.10.20.22.4.23" extension="2014-06-09" />
                       <!-- [eICR R2 STU2] Initial Case Report Trigger Code Medication Information -->
-                      
+
                       <id root="2a620155-9d11-439e-92b3-5d9815ff4ee8" />
                       <manufacturedMaterial>
                         <code code="1165486" codeSystem="2.16.840.1.113883.6.88" codeSystemName="RxNorm" displayName="ritonavir Oral Product"/>
@@ -1799,7 +1799,7 @@
                         <low value="20201101" />
                       </effectiveTime>
                       <value code="268910001" codeSystem="2.16.840.1.113883.6.96" codeSystemName="SNOMED CT" displayName="Patient's condition improved (finding)" xsi:type="CD" />
-                      
+
                     </observation>
                   </entryRelationship>
                 </substanceAdministration>
@@ -1904,7 +1904,7 @@
                   <!-- [C-CDA R2.1] Problem Observation (V3) -->
                   <templateId root="2.16.840.1.113883.10.20.22.4.4" extension="2015-08-01" />
                   <!-- [eICR R2 STU2] Initial Case Report Trigger Code Problem Observation (V3) -->
-                 
+
                   <id root="db734647-fc99-424c-a864-7e3cda82e705" />
                   <code code="29308-4" codeSystem="2.16.840.1.113883.6.1" codeSystemName="LOINC" displayName="Diagnosis">
                     <translation code="282291009" codeSystem="2.16.840.1.113883.6.96" codeSystemName="SNOMED CT" displayName="Diagnosis" />
@@ -1988,7 +1988,7 @@
                   <!-- [C-CDA R2.1] Problem Observation (V3) -->
                   <templateId root="2.16.840.1.113883.10.20.22.4.4" extension="2015-08-01" />
                   <!-- [eICR R2 STU2] Initial Case Report Trigger Code Problem Observation (V3) -->
-                 
+
                   <id root="db734647-fc99-424c-a864-7e3cda82e705" />
                   <code code="29308-4" codeSystem="2.16.840.1.113883.6.1" codeSystemName="LOINC" displayName="Diagnosis">
                     <translation code="282291009" codeSystem="2.16.840.1.113883.6.96" codeSystemName="SNOMED CT" displayName="Diagnosis" />
@@ -2234,8 +2234,8 @@
                     <low value="20201101" />
                   </effectiveTime>
                   <value code="10628911000119103" codeSystem="2.16.840.1.113883.6.96" displayName="Gastroenteritis caused by Influenza A virus (disorder)" xsi:type="CD" />
-                  
-                 
+
+
                 </observation>
               </entryRelationship>
               <entryRelationship typeCode="SUBJ">
@@ -2259,7 +2259,7 @@
               </entryRelationship>
             </act>
           </entry>
-         
+
         </section>
       </component>
       <!-- Chief Complaint Section -->
@@ -2495,7 +2495,7 @@
                     xsi:type="CD"/>
                   <interpretationCode code="A" codeSystem="2.16.840.1.113883.5.83" displayName="Abnormal" />
                 </observation>
-              </component>        
+              </component>
               <component>
                 <procedure classCode="PROC" moodCode="EVN">
                   <!-- [C-CDA] Specimen Collection Procedure (ID) -->
@@ -2589,9 +2589,9 @@
           <!-- Procedure activity procedure -->
           <entry>
             <procedure moodCode="EVN" classCode="PROC">
-              
+
               <templateId root="2.16.840.1.113883.10.20.22.4.14" extension="2014-06-09" />
-             
+
               <templateId root="2.16.840.1.113883.10.20.15.2.3.14" extension="2021-01-01" />
               <id root="9a6d1bac-17d3-4195-89c4-1121bc809b5a" />
               <code code="233573008" codeSystem="2.16.840.1.113883.6.96" codeSystemName="SNOMED CT" displayName="Extracorporeal membrane oxygenation (procedure)" sdtc:valueSet="2.16.840.1.114222.4.11.7508" sdtc:valueSetVersion="2020-11-13" />
@@ -3314,7 +3314,7 @@
                   </representedOrganization>
                 </assignedAuthor>
               </author>
-            
+
               <entryRelationship typeCode="RSON">
                 <observation classCode="OBS" moodCode="EVN">
                   <templateId root="2.16.840.1.113883.10.20.22.4.9" extension="2014-06-09" />
@@ -3595,7 +3595,7 @@
                     </procedure>
                   </entryRelationship>
                 </observation>
-              </entryRelationship> 
+              </entryRelationship>
             </substanceAdministration>
           </entry>
           <entry>
@@ -3623,7 +3623,7 @@
               </consumable>
             </substanceAdministration>
           </entry>
-          
+
         </section>
       </component>
       <!-- Social History Section (V3) -->
@@ -3860,9 +3860,9 @@
               </text>
               <statusCode code="completed"/>
               <effectiveTime value="201406061032-0500"/>
-              <!--Note: This template represents a “snapshot in time” observation, simply reflecting what the patient’s 
-					current smoking status is at the time of the observation. As a result, the effectiveTime is constrained 
-					to just a time stamp, and will approximately correspond with the author/time. -->			
+              <!--Note: This template represents a “snapshot in time” observation, simply reflecting what the patient’s
+					current smoking status is at the time of the observation. As a result, the effectiveTime is constrained
+					to just a time stamp, and will approximately correspond with the author/time. -->
               <value xsi:type="CD" codeSystem="2.16.840.1.113883.6.96" codeSystemName="SNOMED CT" code="449868002" displayName="Smokes tobacco daily"/>
               <author>
                 <templateId root="2.16.840.1.113883.10.20.22.4.119"/>
@@ -4002,9 +4002,9 @@
               <participant typeCode="IND">
                 <!-- [eICR R2 STU3] Animal Participant -->
                 <templateId root="2.16.840.1.113883.10.20.15.2.4.5" extension="2021-01-01" />
-                
+
                 <sdtc:functionCode code="AEXPOS" displayName="acquisition exposure" codeSystem="2.16.840.1.113883.5.6" codeSystemName="HL7ActClass" />
-                
+
                 <participantRole>
                   <playingEntity classCode="ANM">
                     <code code="35794008" displayName="Wild mink (organism)" codeSystem="2.16.840.1.113883.6.96" codeSystemName="SNOMED CT" />
@@ -4028,9 +4028,9 @@
               <participant typeCode="IND">
                 <!-- [eICR R2 STU3] Person Participant -->
                 <templateId root="2.16.840.1.113883.10.20.15.2.4.6" extension="2021-01-01" />
-                
+
                 <sdtc:functionCode code="AEXPOS" displayName="acquisition exposure" codeSystem="2.16.840.1.113883.5.6" codeSystemName="HL7ActClass" />
-                
+
                 <participantRole>
                   <playingEntity classCode="PSN">
                     <name use="L">
@@ -4168,7 +4168,7 @@
             </act>
           </entry>
           <entry typeCode="DRIV">
-            <!-- Travel History - participant location with addr 
+            <!-- Travel History - participant location with addr
                          specific to city and state (province) -->
             <act classCode="ACT" moodCode="EVN">
               <!-- [eICR R2 STU3.1] Travel History (V3) -->
@@ -4193,7 +4193,7 @@
             </act>
           </entry>
           <entry typeCode="DRIV">
-            <!-- Travel History - participant location with addr 
+            <!-- Travel History - participant location with addr
                  specific to city and state -->
             <act classCode="ACT" moodCode="EVN">
               <!-- [eICR R2 STU3] Travel History (V2) -->
@@ -4286,11 +4286,11 @@
               <value xsi:type="BL" value="true" />
             </observation>
           </entry>
-          <!-- Note that, due to tooling limitations, there are templates stated in the Occupational Data 
-               for Health (ODH) Template Requirements Section in Volume 2 of the eICR IG that are not for 
-               use in eICR. These templates are not included in the guide and where they are stated they 
-               are not linked (i.e. not in underlined blue text with hyperlink). The only templates to 
-               be used in an eICR are linked in the templates that include them. 
+          <!-- Note that, due to tooling limitations, there are templates stated in the Occupational Data
+               for Health (ODH) Template Requirements Section in Volume 2 of the eICR IG that are not for
+               use in eICR. These templates are not included in the guide and where they are stated they
+               are not linked (i.e. not in underlined blue text with hyperlink). The only templates to
+               be used in an eICR are linked in the templates that include them.
                The following includes examples of all the eICR included templates. -->
           <!-- Usual Occupation Observation -->
           <entry>
@@ -4396,16 +4396,16 @@
               <!-- [ODH R1D1] History of Employment Status Observation -->
               <templateId root="2.16.840.1.113883.10.20.22.4.212" extension="2017-11-30" />
               <id root="c1e39467-4b79-474e-9c75-927b45e8616a" />
-              <code code="74165-2" codeSystem="2.16.840.1.113883.6.1" 
+              <code code="74165-2" codeSystem="2.16.840.1.113883.6.1"
                 codeSystemName="LOINC"
                 displayName="History of Employment Status"/>
                 <statusCode code="completed" />
                 <effectiveTime xsi:type="IVL_TS">
                   <low value="20170116154714" />
                 </effectiveTime>
-                <value xsi:type="CD" code="Employed" 
-                  codeSystem="2.16.840.1.113883.5.1063" 
-                  codeSystemName="HL7ObservationValue" 
+                <value xsi:type="CD" code="Employed"
+                  codeSystem="2.16.840.1.113883.5.1063"
+                  codeSystemName="HL7ObservationValue"
                   displayName="Employed" />
             </observation>
           </entry>
@@ -4571,7 +4571,7 @@
               <id root="bab77407-f76d-4a51-a2ed-980c8a59fe28" />
               <code code="ASSERTION" codeSystem="2.16.840.1.113883.5.4" />
               <statusCode code="completed" />
-              <!-- Use the effectiveTime to indicate the date range over which the patient 
+              <!-- Use the effectiveTime to indicate the date range over which the patient
                    was pregnant/possibly pregnant/not pregnant/unknown. -->
               <effectiveTime>
                 <low value="20170826" />
@@ -4601,8 +4601,8 @@
                   <!-- [C-CDA PREG] Estimated Date of Delivery (SUPPLEMENTAL PREGNANCY) -->
                   <templateId root="2.16.840.1.113883.10.20.22.4.297" extension="2020-04-01" />
                   <id root="f3dfc576-2329-4f71-af3f-d500cab1146b" />
-                  <!-- If method of determination is known, it is included in the code chosen, 
-                    if the method of determination is not known, 
+                  <!-- If method of determination is known, it is included in the code chosen,
+                    if the method of determination is not known,
                     use code 11778-8 - Delivery Date estimated (no method specified) -->
                   <!-- eICR Data element: Estimated date of delivery (EDD) method -->
                   <code code="11780-4" codeSystem="2.16.840.1.113883.6.1" displayName="Delivery date estimated from ovulation date" codeSystemName="LOINC" />
@@ -4626,8 +4626,8 @@
                   <effectiveTime value="201710011015" />
                   <!-- eICR Data element: Estimated gestational age of pregnancy in days -->
                   <value xsi:type="PQ" unit="d" value="143" />
-                  <!-- The following entryRelationship only needs to be present if the code used 
-                       is 11887-7 | Gestational age Estimated from selected delivery date. The 
+                  <!-- The following entryRelationship only needs to be present if the code used
+                       is 11887-7 | Gestational age Estimated from selected delivery date. The
                        Entry Reference template points to the relevant Estimated Date of Delivery template-->
                   <entryRelationship typeCode="REFR">
                     <act classCode="ACT" moodCode="EVN">
@@ -4645,8 +4645,8 @@
 
               <!-- Pregnancy Outcome -->
               <entryRelationship typeCode="COMP">
-                <!-- The order born in the delivery, live born or fetal death (1st, 2nd, 3rd, 4th, 5th, 6th, 7th, etc.). 
-                     All live births and fetal losses are included. If the pregnancy plurality is 1 
+                <!-- The order born in the delivery, live born or fetal death (1st, 2nd, 3rd, 4th, 5th, 6th, 7th, etc.).
+                     All live births and fetal losses are included. If the pregnancy plurality is 1
                      then this value will also be 1. -->
                 <sequenceNumber value="1" />
                 <observation classCode="OBS" moodCode="EVN">
@@ -4753,7 +4753,7 @@
                   <assignedPerson>
                     <name>
                       <given>Nurse</given>
-                      <family>Nightingale</family>
+                      <family>Nightingale (UPDATE)</family>
                       <suffix>RN</suffix>
                     </name>
                   </assignedPerson>
@@ -5196,7 +5196,7 @@
           </entry>
         </section>
       </component>
-    
+
     </structuredBody>
   </component>
 </ClinicalDocument>

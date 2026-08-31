@@ -1,0 +1,24 @@
+# serializer version: 1
+# name: test_refined_pairs[file_3_eicr_diff_output]
+  '''
+  {
+    "outputSpecVersion": "1.0",
+    "generatedAt": "2026-01-01T00:00:00Z",
+    "configurationId": "821c2832-54d7-456e-86ff-168f07a3a947",
+    "configurationVersion": "1.0",
+    "configurationDisplayName": "APHL Baseline Criteria",
+    "setId": "0a4e1679-b0a7-4e7c-b52e-55ef28289267",
+    "currentDocument": {
+      "documentId": "bdf61c73-d9e3-41e2-b05d-4433caf2e650",
+      "versionNumber": "4"
+    },
+    "previousDocument": {
+      "documentId": "885fa908-ed18-4dde-a376-32ff921b8783",
+      "versionNumber": "3"
+    },
+    "hasDetectedChanges": false,
+    "hasActionableChanges": false,
+    "changes": []
+  }
+  '''
+# ---

@@ -34,6 +34,17 @@
           "SDDH"
         ],
         "eicr_diff_output": "DIDOutputV2/2026/01/01/de00769f-3b84-4022-9982-8d51475ceb3d/SDDH/COVID19/diff_v2_to_v3_2.json",
+        "is_actionable": true
+      },
+      {
+        "eicr": "DIDOutputV2/2026/01/01/de00769f-3b84-4022-9982-8d51475ceb3d/SDDH/COVID19/4_eICR.xml",
+        "rr": "DIDOutputV2/2026/01/01/de00769f-3b84-4022-9982-8d51475ceb3d/SDDH/COVID19/4_RR.xml",
+        "setId": "0a4e1679-b0a7-4e7c-b52e-55ef28289267",
+        "versionNumber": 4,
+        "jurisdictions": [
+          "SDDH"
+        ],
+        "eicr_diff_output": "DIDOutputV2/2026/01/01/de00769f-3b84-4022-9982-8d51475ceb3d/SDDH/COVID19/diff_v3_to_v4_3.json",
         "is_actionable": false
       }
     ]

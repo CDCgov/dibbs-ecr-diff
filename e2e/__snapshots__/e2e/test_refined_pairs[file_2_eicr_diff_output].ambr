@@ -9,16 +9,25 @@
     "configurationDisplayName": "APHL Baseline Criteria",
     "setId": "0a4e1679-b0a7-4e7c-b52e-55ef28289267",
     "currentDocument": {
-      "documentId": "be9712de-e236-44b3-bf92-233132ed4870",
+      "documentId": "885fa908-ed18-4dde-a376-32ff921b8783",
       "versionNumber": "3"
     },
     "previousDocument": {
-      "documentId": "be9712de-e236-44b3-bf92-233132ed486f",
+      "documentId": "497dcba3-ecbf-4587-a2dd-5eb0665e6880",
       "versionNumber": "2"
     },
-    "hasDetectedChanges": false,
-    "hasActionableChanges": false,
-    "changes": []
+    "hasDetectedChanges": true,
+    "hasActionableChanges": true,
+    "changes": [
+      {
+        "changeType": "ADDED",
+        "xpath": "/hl7:ClinicalDocument[1]/hl7:component[1]/hl7:structuredBody[1]/hl7:component[1]/hl7:section[1]/hl7:entry[7]",
+        "xpathDocumentId": "885fa908-ed18-4dde-a376-32ff921b8783",
+        "isActionable": true,
+        "actionabilityRuleId": "cd2c0e77-b2e4-4a99-8750-ed4c73396a3a",
+        "actionabilityRuleDisplayName": "APHL Baseline Criteria - entry"
+      }
+    ]
   }
   '''
 # ---

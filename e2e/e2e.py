@@ -7,21 +7,32 @@ def test_refined_pairs(uploader: Uploader, snapshot: SnapshotAssertion) -> None:
     """Refined eICRs test case."""
     input_manifest, complete_manifest, _persistence_id = uploader.send_manifest(
         [
-            Pair(eicr="happy-path/1_eICR.xml", rr="happy-path/1_RR.xml"),
-            Pair(eicr="happy-path/2_eICR.xml", rr="happy-path/2_RR.xml"),
-            Pair(eicr="happy-path/3_eICR.xml", rr="happy-path/3_RR.xml"),
+            Pair(eicr="example/1_eICR.xml", rr="example/1_RR.xml"),
+            Pair(eicr="example/2_eICR.xml", rr="example/2_RR.xml"),
+            Pair(eicr="example/3_eICR.xml", rr="example/3_RR.xml"),
+            Pair(eicr="example/4_eICR.xml", rr="example/4_RR.xml"),
         ]
     )
 
-    assert len(complete_manifest.files) == 3
+    assert len(complete_manifest.files) == 4
+    (file_1, file_2, file_3, file_4) = complete_manifest.files
 
-    assert complete_manifest.files[0].is_actionable
-    assert complete_manifest.files[1].is_actionable
-    assert not complete_manifest.files[2].is_actionable
+    assert file_1.is_actionable
+    assert file_2.is_actionable
+    assert file_3.is_actionable
+    assert not file_4.is_actionable
 
     # first version should not have a diff output
-    assert complete_manifest.files[0].versionNumber == 1
-    assert complete_manifest.files[0].eicr_diff_output is None
+    assert file_1.versionNumber == 1
+    assert file_1.eicr_diff_output is None
+
+    # versions 2-4 should have diff outputs
+    assert file_2.versionNumber == 2
+    assert file_2.eicr_diff_output is not None
+    assert file_3.versionNumber == 3
+    assert file_3.eicr_diff_output is not None
+    assert file_4.versionNumber == 4
+    assert file_4.eicr_diff_output is not None
 
     # snapshot assertions
     assert uploader.read_object(complete_manifest.key) == snapshot

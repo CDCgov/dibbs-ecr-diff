@@ -99,6 +99,26 @@ Unit tests for a specific package can be ran by passing a path to pytest:
 just test packages/cli
 ```
 
+### Running e2e (End-to-End) tests
+
+E2E tests can be run using the included script:
+
+```bash
+just e2e
+```
+
+The E2E tests use a pytest plugin, [syrupy](https://github.com/syrupy-project/syrupy), for snapshot assertions. To update snapshots located in `e2e/__snapshots`, pass the `--snapshot-update` flag:
+
+```bash
+just e2e --snapshot-update
+```
+
+E2E tests use the same local Docker Compose stack located in `compose.yml`, with specific environment variables defined in `e2e/.e2e.env`. The Compose stack is configured as a fixture in `e2e/conftest.py`. To see additional log information while running E2E scripts, including Docker output, pass the `-s` flag to pytest:
+
+```bash
+just e2e -s
+```
+
 ### Adding dependencies
 
 Additional dependencies can be added to the root workspace with `uv`:
