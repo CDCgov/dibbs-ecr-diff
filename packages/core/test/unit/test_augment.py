@@ -4,16 +4,15 @@ import uuid
 import pytest
 from core.augment import (
     DIFF_DETERMINISTIC_NS,
-    FUNCTION_CODE_ADD_DETECTED,
-    FUNCTION_CODE_UPDATE_DETECTED,
     AugmentationRun,
-    _contains_diff_author_direct_child,
+    _contains_diff_author_direct_child_with_function_code,
     _create_diff_author_element,
     _derive_augmented_eicr_id,
     _derive_augmented_eicr_setid,
     _derive_augmented_rr_id,
     _derive_augmented_rr_setid,
     _find_best_author_allowed_element,
+    _get_function_code_for_change,
     augment_eicr_in_place,
     augment_rr_in_place,
     create_augmentation_run,
@@ -837,22 +836,6 @@ def test_find_best_author_allowed_element_closest_ancestor_wins():
     assert _find_best_author_allowed_element(anchor) is parent
 
 
-def test_find_best_author_allowed_element_returns_descendant_when_only_descendant_allowed():
-    anchor = etree.Element(hl7_clark_tag("body"))
-    child = etree.SubElement(anchor, hl7_clark_tag("entry"))
-    grandchild = etree.SubElement(child, hl7_clark_tag("observation"))
-    assert _find_best_author_allowed_element(anchor) is grandchild
-
-
-def test_find_best_author_allowed_element_closest_descendant_in_document_order_wins():
-    anchor = etree.Element(hl7_clark_tag("body"))
-    branch = etree.SubElement(anchor, hl7_clark_tag("entry"))
-    first_match = etree.SubElement(branch, hl7_clark_tag("observation"))
-    etree.SubElement(anchor, hl7_clark_tag("act"))  # second match
-    # iterdescendants matches depth-first
-    assert _find_best_author_allowed_element(anchor) is first_match
-
-
 def test_find_best_author_allowed_element_anchor_takes_priority():
     parent = etree.Element(hl7_clark_tag("act"))
     anchor = etree.SubElement(parent, hl7_clark_tag("observation"))
@@ -860,7 +843,7 @@ def test_find_best_author_allowed_element_anchor_takes_priority():
     assert _find_best_author_allowed_element(anchor) is anchor
 
 
-def test_find_best_author_allowed_element_ancestor_takes_priority_over_descendant():
+def test_find_best_author_allowed_element_ignores_allowed_descendant_when_ancestor_allowed():
     parent = etree.Element(hl7_clark_tag("act"))
     anchor = etree.SubElement(parent, hl7_clark_tag("body"))
     etree.SubElement(anchor, hl7_clark_tag("observation"))
@@ -869,6 +852,14 @@ def test_find_best_author_allowed_element_ancestor_takes_priority_over_descendan
 
 def test_find_best_author_allowed_element_returns_none_when_anchor_disallowed():
     anchor = etree.Element(hl7_clark_tag("root"))
+    assert _find_best_author_allowed_element(anchor) is None
+
+
+def test_find_best_author_allowed_element_ignores_allowed_descendant_when_nothing_else_allowed():
+    root = etree.Element(hl7_clark_tag("root"))
+    child = etree.SubElement(root, hl7_clark_tag("child"))
+    anchor = etree.SubElement(child, hl7_clark_tag("anchor"))
+    etree.SubElement(anchor, hl7_clark_tag("observation"))
     assert _find_best_author_allowed_element(anchor) is None
 
 
@@ -881,7 +872,7 @@ def test_find_best_author_allowed_element_returns_none_when_nothing_allowed():
 
 
 # NOTE:
-# Create diff author element tests
+# Get function code for change tests
 # =============================================================================
 
 
@@ -896,11 +887,48 @@ def _create_change(changeType: ChangeType) -> Change:
     )
 
 
+@pytest.mark.parametrize(
+    "change_type, expected_code",
+    [
+        pytest.param(ChangeType.ADDED, "did-add-detected"),
+        pytest.param(ChangeType.UPDATED, "did-update-detected"),
+    ],
+)
+def test_get_function_code_for_change_reflects_change_type(
+    change_type: ChangeType, expected_code: str
+):
+    change = _create_change(change_type)
+    assert _get_function_code_for_change(change) == expected_code
+
+
+def test_get_function_code_for_change_uses_change_specific_function_code():
+    change = Change(
+        changeType=ChangeType.ADDED,
+        xpath="",
+        xpathDocumentId="",
+        isActionable=True,
+        actionabilityRuleId=uuid.UUID("12345678-1234-5678-1234-567812345678"),
+        actionabilityRuleDisplayName="test rule",
+        augmentationFunctionCode="did-custom-code",
+    )
+
+    assert _get_function_code_for_change(change) == "did-custom-code"
+
+
+def test_get_function_code_for_change_raises_error_for_deletes():
+    with pytest.raises(ValueError):
+        change = _create_change(ChangeType.DELETED)
+        _get_function_code_for_change(change)
+
+
+# NOTE:
+# Create diff author element tests
+# =============================================================================
+
+
 @pytest.fixture
 def diff_author() -> etree._Element:
-    return _create_diff_author_element(
-        _create_change(changeType=ChangeType.ADDED), _TEST_AUGMENTATION_TIME
-    )
+    return _create_diff_author_element("did-add-detected", _TEST_AUGMENTATION_TIME)
 
 
 def test_create_diff_author_element_returns_lxml_element(diff_author: etree._Element):
@@ -914,37 +942,19 @@ def test_create_diff_author_element_returns_author(diff_author: etree._Element):
 def test_create_diff_author_element_includes_function_code(diff_author: etree._Element):
     fc = diff_author.find(hl7_clark_tag("functionCode"))
     assert fc is not None
-    assert fc.get("code") == FUNCTION_CODE_ADD_DETECTED
+    assert fc.get("code") == "did-add-detected"
     assert fc.get("codeSystem") == "2.16.840.1.113883.10.20.15.2.7.1"
     assert fc.get("codeSystemName") == "eCRDataAugmentation"
 
 
-def test_create_diff_author_element_function_code_reflects_adds():
+def test_create_diff_author_element_reflects_custom_function_code():
     author = _create_diff_author_element(
-        _create_change(ChangeType.ADDED),
+        "did-custom-code",
         _TEST_AUGMENTATION_TIME,
     )
     fc = author.find(hl7_clark_tag("functionCode"))
     assert fc is not None
-    assert fc.get("code") == FUNCTION_CODE_ADD_DETECTED
-
-
-def test_create_diff_author_element_function_code_reflects_updates():
-    author = _create_diff_author_element(
-        _create_change(ChangeType.UPDATED),
-        _TEST_AUGMENTATION_TIME,
-    )
-    fc = author.find(hl7_clark_tag("functionCode"))
-    assert fc is not None
-    assert fc.get("code") == FUNCTION_CODE_UPDATE_DETECTED
-
-
-def test_create_diff_author_element_function_code_raises_error_for_deletes():
-    with pytest.raises(ValueError):
-        _create_diff_author_element(
-            _create_change(ChangeType.DELETED),
-            _TEST_AUGMENTATION_TIME,
-        )
+    assert fc.get("code") == "did-custom-code"
 
 
 def test_create_diff_author_element_includes_timestamp(diff_author: etree._Element):
@@ -956,7 +966,7 @@ def test_create_diff_author_element_includes_timestamp(diff_author: etree._Eleme
 @pytest.mark.parametrize("ts", ["20250101000000+0000", "20261231235959-0500", ""])
 def test_create_diff_author_element_time_value_passes_through_verbatim(ts):
     author = _create_diff_author_element(
-        _create_change(ChangeType.ADDED),
+        "did-add-detected",
         ts,
     )
     time = author.find(hl7_clark_tag("time"))
@@ -1044,13 +1054,27 @@ def test_contains_diff_author_direct_child_true_with_valid_diff_author(
 ):
     root = etree.Element(hl7_clark_tag("root"))
     root.append(diff_author)
-    assert _contains_diff_author_direct_child(root) is True
+    assert (
+        _contains_diff_author_direct_child_with_function_code(root, "did-add-detected")
+        is True
+    )
+
+
+def test_contains_diff_author_direct_child_true_with_matching_function_code():
+    author_xml = _diff_author_override({"fc_code": "did-update-detected"})
+    root = f"<root>{author_xml}</root>"
+    assert (
+        _contains_diff_author_direct_child_with_function_code(
+            elem(root), "did-update-detected"
+        )
+        is True
+    )
 
 
 def _diff_author_override(override: dict[str, str]) -> str:
     author_xml = f"""
     <author xmlns="{HL7_NS}">
-        <functionCode code="ADDED"
+        <functionCode code="{override.get("fc_code", "did-add-detected")}"
             codeSystem="{override.get("fc_code_system", "2.16.840.1.113883.10.20.15.2.7.1")}"
             codeSystemName="{override.get("fc_code_system_name", "eCRDataAugmentation")}"/>
         <time value="20260728110219-0400"/>
@@ -1077,6 +1101,7 @@ def _diff_author_override(override: dict[str, str]) -> str:
         {"sft_code_system": "9.9.9.9"},
         {"sft_code_system_name": "Wrong System Name"},
         {"sft_display_name": "Wrong Display"},
+        {"fc_code": "wrong-code"},
         {"fc_code_system": "9.9.9.9"},
         {"fc_code_system_name": "Wrong System Name"},
     ],
@@ -1086,7 +1111,12 @@ def test_contains_diff_author_direct_child_false_when_attribute_values_unmatched
 ):
     author_xml = _diff_author_override(override)
     root = f"<root>{author_xml}</root>"
-    assert _contains_diff_author_direct_child(elem(root)) is False
+    assert (
+        _contains_diff_author_direct_child_with_function_code(
+            elem(root), "did-add-detected"
+        )
+        is False
+    )
 
 
 @pytest.mark.parametrize(
@@ -1096,6 +1126,7 @@ def test_contains_diff_author_direct_child_false_when_attribute_values_unmatched
         {"sft_code_system": None},
         {"sft_code_system_name": None},
         {"sft_display_name": None},
+        {"fc_code": None},
         {"fc_code_system": None},
         {"fc_code_system_name": None},
     ],
@@ -1105,17 +1136,32 @@ def test_contains_diff_author_direct_child_false_when_missing_attributes(
 ):
     author_xml = _diff_author_override(override)
     root = f"<root>{author_xml}</root>"
-    assert _contains_diff_author_direct_child(elem(root)) is False
+    assert (
+        _contains_diff_author_direct_child_with_function_code(
+            elem(root), "did-add-detected"
+        )
+        is False
+    )
 
 
 def test_contains_diff_author_direct_child_false_when_no_children():
     xml = f'<root xmlns="{HL7_NS}"/>'
-    assert _contains_diff_author_direct_child(elem(xml)) is False
+    assert (
+        _contains_diff_author_direct_child_with_function_code(
+            elem(xml), "did-add-detected"
+        )
+        is False
+    )
 
 
 def test_contains_diff_author_direct_child_false_when_no_author():
     xml = f'<root xmlns="{HL7_NS}"><component><section/></component></root>'
-    assert _contains_diff_author_direct_child(elem(xml)) is False
+    assert (
+        _contains_diff_author_direct_child_with_function_code(
+            elem(xml), "did-add-detected"
+        )
+        is False
+    )
 
 
 def test_contains_diff_author_direct_child_false_when_software_name_missing():
@@ -1123,7 +1169,7 @@ def test_contains_diff_author_direct_child_false_when_software_name_missing():
     xml = f"""
         <root>
             <author xmlns="{HL7_NS}">
-                <functionCode code="ADDED" codeSystem="2.16.840.1.113883.10.20.15.2.7.1" codeSystemName="eCRDataAugmentation"/>
+                <functionCode code="did-add-detected" codeSystem="2.16.840.1.113883.10.20.15.2.7.1" codeSystemName="eCRDataAugmentation"/>
                 <time value="20260728110219-0400"/>
                 <assignedAuthor>
                     <id nullFlavor="NA"/>
@@ -1134,7 +1180,12 @@ def test_contains_diff_author_direct_child_false_when_software_name_missing():
             </author>
         </root>
     """
-    assert _contains_diff_author_direct_child(elem(xml)) is False
+    assert (
+        _contains_diff_author_direct_child_with_function_code(
+            elem(xml), "did-add-detected"
+        )
+        is False
+    )
 
 
 def test_contains_diff_author_direct_child_false_when_function_code_missing():
@@ -1154,4 +1205,51 @@ def test_contains_diff_author_direct_child_false_when_function_code_missing():
             </author>
         </root>
     """
-    assert _contains_diff_author_direct_child(elem(xml)) is False
+    assert (
+        _contains_diff_author_direct_child_with_function_code(
+            elem(xml), "did-add-detected"
+        )
+        is False
+    )
+
+
+def test_contains_diff_author_direct_child_true_for_multiple_authors():
+    xml = f"""
+            <root>
+                {_diff_author_override({"fc_code": "did-add-detected"})}
+                {_diff_author_override({"fc_code": "did-custom-code-1"})}
+            </root>
+        """
+    assert (
+        _contains_diff_author_direct_child_with_function_code(
+            elem(xml), "did-add-detected"
+        )
+        is True
+    )
+    assert (
+        _contains_diff_author_direct_child_with_function_code(
+            elem(xml), "did-custom-code-1"
+        )
+        is True
+    )
+
+
+def test_contains_diff_author_direct_child_false_for_multiple_authors():
+    xml = f"""
+            <root>
+                {_diff_author_override({"fc_code": "did-add-detected"})}
+                {_diff_author_override({"fc_code": "did-custom-code-1"})}
+            </root>
+        """
+    assert (
+        _contains_diff_author_direct_child_with_function_code(
+            elem(xml), "did-update-detected"
+        )
+        is False
+    )
+    assert (
+        _contains_diff_author_direct_child_with_function_code(
+            elem(xml), "did-custom-code-2"
+        )
+        is False
+    )
