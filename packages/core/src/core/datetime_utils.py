@@ -14,12 +14,12 @@ def get_current_datetime() -> datetime:
     - 2026-08-25 12:34:56
     - 2026-08-25
     """
-    fixed_datetime = os.getenv("DID_FIXED_DATE_TIME")
     environment = os.getenv("ENV")
+    fixed_datetime = os.getenv("DID_FIXED_DATE_TIME")
 
-    if isinstance(fixed_datetime, str) and environment != "production":
+    if isinstance(fixed_datetime, str) and environment == "test":
         fixed_datetime = fixed_datetime.strip()
-    if not fixed_datetime:
+    else:
         return datetime.now(UTC)
 
     try:
