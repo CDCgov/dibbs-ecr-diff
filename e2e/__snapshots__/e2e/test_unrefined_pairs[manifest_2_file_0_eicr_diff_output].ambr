@@ -25,7 +25,8 @@
         "xpathDocumentId": "497dcba3-ecbf-4587-a2dd-5eb0665e6880",
         "isActionable": true,
         "actionabilityRuleId": "cd2c0e77-b2e4-4a99-8750-ed4c73396a3a",
-        "actionabilityRuleDisplayName": "APHL Baseline Criteria - entry"
+        "actionabilityRuleDisplayName": "APHL Baseline Criteria - entry",
+        "augmentationFunctionCode": null
       }
     ]
   }

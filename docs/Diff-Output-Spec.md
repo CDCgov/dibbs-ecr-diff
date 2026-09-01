@@ -48,6 +48,7 @@ APHL uses the diff to decide whether to send the new eICR to the receiving juris
 | `isActionable` | boolean | Yes | Whether this change should contribute to APHL's decision to send the new eICR. |
 | `actionabilityRuleId` | string or null | Yes | UUID of the rule or default behavior that determined `isActionable`. `null` when no rule applies. |
 | `actionabilityRuleDisplayName` | string or null | Yes | Human-readable name of the rule or default behavior. `null` when no rule applies. |
+| `augmentationFunctionCode` | string or null | Optional | Custom function code used in augmentation to flag this change. When `null`, a default function code like `did-add-detected` or `did-update-detected` is used for augmentation. |
 
 When multiple applicable configuration rules match the same detected change,
 the `changes` array contains one entry for each matching rule.
@@ -92,7 +93,8 @@ actionable under an `IGNORE_LIST` configuration is
       "xpathDocumentId": "db734647-fc99-424c-a864-7e3cda82e704",
       "isActionable": true,
       "actionabilityRuleId": "8b1f4a2e-3c5d-4e6f-9a7b-1c2d3e4f5a6b",
-      "actionabilityRuleDisplayName": "Patient date of birth changed"
+      "actionabilityRuleDisplayName": "Patient date of birth changed",
+      "augmentationFunctionCode": "did-patient-birthTime"
     },
     {
       "changeType": "added",
@@ -100,7 +102,8 @@ actionable under an `IGNORE_LIST` configuration is
       "xpathDocumentId": "db734647-fc99-424c-a864-7e3cda82e704",
       "isActionable": true,
       "actionabilityRuleId": "2d4e6f8a-1b3c-5d7e-9f0a-2b4c6d8e0f1a",
-      "actionabilityRuleDisplayName": "Medication added"
+      "actionabilityRuleDisplayName": "Medication added",
+      "augmentationFunctionCode": null
     },
     {
       "changeType": "updated",
@@ -108,7 +111,8 @@ actionable under an `IGNORE_LIST` configuration is
       "xpathDocumentId": "db734647-fc99-424c-a864-7e3cda82e704",
       "isActionable": false,
       "actionabilityRuleId": null,
-      "actionabilityRuleDisplayName": null
+      "actionabilityRuleDisplayName": null,
+      "augmentationFunctionCode": null
     },
     {
       "changeType": "deleted",
@@ -116,7 +120,8 @@ actionable under an `IGNORE_LIST` configuration is
       "xpathDocumentId": "db734647-fc99-424c-a864-7e3cda82e703",
       "isActionable": true,
       "actionabilityRuleId": "0e870a30-2745-4dbb-8e3e-2c6820441b27",
-      "actionabilityRuleDisplayName": "Problem deleted"
+      "actionabilityRuleDisplayName": "Problem deleted",
+      "augmentationFunctionCode": null
     }
   ]
 }

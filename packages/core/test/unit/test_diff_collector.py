@@ -3,7 +3,7 @@ from core.cda.key_models import (
     RootExtension,
 )
 from core.cda.stable_key import (
-    stable_key,
+    highest_ranked_stable_key as stable_key,
 )
 from core.cda.tags import (
     EFFECTIVE_TIME_TAG,

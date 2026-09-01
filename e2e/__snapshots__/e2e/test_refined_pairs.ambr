@@ -2,6 +2,7 @@
 # name: test_refined_pairs
   '''
   {
+    "DIDSkip": false,
     "Files": [
       {
         "eicr": "DIDOutputV2/2026/01/01/de00769f-3b84-4022-9982-8d51475ceb3d/SDDH/COVID19/1_eICR.xml",

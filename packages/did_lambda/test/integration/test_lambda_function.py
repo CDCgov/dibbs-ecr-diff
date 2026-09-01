@@ -432,3 +432,61 @@ def test_process_sqs_record_with_eicr_diff(s3_client, bucket_name, dynamodb_tabl
             Key=f"{COMPLETE_PREFIX}{persistence_id}",
         )
         assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+def test_process_sqs_record_writes_complete_error_manifest(
+    s3_client, bucket_name, dynamodb_table
+):
+    from did_lambda.lambda_function import process_sqs_record
+    from did_lambda.telemetry import BatchProcessingStats
+    from did_lambda.utils import ApplicationError
+
+    stats = BatchProcessingStats()
+    manifest_key, _manifest, persistence_id = send_input_files(
+        s3_client,
+        bucket_name=bucket_name,
+        input_files=[
+            MockS3InputFile(
+                eicr_body=b"invalid XML",
+                rr_body=build_doc(1, "rr-set-id-1"),
+                set_id="eicr-set-id-1",
+                version_number=1,
+            )
+        ],
+    )
+
+    # the invalid eicr_body should raise an ApplicationError during parsing
+    with pytest.raises(ApplicationError) as exc:
+        process_sqs_record(build_sqs_record(bucket_name, manifest_key), stats)
+
+    assert str(exc.value) == "Processing failed during document_load"
+    assert stats.documents_processed == 0
+    assert stats.documents_failed == 1
+
+    response = s3_client.get_object(
+        Bucket=bucket_name,
+        Key=f"{COMPLETE_PREFIX}{persistence_id}",
+    )
+
+    assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
+    assert json.loads(response["Body"].read()) == {
+        "DIDSkip": True,
+        "Error": "Processing failed during document_load",
+    }
+
+
+def test_process_sqs_record_rejects_manifest_key_without_persistence_id(
+    s3_client, bucket_name
+):
+    from did_lambda.lambda_function import process_sqs_record
+    from did_lambda.telemetry import BatchProcessingStats
+    from did_lambda.utils import InfraError
+
+    # pass invalid manifest_key, which would result in an InfraError in the manifest_load stage
+    record = build_sqs_record(bucket_name, "DIDInput")
+    stats = BatchProcessingStats()
+
+    with pytest.raises(InfraError) as exc:
+        process_sqs_record(record, stats)
+
+    assert str(exc.value) == "Unable to load manifest metadata from S3"

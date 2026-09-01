@@ -2,6 +2,7 @@
 # name: test_unrefined_pairs[manifest_2]
   '''
   {
+    "DIDSkip": false,
     "Files": [
       {
         "eicr": "DIDOutputV2/2026/01/01/60c673f9-1a7d-4e36-bc86-89d7f6c92a61/eICR.xml",
