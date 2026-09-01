@@ -107,7 +107,7 @@ E2E tests can be run using the included script:
 just e2e
 ```
 
-The E2E tests use a pytest plugin, [syrupy](https://github.com/syrupy-project/syrupy), for snapshot assertions. To update snapshots located in `e2e/__snapshots`, pass the `--snapshot-update` flag:
+The E2E tests use a pytest plugin, [syrupy](https://github.com/syrupy-project/syrupy), for snapshot assertions. To update snapshots located in `e2e/__snapshots`, pass the `--snapshot-update` flag. Updating snapshots will also delete any stale/unused snapshot files.
 
 ```bash
 just e2e --snapshot-update

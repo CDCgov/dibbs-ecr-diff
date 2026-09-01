@@ -1,7 +1,7 @@
 """Helpers for local end-to-end tests."""
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -58,6 +58,13 @@ class ManifestMetadata:
     persistence_id: str
     key: str
     files: list[ManifestFile]
+
+    def iter_output_keys(self) -> Iterator[tuple[int, str, str]]:
+        """Helper method to iterate on the output s3 keys."""
+        for idx, file in enumerate(self.files):
+            for key in ("eicr", "rr", "eicr_diff_output"):
+                if object_key := getattr(file, key):
+                    yield idx, key, object_key
 
 
 def build_persistence_id() -> str:

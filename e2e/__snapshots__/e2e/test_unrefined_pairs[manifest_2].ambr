@@ -1,0 +1,20 @@
+# serializer version: 1
+# name: test_unrefined_pairs[manifest_2]
+  '''
+  {
+    "Files": [
+      {
+        "eicr": "DIDOutputV2/2026/01/01/60c673f9-1a7d-4e36-bc86-89d7f6c92a61/eICR.xml",
+        "rr": "DIDOutputV2/2026/01/01/60c673f9-1a7d-4e36-bc86-89d7f6c92a61/RR.xml",
+        "setId": "0a4e1679-b0a7-4e7c-b52e-55ef28289267",
+        "versionNumber": 2,
+        "jurisdictions": [
+          "SDDH"
+        ],
+        "eicr_diff_output": "DIDOutputV2/2026/01/01/60c673f9-1a7d-4e36-bc86-89d7f6c92a61/diff_v1_to_v2_0.json",
+        "is_actionable": true
+      }
+    ]
+  }
+  '''
+# ---
