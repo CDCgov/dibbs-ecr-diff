@@ -1,6 +1,5 @@
 import pytest
 from did_lambda.utils import (
-    InfraError,
     get_did_output_key,
     get_did_output_path,
     persistence_id_from_manifest_key,
@@ -18,7 +17,7 @@ def test_persistence_id_from_manifest_key_removes_input_prefix():
 
 
 def test_persistence_id_from_manifest_key_requires_content_after_prefix():
-    with pytest.raises(InfraError):
+    with pytest.raises(ValueError):
         persistence_id_from_manifest_key("DIDInput/")
 
 
@@ -66,5 +65,5 @@ def test_get_did_output_key_on_remainder_rr():
 
 
 def test_get_did_output_path_requires_a_nested_source_key():
-    with pytest.raises(InfraError):
+    with pytest.raises(ValueError):
         get_did_output_path(OUTPUT_PREFIX, PERSISTENCE_ID, "DIDInput/eicr.xml")

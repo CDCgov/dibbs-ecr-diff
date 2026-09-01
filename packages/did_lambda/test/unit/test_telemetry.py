@@ -8,13 +8,13 @@ from did_lambda.telemetry import (
     BatchProcessingStats,
     DocumentTelemetry,
     ManifestEntryResult,
+    _log_documents_processed_by_condition,
+    _raise_application_error,
+    _record_processing_metrics,
     log_doc_and_changes,
-    log_documents_processed_by_condition,
-    raise_processing_failure,
-    record_processing_metrics,
 )
 from did_lambda.telemetry_helpers import ConditionCode
-from did_lambda.utils import InfraError
+from did_lambda.utils import ApplicationError
 
 from .helpers import (
     emitted_metrics,
@@ -54,7 +54,7 @@ def test_emits_aggregate_section_and_encounter_metrics(
     stats.section_change_counts.update({"18776-5": 3, "10160-0": 2})
     stats.encounter_counts.update({"ambulatory": 2, "inpatient": 1})
 
-    record_processing_metrics(stats)
+    _record_processing_metrics(stats)
     telemetry.metrics.flush_metrics()
 
     emf_objects = emitted_metrics(capsys)
@@ -182,7 +182,7 @@ def test_logs_documents_processed_by_condition_without_document_fields(
     stats.documents_processed_by_condition[condition] = 2
     caplog.set_level("INFO")
 
-    log_documents_processed_by_condition(stats)
+    _log_documents_processed_by_condition(stats)
 
     condition_log = next(
         record
@@ -205,8 +205,8 @@ def test_processing_failure_log_and_exception_exclude_sensitive_details(
     )
     caplog.set_level("INFO")
 
-    with pytest.raises(InfraError) as raised:
-        raise_processing_failure(
+    with pytest.raises(ApplicationError) as raised:
+        _raise_application_error(
             "diff",
             ValueError(sensitive_value),
             persistence_id_with_index="2026/id:0",

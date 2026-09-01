@@ -3,6 +3,10 @@
 from datetime import UTC, datetime
 
 
+class ApplicationError(Exception):
+    """Raised for Difference in Docs application errors."""
+
+
 class InfraError(Exception):
     """Raised for failures that should trigger an automated SQS retry or DLQ."""
 
@@ -21,7 +25,7 @@ def persistence_id_from_manifest_key(key: str) -> str:
     """
     parts = key.strip("/").split("/", 1)
     if len(parts) != 2 or not parts[1]:
-        raise InfraError(f"S3 key has no persistence_id after prefix: {key}")
+        raise ValueError(f"S3 key has no persistence_id after prefix: {key}")
     return parts[1]
 
 
@@ -68,7 +72,7 @@ def get_did_output_path(
     # check if source_key begins with the persistence_id
     after_persistence_idx = len(persistence_id_parts)
     if source_parts[:after_persistence_idx] != persistence_id_parts:
-        raise InfraError("Source key does not contain persistence ID")
+        raise ValueError("Source key does not contain persistence ID")
 
     parts = source_parts if source_parts == persistence_id_parts else source_parts[:-1]
     return f"{root_prefix}{'/'.join(parts)}"
@@ -78,5 +82,5 @@ def get_key_basename(source_key: str) -> str:
     """Get the basename of an S3 key."""
     key = source_key.strip("/")
     if not key:
-        raise InfraError(f"Invalid S3 key: {source_key}")
+        raise ValueError(f"Invalid S3 key: {source_key}")
     return key.rsplit("/", 1)[-1]
