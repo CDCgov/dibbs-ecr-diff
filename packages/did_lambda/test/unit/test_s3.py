@@ -2,6 +2,7 @@ import traceback
 from unittest.mock import Mock
 
 import pytest
+from botocore.exceptions import ClientError
 from did_lambda.utils import InfraError
 
 
@@ -20,7 +21,12 @@ def test_put_object_sanitizes_failure(monkeypatch):
     monkeypatch.setattr(
         s3_module.s3,
         "put_object",
-        Mock(side_effect=RuntimeError(sensitive_failure)),
+        Mock(
+            side_effect=ClientError(
+                {"Error": {"Code": "AccessDenied", "Message": sensitive_failure}},
+                "PutObject",
+            )
+        ),
     )
 
     with pytest.raises(InfraError) as exc:
