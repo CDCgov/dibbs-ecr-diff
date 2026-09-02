@@ -777,17 +777,24 @@ def _process_diff_output_changes(diff_output: DiffOutput, timestamp: str) -> Non
 
 
 def _find_best_author_allowed_element(anchor: _Element) -> _Element | None:
-    """Returns the best element relative to anchor that allows a CDA author tag or None.
+    """Return the best element relative to anchor that allows a CDA author tag or None.
 
-    Checks anchor node itself, then ancestors
+    If anchor element is an entry, then the CDA-required clinical statement direct child should be returned.
+    For non-entry anchor elements, check anchor node itself and then ancestors.
     """
     author_allowed_tags = [
         *CDA_CLINICAL_STATEMENT_TAGS,
         hl7_clark_tag("section"),
         hl7_clark_tag("ClinicalDocument"),
     ]
-    # First check anchor node itself, then ancestors
-    for el in [anchor, *anchor.iterancestors()]:
+
+    nodes_to_check = [anchor, *anchor.iterancestors()]
+
+    if anchor.tag == hl7_clark_tag("entry"):
+        # CDA requires entry to have one and only one clinical statement direct child
+        nodes_to_check = [anchor, *anchor.iterchildren(), *anchor.iterancestors()]
+
+    for el in nodes_to_check:
         if el.tag in author_allowed_tags:
             return el
 

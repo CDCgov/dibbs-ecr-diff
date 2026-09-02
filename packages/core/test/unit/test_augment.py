@@ -871,6 +871,74 @@ def test_find_best_author_allowed_element_returns_none_when_nothing_allowed():
     assert _find_best_author_allowed_element(anchor) is None
 
 
+@pytest.mark.parametrize("tag", CDA_CLINICAL_STATEMENT_TAGS)
+def test_find_best_author_allowed_element_entry_returns_clinical_statement_child(tag):
+    entry = etree.Element(hl7_clark_tag("entry"))
+    child = etree.SubElement(entry, tag)
+    assert _find_best_author_allowed_element(entry) is child
+
+
+def test_find_best_author_allowed_element_entry_skips_disallowed_children():
+    entry = etree.Element(hl7_clark_tag("entry"))
+    etree.SubElement(entry, hl7_clark_tag("templateId"))
+    statement = etree.SubElement(entry, hl7_clark_tag("observation"))
+    assert _find_best_author_allowed_element(entry) is statement
+
+
+def test_find_best_author_allowed_element_entry_prefers_direct_child_over_nested():
+    entry = etree.Element(hl7_clark_tag("entry"))
+    direct_child = etree.SubElement(entry, hl7_clark_tag("act"))
+    etree.SubElement(direct_child, hl7_clark_tag("observation"))
+    assert _find_best_author_allowed_element(entry) is direct_child
+
+
+def test_find_best_author_allowed_element_entry_ignores_nested_clinical_statement():
+    section = etree.Element(hl7_clark_tag("section"))
+    entry = etree.SubElement(section, hl7_clark_tag("entry"))
+    wrapper = etree.SubElement(entry, hl7_clark_tag("component"))
+    etree.SubElement(wrapper, hl7_clark_tag("observation"))
+    assert _find_best_author_allowed_element(entry) is section
+
+
+def test_find_best_author_allowed_element_entry_ignores_nested_when_nothing_else():
+    entry = etree.Element(hl7_clark_tag("entry"))
+    wrapper = etree.SubElement(entry, hl7_clark_tag("component"))
+    etree.SubElement(wrapper, hl7_clark_tag("observation"))
+    assert _find_best_author_allowed_element(entry) is None
+
+
+def test_find_best_author_allowed_element_entry_descendant_beats_ancestor():
+    section = etree.Element(hl7_clark_tag("section"))
+    entry = etree.SubElement(section, hl7_clark_tag("entry"))
+    statement = etree.SubElement(entry, hl7_clark_tag("observation"))
+    assert _find_best_author_allowed_element(entry) is statement
+
+
+def test_find_best_author_allowed_element_entry_falls_back_to_ancestor():
+    section = etree.Element(hl7_clark_tag("section"))
+    entry = etree.SubElement(section, hl7_clark_tag("entry"))
+    etree.SubElement(entry, hl7_clark_tag("value"))
+    assert _find_best_author_allowed_element(entry) is section
+
+
+def test_find_best_author_allowed_element_entry_returns_none_when_nothing_allowed():
+    root = etree.Element(hl7_clark_tag("root"))
+    entry = etree.SubElement(root, hl7_clark_tag("entry"))
+    etree.SubElement(entry, hl7_clark_tag("value"))
+    assert _find_best_author_allowed_element(entry) is None
+
+
+def test_find_best_author_allowed_element_entry_without_children_uses_ancestor():
+    document = etree.Element(hl7_clark_tag("ClinicalDocument"))
+    entry = etree.SubElement(document, hl7_clark_tag("entry"))
+    assert _find_best_author_allowed_element(entry) is document
+
+
+def test_find_best_author_allowed_element_entry_without_children_returns_none():
+    entry = etree.Element(hl7_clark_tag("entry"))
+    assert _find_best_author_allowed_element(entry) is None
+
+
 # NOTE:
 # Get function code for change tests
 # =============================================================================
