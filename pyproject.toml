@@ -117,4 +117,4 @@ pythonpath = [
     "packages/cli/src"
 ]
 testpaths = ["packages"]
-python_files = ["**/test/test_*.py", "**/test/**/test_*.py", "**/test/__init__.py"]
+python_files = ["**/test/test_*.py", "**/test/**/test_*.py", "**/test/__init__.py", "**/e2e/test_*.py"]

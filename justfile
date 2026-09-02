@@ -25,7 +25,7 @@ test *ARGS:
 # Run the local Compose end-to-end test
 [group('python')]
 e2e *ARGS:
-    uv run pytest -vv e2e/e2e.py {{ ARGS }}
+    uv run pytest -vv e2e/ {{ ARGS }}
 
 # Run ruff linter
 [group('python')]

@@ -58,6 +58,8 @@ class ManifestMetadata:
     persistence_id: str
     key: str
     files: list[ManifestFile]
+    did_skip: bool | None = None
+    error: str | None = None
 
     def iter_output_keys(self) -> Iterator[tuple[int, str, str]]:
         """Helper method to iterate on the output s3 keys."""
@@ -181,7 +183,9 @@ class Uploader:
         return ManifestMetadata(
             persistence_id=persistence_id,
             key=key,
-            files=[ManifestFile(**entry) for entry in manifest["Files"]],
+            files=[ManifestFile(**entry) for entry in manifest.get("Files", [])],
+            did_skip=manifest.get("DIDSkip", None),
+            error=manifest.get("Error", None),
         )
 
     def _get_metadata(self, eicr_path: Path) -> tuple[str, int]:

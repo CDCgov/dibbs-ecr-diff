@@ -25,6 +25,7 @@ def run_compose(*, cmd: str = "up") -> None:
         "sqs-poller",
         "--build",
         "--detach",
+        "--wait",
     ]
 
     if cmd == "down":

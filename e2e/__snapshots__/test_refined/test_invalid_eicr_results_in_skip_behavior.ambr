@@ -1,0 +1,9 @@
+# serializer version: 1
+# name: test_invalid_eicr_results_in_skip_behavior
+  '''
+  {
+    "DIDSkip": true,
+    "Error": "Processing failed during augmentation"
+  }
+  '''
+# ---
