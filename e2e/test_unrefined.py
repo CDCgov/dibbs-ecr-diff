@@ -6,7 +6,7 @@ from e2e.helpers import Pair, Uploader, UploadType
 def test_unrefined_pairs(uploader: Uploader, snapshot: SnapshotAssertion) -> None:
     """Unrefined eICRs test case."""
     # upload first unrefined eicr
-    _, complete_manifest_1, persistence_id_1 = uploader.send_manifest(
+    _, complete_manifest_1, _ = uploader.send_manifest(
         [
             Pair(
                 eicr="example/1_eICR.xml",
@@ -17,7 +17,7 @@ def test_unrefined_pairs(uploader: Uploader, snapshot: SnapshotAssertion) -> Non
     )
 
     # upload second unrefined eicr in same set_id
-    _, complete_manifest_2, persistence_id_2 = uploader.send_manifest(
+    _, complete_manifest_2, _ = uploader.send_manifest(
         [
             Pair(
                 eicr="example/2_eICR.xml",
