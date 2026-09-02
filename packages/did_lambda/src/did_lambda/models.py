@@ -1,6 +1,5 @@
 """Models for S3 manifest files."""
 
-from collections.abc import Iterator
 from datetime import datetime
 from typing import Literal
 
@@ -41,13 +40,6 @@ class DIDCompleteManifest(BaseModel):
 
     did_skip: Literal[False] = Field(default=False, alias="DIDSkip")
     files: list[DIDOutputFile] = Field(alias="Files")
-
-    def iter_output_keys(self) -> Iterator[tuple[int, str, str]]:
-        """Iterate over the S3 object keys in the output manifest."""
-        for index, file in enumerate(self.files):
-            for output_type in ("eicr", "rr", "eicr_diff_output"):
-                if object_key := getattr(file, output_type):
-                    yield index, output_type, object_key
 
 
 class DIDCompleteErrorManifest(BaseModel):
