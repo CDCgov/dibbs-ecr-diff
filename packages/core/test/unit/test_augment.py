@@ -181,7 +181,6 @@ def test_augment_eicr_in_place_replaces_set_id_and_version(
 def test_augment_eicr_in_place_adds_author(eicr_1_root_v3_1_1: etree.Element):
     """
     A new author should be added with the v4 shape:
-      - NO functionCode (removed per Vol 1 change log 2026-03-10)
       - softwareName carries coded attributes from the Data
         Augmentation Tool value set
       - id, addr, telecom each have nullFlavor="NA"
@@ -200,39 +199,52 @@ def test_augment_eicr_in_place_adds_author(eicr_1_root_v3_1_1: etree.Element):
     )
 
     authors_after = eicr_1_root_v3_1_1.findall("hl7:author", NAMESPACES)
-    assert len(authors_after) == authors_before + 1
+    assert len(authors_after) == authors_before + 2
 
-    # the new author should be the last one
-    new_author = authors_after[-1]
+    # the boilerplate author should be the second last one
+    boilerplate_augmentation_author = authors_after[-2]
+    # the "did-no-change" author should be the last one
+    did_no_change_author = authors_after[-1]
 
-    # v4: no functionCode at the header level
-    assert new_author.find("hl7:functionCode", NAMESPACES) is None
+    for new_author in [boilerplate_augmentation_author, did_no_change_author]:
+        # softwareName carries coded attributes
+        software_name = new_author.find(
+            ".//hl7:assignedAuthoringDevice/hl7:softwareName", NAMESPACES
+        )
+        assert software_name is not None
+        assert software_name.get("code") == "ecr-difference-in-docs"
+        assert software_name.get("codeSystem") == "2.16.840.1.113883.10.20.15.2.7.1"
+        assert software_name.get("codeSystemName") == "eCRDataAugmentation"
+        assert software_name.get("displayName") == "Difference in Docs"
 
-    # softwareName carries coded attributes
-    software_name = new_author.find(
-        ".//hl7:assignedAuthoringDevice/hl7:softwareName", NAMESPACES
+        # nullFlavor elements
+        assigned_author = new_author.find("hl7:assignedAuthor", NAMESPACES)
+        assert assigned_author is not None
+
+        aa_id = assigned_author.find("hl7:id", NAMESPACES)
+        assert aa_id is not None
+        assert aa_id.get("nullFlavor") == "NA"
+
+        aa_addr = assigned_author.find("hl7:addr", NAMESPACES)
+        assert aa_addr is not None
+        assert aa_addr.get("nullFlavor") == "NA"
+
+        aa_telecom = assigned_author.find("hl7:telecom", NAMESPACES)
+        assert aa_telecom is not None
+        assert aa_telecom.get("nullFlavor") == "NA"
+
+    # no functionCode on boilerplate augmentation
+    boilerplate_function_code = boilerplate_augmentation_author.find(
+        "hl7:functionCode", NAMESPACES
     )
-    assert software_name is not None
-    assert software_name.get("code") == "ecr-difference-in-docs"
-    assert software_name.get("codeSystem") == "2.16.840.1.113883.10.20.15.2.7.1"
-    assert software_name.get("codeSystemName") == "eCRDataAugmentation"
-    assert software_name.get("displayName") == "Difference in Docs"
+    assert boilerplate_function_code is None
 
-    # nullFlavor elements
-    assigned_author = new_author.find("hl7:assignedAuthor", NAMESPACES)
-    assert assigned_author is not None
-
-    aa_id = assigned_author.find("hl7:id", NAMESPACES)
-    assert aa_id is not None
-    assert aa_id.get("nullFlavor") == "NA"
-
-    aa_addr = assigned_author.find("hl7:addr", NAMESPACES)
-    assert aa_addr is not None
-    assert aa_addr.get("nullFlavor") == "NA"
-
-    aa_telecom = assigned_author.find("hl7:telecom", NAMESPACES)
-    assert aa_telecom is not None
-    assert aa_telecom.get("nullFlavor") == "NA"
+    # correct functionCode on the did-no-change author
+    function_code = did_no_change_author.find("hl7:functionCode", NAMESPACES)
+    assert function_code is not None
+    assert function_code.get("code") == "did-no-change"
+    assert function_code.get("codeSystem") == "2.16.840.1.113883.10.20.15.2.7.1"
+    assert function_code.get("codeSystemName") == "eCRDataAugmentation"
 
 
 def test_augment_eicr_in_place_adds_related_document(eicr_1_root_v3_1_1: etree.Element):
@@ -734,7 +746,7 @@ def test_derive_augmented_rr_setid_distinct_from_eicr_setid():
 # =============================================================================
 
 
-def test_no_diff_augmentation_with_no_diff_output_changes(
+def test_augment_eicr_flags_no_changes(
     eicr_1_root_v3_1_1: etree.Element,
 ):
     augment_eicr_in_place(
@@ -744,24 +756,30 @@ def test_no_diff_augmentation_with_no_diff_output_changes(
         jurisdiction_id=_TEST_JURISDICTION_ID,
     )
 
-    # should produce no author that has a function code of added or updated
-    all_authors = eicr_1_root_v3_1_1.findall("hl7:author", NAMESPACES)
-
-    assert all(
-        not (
-            a.find(
-                "hl7:assignedAuthor/hl7:assignedAuthoringDevice/hl7:softwareName[@code='ecr-difference-in-docs']",
-                NAMESPACES,
-            )
-            is not None
-            and (fc := a.find("hl7:functionCode", NAMESPACES)) is not None
-            and fc.get("code") in ("ADDED", "UPDATED")
+    diff_authors = [
+        a
+        for a in eicr_1_root_v3_1_1.findall("hl7:author", NAMESPACES)
+        if a.find(
+            "hl7:assignedAuthor/hl7:assignedAuthoringDevice/hl7:softwareName[@code='ecr-difference-in-docs']",
+            NAMESPACES,
         )
-        for a in all_authors
-    )
+        is not None
+    ]
+
+    assert len(diff_authors) == 2
+
+    authors_with_function_code = [
+        a for a in diff_authors if a.find("hl7:functionCode", NAMESPACES) is not None
+    ]
+
+    assert len(authors_with_function_code) == 1
+
+    function_code = authors_with_function_code[0].find("hl7:functionCode", NAMESPACES)
+    assert function_code is not None
+    assert function_code.get("code") == "did-no-change"
 
 
-def test_no_diff_augmentation_for_nonactionable_changes(
+def test_augment_eicr_flags_no_actionable_changes(
     eicr_1_root_v3_1_1: etree.Element,
 ):
     inactionable_change = Change(
@@ -795,20 +813,27 @@ def test_no_diff_augmentation_for_nonactionable_changes(
         jurisdiction_id=_TEST_JURISDICTION_ID,
     )
 
-    all_authors = eicr_1_root_v3_1_1.findall("hl7:author", NAMESPACES)
-
-    assert all(
-        not (
-            a.find(
-                "hl7:assignedAuthor/hl7:assignedAuthoringDevice/hl7:softwareName[@code='ecr-difference-in-docs']",
-                NAMESPACES,
-            )
-            is not None
-            and (fc := a.find("hl7:functionCode", NAMESPACES)) is not None
-            and fc.get("code") is not None
+    diff_authors = [
+        a
+        for a in eicr_1_root_v3_1_1.findall("hl7:author", NAMESPACES)
+        if a.find(
+            "hl7:assignedAuthor/hl7:assignedAuthoringDevice/hl7:softwareName[@code='ecr-difference-in-docs']",
+            NAMESPACES,
         )
-        for a in all_authors
-    )
+        is not None
+    ]
+
+    assert len(diff_authors) == 2
+
+    authors_with_function_code = [
+        a for a in diff_authors if a.find("hl7:functionCode", NAMESPACES) is not None
+    ]
+
+    assert len(authors_with_function_code) == 1
+
+    function_code = authors_with_function_code[0].find("hl7:functionCode", NAMESPACES)
+    assert function_code is not None
+    assert function_code.get("code") == "did-no-actionable-change"
 
 
 # NOTE:
