@@ -36,17 +36,11 @@ RR_AUG_HEADER_TEMPLATE_ROOT: Final[str] = "2.16.840.1.113883.10.20.15.2.1.4"
 RR_AUG_HEADER_TEMPLATE_EXT: Final[str] = "2026-04-01"
 
 # difference in docs tool identity -> from data augmentation tool value set (Vol 2 Table 2)
-DIFF_TOOL_CODE: Final[str] = "ecr-difference-in-docs"
+DIFF_TOOL_CODE: Final[str] = "document-differencing"
 DIFF_TOOL_DISPLAY: Final[str] = "Difference in Docs"
 
 # document source label -> from data augmentation document source value set (Vol 2 Table 3)
 ORIGINAL_DOCUMENT_SOURCE: Final[str] = "original-document"
-
-# WARNING: these are not official OIDs yet
-DIFF_SECTION_TEMPLATE_ROOT: Final[str] = "2.16.840.1.113883.10.20.15.2.1.5"
-DIFF_SECTION_CODE: Final[str] = "ecr-version-diff"
-DIFF_CODE_SYSTEM_OID: Final[str] = "2.16.840.1.113883.10.20.15.2.7.3"
-DIFF_SECTION_DISPLAY_NAME: Final[str] = "Difference in Docs eCR Diff"
 
 FUNCTION_CODE_ADD_DETECTED = "did-add-detected"
 FUNCTION_CODE_UPDATE_DETECTED = "did-update-detected"
