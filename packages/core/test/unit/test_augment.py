@@ -133,7 +133,7 @@ def test_augment_eicr_in_place_replaces_document_id(eicr_1_root_v3_1_1: etree.El
     doc_id = eicr_1_root_v3_1_1.find("hl7:id", NAMESPACES)
     assert doc_id is not None
     assert doc_id.get("root") == expected_id
-    assert doc_id.get("assigningAuthorityName") == "ecr-difference-in-docs"
+    assert doc_id.get("assigningAuthorityName") == "document-differencing"
 
 
 def test_augment_eicr_in_place_replaces_set_id_and_version(
@@ -212,7 +212,7 @@ def test_augment_eicr_in_place_adds_author(eicr_1_root_v3_1_1: etree.Element):
             ".//hl7:assignedAuthoringDevice/hl7:softwareName", NAMESPACES
         )
         assert software_name is not None
-        assert software_name.get("code") == "ecr-difference-in-docs"
+        assert software_name.get("code") == "document-differencing"
         assert software_name.get("codeSystem") == "2.16.840.1.113883.10.20.15.2.7.1"
         assert software_name.get("codeSystemName") == "eCRDataAugmentation"
         assert software_name.get("displayName") == "Difference in Docs"
@@ -425,7 +425,7 @@ def test_augment_rr_in_place_replaces_document_id(rr_1_root_v1_1: etree.Element)
     doc_id = rr_1_root_v1_1.find("hl7:id", NAMESPACES)
     assert doc_id is not None
     assert doc_id.get("root") == expected_id
-    assert doc_id.get("assigningAuthorityName") == "ecr-difference-in-docs"
+    assert doc_id.get("assigningAuthorityName") == "document-differencing"
 
 
 def test_augment_rr_in_place_adds_author_and_related_document(
@@ -465,7 +465,7 @@ def test_augment_rr_in_place_adds_author_and_related_document(
             )
         )
         is not None
-        and software_name.get("code") == "ecr-difference-in-docs"
+        and software_name.get("code") == "document-differencing"
         for a in authors
     )
 
@@ -760,7 +760,7 @@ def test_augment_eicr_flags_no_changes(
         a
         for a in eicr_1_root_v3_1_1.findall("hl7:author", NAMESPACES)
         if a.find(
-            "hl7:assignedAuthor/hl7:assignedAuthoringDevice/hl7:softwareName[@code='ecr-difference-in-docs']",
+            "hl7:assignedAuthor/hl7:assignedAuthoringDevice/hl7:softwareName[@code='document-differencing']",
             NAMESPACES,
         )
         is not None
@@ -817,7 +817,7 @@ def test_augment_eicr_flags_no_actionable_changes(
         a
         for a in eicr_1_root_v3_1_1.findall("hl7:author", NAMESPACES)
         if a.find(
-            "hl7:assignedAuthor/hl7:assignedAuthoringDevice/hl7:softwareName[@code='ecr-difference-in-docs']",
+            "hl7:assignedAuthor/hl7:assignedAuthoringDevice/hl7:softwareName[@code='document-differencing']",
             NAMESPACES,
         )
         is not None
@@ -1101,7 +1101,7 @@ def test_create_diff_author_element_software_name_attributes(
         f"/{hl7_clark_tag('softwareName')}"
     )
     assert sw is not None
-    assert sw.get("code") == "ecr-difference-in-docs"
+    assert sw.get("code") == "document-differencing"
     assert sw.get("codeSystem") == "2.16.840.1.113883.10.20.15.2.7.1"
     assert sw.get("codeSystemName") == "eCRDataAugmentation"
     assert sw.get("displayName") == "Difference in Docs"
@@ -1176,7 +1176,7 @@ def _diff_author_override(override: dict[str, str]) -> str:
             <addr nullFlavor="NA"/>
             <telecom nullFlavor="NA"/>
             <assignedAuthoringDevice>
-                <softwareName code="{override.get("sft_code", "ecr-difference-in-docs")}"
+                <softwareName code="{override.get("sft_code", "document-differencing")}"
                     codeSystem="{override.get("sft_code_system", "2.16.840.1.113883.10.20.15.2.7.1")}"
                     codeSystemName="{override.get("sft_code_system_name", "eCRDataAugmentation")}"
                     displayName="{override.get("sft_display_name", "Difference in Docs")}"/>
@@ -1292,7 +1292,7 @@ def test_contains_diff_author_direct_child_false_when_function_code_missing():
                     <addr nullFlavor="NA"/>
                     <telecom nullFlavor="NA"/>
                     <assignedAuthoringDevice>
-                        <softwareName code="ecr-difference-in-docs" codeSystem="2.16.840.1.113883.10.20.15.2.7.1" codeSystemName="eCRDataAugmentation" displayName="Difference in Docs"/>
+                        <softwareName code="document-differencing" codeSystem="2.16.840.1.113883.10.20.15.2.7.1" codeSystemName="eCRDataAugmentation" displayName="Difference in Docs"/>
                     </assignedAuthoringDevice>
                 </assignedAuthor>
             </author>

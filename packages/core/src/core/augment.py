@@ -460,7 +460,7 @@ def _replace_document_id(
     """Replace the document <id> with a new id root and assigningAuthorityName.
 
     The assigningAuthorityName is drawn from the Data Augmentation
-    Document Source value set, we use "ecr-difference-in-docs" for
+    Document Source value set, we use "document-differencing" for
     DID-produced documents.
     """
     old_id = _find_required(doc_root, "hl7:id")
@@ -494,7 +494,7 @@ def _replace_set_id(
     """Replace or insert the document <setId>.
 
     The augmented setId carries assigningAuthorityName from the Data
-    Augmentation Document Source value set (we use "ecr-difference-in-docs"
+    Augmentation Document Source value set (we use "document-differencing"
     for DID-produced documents).
 
     If <setId> doesn't exist (optional in CDA R2), inserts one in the
