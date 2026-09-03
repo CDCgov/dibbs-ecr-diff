@@ -36,20 +36,16 @@ RR_AUG_HEADER_TEMPLATE_ROOT: Final[str] = "2.16.840.1.113883.10.20.15.2.1.4"
 RR_AUG_HEADER_TEMPLATE_EXT: Final[str] = "2026-04-01"
 
 # difference in docs tool identity -> from data augmentation tool value set (Vol 2 Table 2)
-DIFF_TOOL_CODE: Final[str] = "ecr-difference-in-docs"
+DIFF_TOOL_CODE: Final[str] = "document-differencing"
 DIFF_TOOL_DISPLAY: Final[str] = "Difference in Docs"
 
 # document source label -> from data augmentation document source value set (Vol 2 Table 3)
 ORIGINAL_DOCUMENT_SOURCE: Final[str] = "original-document"
 
-# WARNING: these are not official OIDs yet
-DIFF_SECTION_TEMPLATE_ROOT: Final[str] = "2.16.840.1.113883.10.20.15.2.1.5"
-DIFF_SECTION_CODE: Final[str] = "ecr-version-diff"
-DIFF_CODE_SYSTEM_OID: Final[str] = "2.16.840.1.113883.10.20.15.2.7.3"
-DIFF_SECTION_DISPLAY_NAME: Final[str] = "Difference in Docs eCR Diff"
-
 FUNCTION_CODE_ADD_DETECTED = "did-add-detected"
 FUNCTION_CODE_UPDATE_DETECTED = "did-update-detected"
+FUNCTION_CODE_NO_CHANGE = "did-no-change"
+FUNCTION_CODE_NO_ACTIONABLE_CHANGE = "did-no-actionable-change"
 
 # NOTE:
 # DETERMINISTIC SEEDING FOR AUGMENTED DOCUMENT IDENTIFIERS
@@ -313,7 +309,7 @@ def augment_eicr_in_place(
 
     # STEP 9: add entry level diff info
     if diff_output is not None:
-        _process_diff_output_changes(diff_output, run.augmentation_time)
+        _process_diff_output_changes(diff_output, run.augmentation_time, eicr_root)
 
     return augmented_result
 
@@ -464,7 +460,7 @@ def _replace_document_id(
     """Replace the document <id> with a new id root and assigningAuthorityName.
 
     The assigningAuthorityName is drawn from the Data Augmentation
-    Document Source value set, we use "ecr-difference-in-docs" for
+    Document Source value set, we use "document-differencing" for
     DID-produced documents.
     """
     old_id = _find_required(doc_root, "hl7:id")
@@ -498,7 +494,7 @@ def _replace_set_id(
     """Replace or insert the document <setId>.
 
     The augmented setId carries assigningAuthorityName from the Data
-    Augmentation Document Source value set (we use "ecr-difference-in-docs"
+    Augmentation Document Source value set (we use "document-differencing"
     for DID-produced documents).
 
     If <setId> doesn't exist (optional in CDA R2), inserts one in the
@@ -740,7 +736,9 @@ def _insert_related_document(doc_root: _Element, related_doc: _Element) -> None:
 # =============================================================================
 
 
-def _process_diff_output_changes(diff_output: DiffOutput, timestamp: str) -> None:
+def _process_diff_output_changes(
+    diff_output: DiffOutput, timestamp: str, eicr_root: _Element
+) -> None:
     """Adds entry-level augmentation (if able) to each change from the diff output.
 
     Currently does NOT add entry-level augmentation in the following cases:
@@ -748,14 +746,29 @@ def _process_diff_output_changes(diff_output: DiffOutput, timestamp: str) -> Non
         - if the change does not have an appropriate element that can accept author
         (i.e. recordTarget cannot accept author directly)
     """
+    # Handle zero changes detected
+    if len(diff_output.changes) == 0:
+        no_change_author = _create_diff_author_element(
+            FUNCTION_CODE_NO_CHANGE, timestamp
+        )
+        _insert_author(eicr_root, no_change_author)
+        return
+
+    # Handle changes detected, but nothing actionable
+    actionable_changes = [x for x in diff_output.changes if x.isActionable]
+    if len(actionable_changes) == 0:
+        no_actionable_change_author = _create_diff_author_element(
+            FUNCTION_CODE_NO_ACTIONABLE_CHANGE, timestamp
+        )
+        _insert_author(eicr_root, no_actionable_change_author)
+        return
+
     # Can't add entry-level augmentation to a deleted element that doesn't exist in the new eICR
-    filtered_changes = [
-        x
-        for x in diff_output.changes
-        if x.changeType != ChangeType.DELETED and x.isActionable
+    augmentable_changes = [
+        x for x in actionable_changes if x.changeType != ChangeType.DELETED
     ]
 
-    for change in filtered_changes:
+    for change in augmentable_changes:
         anchor = change.augmentation_anchor_node
         if anchor is None:
             continue
