@@ -1050,6 +1050,13 @@ def test_create_diff_author_element_returns_author(diff_author: etree._Element):
     assert diff_author.tag == hl7_clark_tag("author")
 
 
+def test_create_diff_author_element_includes_template_id(diff_author: etree._Element):
+    template_id = diff_author.find(hl7_clark_tag("templateId"))
+    assert template_id is not None
+    assert template_id.get("root") == "2.16.840.1.113883.10.20.15.2.4.10"
+    assert template_id.get("extension") == "2025-11-01"
+
+
 def test_create_diff_author_element_includes_function_code(diff_author: etree._Element):
     fc = diff_author.find(hl7_clark_tag("functionCode"))
     assert fc is not None
@@ -1128,6 +1135,7 @@ def test_create_diff_author_element_software_name_attributes(
 def test_create_diff_author_element_child_order(diff_author: etree._Element):
     tags = [child.tag for child in diff_author]
     assert tags == [
+        hl7_clark_tag("templateId"),
         hl7_clark_tag("functionCode"),
         hl7_clark_tag("time"),
         hl7_clark_tag("assignedAuthor"),
@@ -1142,6 +1150,7 @@ def test_create_diff_author_element_no_unexpected_extra_elements(
         hl7_clark_tag(name)
         for name in [
             "author",
+            "templateId",
             "functionCode",
             "time",
             "assignedAuthor",
