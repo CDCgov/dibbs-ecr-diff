@@ -1,7 +1,6 @@
 import uuid
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Final
 
 from lxml import etree
@@ -11,6 +10,7 @@ from core.cda.clinical_statement import CDA_CLINICAL_STATEMENT_TAGS
 from core.cda.xsd_sequence import (
     insert_sequenced_child_of_parent,
 )
+from core.datetime_utils import get_current_datetime
 from core.models import Change, ChangeType, DiffOutput
 from core.xml_utils import (
     hl7_clark_tag,
@@ -199,7 +199,7 @@ def create_augmentation_run(eicr_root: _Element) -> AugmentationRun:
             "augmentation IG v4 (CONF:5573-16)."
         )
 
-    now = datetime.now(UTC).astimezone()
+    now = get_current_datetime()
     augmentation_time = now.strftime("%Y%m%d%H%M%S%z")
 
     return AugmentationRun(

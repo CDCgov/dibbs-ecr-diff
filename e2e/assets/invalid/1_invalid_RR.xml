@@ -1,0 +1,5 @@
+<ClinicalDocument xmlns="urn:hl7-org:v3">
+  <id root="test-rr-id"/>
+  <setId root="test-rr-set-id"/>
+  <versionNumber value="1"/>
+</ClinicalDocument>

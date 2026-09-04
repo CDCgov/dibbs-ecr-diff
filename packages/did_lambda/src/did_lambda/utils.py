@@ -1,7 +1,5 @@
 """Utilities for the Difference in Docs Lambda."""
 
-from datetime import UTC, datetime
-
 
 class ApplicationError(Exception):
     """Raised for Difference in Docs application errors."""
@@ -9,11 +7,6 @@ class ApplicationError(Exception):
 
 class InfraError(Exception):
     """Raised for failures that should trigger an automated SQS retry or DLQ."""
-
-
-def get_timestamp() -> datetime:
-    """Generate a new ISO-8601 timestamp."""
-    return datetime.now(UTC)
 
 
 def persistence_id_from_manifest_key(key: str) -> str:

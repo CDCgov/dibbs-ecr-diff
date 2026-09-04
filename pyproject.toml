@@ -8,10 +8,13 @@ dependencies = []
 
 [dependency-groups]
 dev = [
+    "boto3>=1.43.51",
     "lefthook>=2.1.9",
-    "pytest>=9.0.3",
+    "pytest>=9.1.1",
     "ruff>=0.15.5",
+    "syrupy>=6.0.0",
     "ty>=0.0.21",
+    "types-boto3[essential]>=1.43.53",
 ]
 
 [tool.uv]
@@ -41,7 +44,8 @@ root = [
     # test directories
     "packages/cli/test",
     "packages/core/test",
-    "packages/did_lambda/test"
+    "packages/did_lambda/test",
+    "."
 ]
 
 [tool.ruff.lint]
@@ -107,12 +111,10 @@ ignore = [
 convention = "google"
 
 [tool.pytest.ini_options]
-addopts = ["--import-mode=importlib"]
 pythonpath = [
     "packages/core/src",
     "packages/did_lambda/src",
-    "packages/cli/src",
-    "packages/core/test/unit",
+    "packages/cli/src"
 ]
 testpaths = ["packages"]
-python_files = ["**/test/test_*.py", "**/test/**/test_*.py", "**/test/__init__.py"]
+python_files = ["**/test/test_*.py", "**/test/**/test_*.py", "**/test/__init__.py", "**/e2e/test_*.py"]

@@ -1,0 +1,54 @@
+# serializer version: 1
+# name: test_refined_pairs
+  '''
+  {
+    "DIDSkip": false,
+    "Files": [
+      {
+        "eicr": "DIDOutputV2/2026/01/01/e33a6d01-ea9d-4fc9-aeb5-e81619a8d63d/SDDH/COVID19/1_eICR.xml",
+        "rr": "DIDOutputV2/2026/01/01/e33a6d01-ea9d-4fc9-aeb5-e81619a8d63d/SDDH/COVID19/1_RR.xml",
+        "setId": "0a4e1679-b0a7-4e7c-b52e-55ef28289267",
+        "versionNumber": 1,
+        "jurisdictions": [
+          "SDDH"
+        ],
+        "eicr_diff_output": null,
+        "is_actionable": true
+      },
+      {
+        "eicr": "DIDOutputV2/2026/01/01/e33a6d01-ea9d-4fc9-aeb5-e81619a8d63d/SDDH/COVID19/2_eICR.xml",
+        "rr": "DIDOutputV2/2026/01/01/e33a6d01-ea9d-4fc9-aeb5-e81619a8d63d/SDDH/COVID19/2_RR.xml",
+        "setId": "0a4e1679-b0a7-4e7c-b52e-55ef28289267",
+        "versionNumber": 2,
+        "jurisdictions": [
+          "SDDH"
+        ],
+        "eicr_diff_output": "DIDOutputV2/2026/01/01/e33a6d01-ea9d-4fc9-aeb5-e81619a8d63d/SDDH/COVID19/diff_v1_to_v2_1.json",
+        "is_actionable": true
+      },
+      {
+        "eicr": "DIDOutputV2/2026/01/01/e33a6d01-ea9d-4fc9-aeb5-e81619a8d63d/SDDH/COVID19/3_eICR.xml",
+        "rr": "DIDOutputV2/2026/01/01/e33a6d01-ea9d-4fc9-aeb5-e81619a8d63d/SDDH/COVID19/3_RR.xml",
+        "setId": "0a4e1679-b0a7-4e7c-b52e-55ef28289267",
+        "versionNumber": 3,
+        "jurisdictions": [
+          "SDDH"
+        ],
+        "eicr_diff_output": "DIDOutputV2/2026/01/01/e33a6d01-ea9d-4fc9-aeb5-e81619a8d63d/SDDH/COVID19/diff_v2_to_v3_2.json",
+        "is_actionable": true
+      },
+      {
+        "eicr": "DIDOutputV2/2026/01/01/e33a6d01-ea9d-4fc9-aeb5-e81619a8d63d/SDDH/COVID19/4_eICR.xml",
+        "rr": "DIDOutputV2/2026/01/01/e33a6d01-ea9d-4fc9-aeb5-e81619a8d63d/SDDH/COVID19/4_RR.xml",
+        "setId": "0a4e1679-b0a7-4e7c-b52e-55ef28289267",
+        "versionNumber": 4,
+        "jurisdictions": [
+          "SDDH"
+        ],
+        "eicr_diff_output": "DIDOutputV2/2026/01/01/e33a6d01-ea9d-4fc9-aeb5-e81619a8d63d/SDDH/COVID19/diff_v3_to_v4_3.json",
+        "is_actionable": false
+      }
+    ]
+  }
+  '''
+# ---
