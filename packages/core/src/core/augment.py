@@ -47,6 +47,9 @@ FUNCTION_CODE_UPDATE_DETECTED = "did-update-detected"
 FUNCTION_CODE_NO_CHANGE = "did-no-change"
 FUNCTION_CODE_NO_ACTIONABLE_CHANGE = "did-no-actionable-change"
 
+HEADER_CHANGE_AUG_TEMPLATE_ROOT: Final[str] = "2.16.840.1.113883.10.20.15.2.4.10"
+HEADER_CHANGE_AUG_TEMPLATE_EXT: Final[str] = "2025-11-01"
+
 # NOTE:
 # DETERMINISTIC SEEDING FOR AUGMENTED DOCUMENT IDENTIFIERS
 # =============================================================================
@@ -308,8 +311,7 @@ def augment_eicr_in_place(
     _add_related_document(eicr_root, original)
 
     # STEP 9: add entry level diff info
-    if diff_output is not None:
-        _process_diff_output_changes(diff_output, run.augmentation_time, eicr_root)
+    _process_diff_output_changes(diff_output, run.augmentation_time, eicr_root)
 
     return augmented_result
 
@@ -737,7 +739,7 @@ def _insert_related_document(doc_root: _Element, related_doc: _Element) -> None:
 
 
 def _process_diff_output_changes(
-    diff_output: DiffOutput, timestamp: str, eicr_root: _Element
+    diff_output: DiffOutput | None, timestamp: str, eicr_root: _Element
 ) -> None:
     """Adds entry-level augmentation (if able) to each change from the diff output.
 
@@ -747,9 +749,9 @@ def _process_diff_output_changes(
         (i.e. recordTarget cannot accept author directly)
     """
     # Handle zero changes detected
-    if len(diff_output.changes) == 0:
+    if diff_output is None or len(diff_output.changes) == 0:
         no_change_author = _create_diff_author_element(
-            FUNCTION_CODE_NO_CHANGE, timestamp
+            FUNCTION_CODE_NO_CHANGE, timestamp, True
         )
         _insert_author(eicr_root, no_change_author)
         return
@@ -758,7 +760,7 @@ def _process_diff_output_changes(
     actionable_changes = [x for x in diff_output.changes if x.isActionable]
     if len(actionable_changes) == 0:
         no_actionable_change_author = _create_diff_author_element(
-            FUNCTION_CODE_NO_ACTIONABLE_CHANGE, timestamp
+            FUNCTION_CODE_NO_ACTIONABLE_CHANGE, timestamp, True
         )
         _insert_author(eicr_root, no_actionable_change_author)
         return
@@ -867,9 +869,16 @@ def _get_function_code_for_change(change: Change) -> str:
         )
 
 
-def _create_diff_author_element(function_code_value: str, timestamp: str) -> _Element:
+def _create_diff_author_element(
+    function_code_value: str, timestamp: str, include_template_id: bool = False
+) -> _Element:
     """Returns a new author element populated with diff info in the augmentation function code."""
     author = etree.Element(hl7_clark_tag("author"))
+
+    if include_template_id:
+        template_id = etree.SubElement(author, hl7_clark_tag("templateId"))
+        template_id.set("root", HEADER_CHANGE_AUG_TEMPLATE_ROOT)
+        template_id.set("extension", HEADER_CHANGE_AUG_TEMPLATE_EXT)
 
     function_code = etree.SubElement(author, hl7_clark_tag("functionCode"))
     function_code.set("code", value=function_code_value)

@@ -178,12 +178,20 @@ def test_augment_eicr_in_place_replaces_set_id_and_version(
     assert version.get("value") == "3"
 
 
-def test_augment_eicr_in_place_adds_author(eicr_1_root_v3_1_1: etree.Element):
+@pytest.mark.parametrize(
+    "diff_output",
+    [_make_empty_diff_output(), None],
+    ids=["empty_diff_output", "none_diff_output"],
+)
+def test_augment_eicr_in_place_adds_author(
+    eicr_1_root_v3_1_1: etree.Element, diff_output
+):
     """
     A new author should be added with the v4 shape:
       - softwareName carries coded attributes from the Data
         Augmentation Tool value set
       - id, addr, telecom each have nullFlavor="NA"
+      - templateId and functionCode to show DID detected no changes
     """
 
     run = _make_run()
@@ -195,7 +203,7 @@ def test_augment_eicr_in_place_adds_author(eicr_1_root_v3_1_1: etree.Element):
         eicr_1_root_v3_1_1,
         run,
         jurisdiction_id=_TEST_JURISDICTION_ID,
-        diff_output=_make_empty_diff_output(),
+        diff_output=diff_output,
     )
 
     authors_after = eicr_1_root_v3_1_1.findall("hl7:author", NAMESPACES)
@@ -774,6 +782,11 @@ def test_augment_eicr_flags_no_changes(
 
     assert len(authors_with_function_code) == 1
 
+    template_id = authors_with_function_code[0].find("hl7:templateId", NAMESPACES)
+    assert template_id is not None
+    assert template_id.get("root") == "2.16.840.1.113883.10.20.15.2.4.10"
+    assert template_id.get("extension") == "2025-11-01"
+
     function_code = authors_with_function_code[0].find("hl7:functionCode", NAMESPACES)
     assert function_code is not None
     assert function_code.get("code") == "did-no-change"
@@ -830,6 +843,11 @@ def test_augment_eicr_flags_no_actionable_changes(
     ]
 
     assert len(authors_with_function_code) == 1
+
+    template_id = authors_with_function_code[0].find("hl7:templateId", NAMESPACES)
+    assert template_id is not None
+    assert template_id.get("root") == "2.16.840.1.113883.10.20.15.2.4.10"
+    assert template_id.get("extension") == "2025-11-01"
 
     function_code = authors_with_function_code[0].find("hl7:functionCode", NAMESPACES)
     assert function_code is not None
