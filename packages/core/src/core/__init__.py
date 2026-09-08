@@ -2,7 +2,6 @@
 
 import re
 from collections.abc import Iterable
-from datetime import UTC, datetime
 from uuid import UUID
 
 from lxml import etree
@@ -14,6 +13,7 @@ from .constants import (
     DEFAULT_ACTIONABLE_RULE_ID,
     NAMESPACES,
 )
+from .datetime_utils import get_current_datetime
 from .diff_collector import collect_additions_updates_deletes
 from .models import (
     Change,
@@ -421,7 +421,7 @@ def diff_xml(
         )
 
     return DiffOutput(
-        generatedAt=datetime.now(UTC),
+        generatedAt=get_current_datetime(),
         configurationId=config.id,
         configurationVersion=config.configVersion,
         configurationDisplayName=config.displayName,

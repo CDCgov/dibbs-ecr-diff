@@ -1,0 +1,6 @@
+<!-- this eICR will pass parsing, but will fail augmentation -->
+<ClinicalDocument xmlns="urn:hl7-org:v3">
+  <id/>
+  <setId root="test-set-id"/>
+  <versionNumber value="1"/>
+</ClinicalDocument>

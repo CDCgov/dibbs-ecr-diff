@@ -22,6 +22,11 @@ sync:
 test *ARGS:
     uv run pytest {{ ARGS }}
 
+# Run the local Compose end-to-end test
+[group('python')]
+e2e *ARGS:
+    uv run pytest -vv e2e/ {{ ARGS }}
+
 # Run ruff linter
 [group('python')]
 check *ARGS:
