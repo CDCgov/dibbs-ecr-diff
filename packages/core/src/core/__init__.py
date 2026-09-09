@@ -97,6 +97,18 @@ def rule_matches_for_node_and_descendants(
     )
 
 
+def rule_matches_for_node_and_descendants_by_element(
+    node: etree._Element,
+    rule_match_cache: RuleMatchCache,
+) -> RuleMatchCache:
+    """Collect node and descendant matches grouped by element."""
+    return {
+        related_node: rule_match_cache[related_node]
+        for related_node in [node, *node.iterdescendants()]
+        if related_node in rule_match_cache
+    }
+
+
 def _get_document_metadata(root: etree._Element) -> Document:
     return Document(
         documentId=root.xpath("string(hl7:id/@root)", namespaces=NAMESPACES),
@@ -168,14 +180,12 @@ def build_changes_for_rule_matches(
     document_id: str,
     rule_matches: Iterable[Rule],
     mode: DiffMode,
+    augmentation_rule_matches: RuleMatchCache | None = None,
 ) -> list[Change]:
     """Build changes for applicable rule matches using the configured mode."""
     xpath = structural_xpath(element)
     section_loinc_code = _section_loinc_code_for_change(element)
-    applicable_rules = unique_rule_matches_for_change_type(
-        rule_matches,
-        change_type,
-    )
+    applicable_rules = unique_rule_matches_for_change_type(rule_matches, change_type)
     if change_type in [ChangeType.ADDED, ChangeType.UPDATED]:
         augmentation_anchor_node = element
     else:
@@ -193,6 +203,7 @@ def build_changes_for_rule_matches(
                     actionabilityRuleDisplayName=rule.displayName,
                     section_loinc_code=section_loinc_code,
                     augmentation_anchor_node=augmentation_anchor_node,
+                    augmentation_rule_matches=augmentation_rule_matches,
                     augmentationFunctionCode=rule.augmentationFunctionCode,
                 )
                 for rule in applicable_rules
@@ -208,6 +219,7 @@ def build_changes_for_rule_matches(
                     actionabilityRuleDisplayName=None,
                     section_loinc_code=section_loinc_code,
                     augmentation_anchor_node=augmentation_anchor_node,
+                    augmentation_rule_matches=augmentation_rule_matches,
                 )
             ]
 
@@ -223,6 +235,7 @@ def build_changes_for_rule_matches(
                     actionabilityRuleDisplayName=rule.displayName,
                     section_loinc_code=section_loinc_code,
                     augmentation_anchor_node=augmentation_anchor_node,
+                    augmentation_rule_matches=augmentation_rule_matches,
                     augmentationFunctionCode=rule.augmentationFunctionCode,
                 )
                 for rule in applicable_rules
@@ -238,6 +251,7 @@ def build_changes_for_rule_matches(
                     actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
                     section_loinc_code=section_loinc_code,
                     augmentation_anchor_node=augmentation_anchor_node,
+                    augmentation_rule_matches=augmentation_rule_matches,
                 )
             ]
 
@@ -258,13 +272,21 @@ def _process_additions(
     with the mode's default actionability.
     """
     rule_matches: list[Rule] = []
+    augmentation_rule_matches: RuleMatchCache | None = None
     changes: list[Change] = []
     for added_element in added:
         if mode == DiffMode.WATCH_LIST:
-            rule_matches = rule_matches_for_node_and_descendants(
-                added_element,
-                right_rule_match_cache,
+            augmentation_rule_matches = (
+                rule_matches_for_node_and_descendants_by_element(
+                    added_element,
+                    right_rule_match_cache,
+                )
             )
+            rule_matches = [
+                rule
+                for matched_rules in augmentation_rule_matches.values()
+                for rule in matched_rules
+            ]
         elif mode == DiffMode.IGNORE_LIST:
             rule_matches = rule_matches_for_node_and_ancestors(
                 added_element,
@@ -278,6 +300,7 @@ def _process_additions(
                 document_id=current_document.documentId,
                 rule_matches=rule_matches,
                 mode=mode,
+                augmentation_rule_matches=augmentation_rule_matches,
             )
         )
     return changes

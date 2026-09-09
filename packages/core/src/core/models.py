@@ -30,6 +30,16 @@ class ChangeType(StrEnum):
     DELETED = "DELETED"
 
 
+class Rule(BaseModel):
+    """Configured rule used to match relevant XML nodes."""
+
+    id: UUID = Field(default_factory=uuid4)
+    displayName: str
+    changeTypes: set[ChangeType] = Field(min_length=1)
+    xpaths: list[str] = Field(default_factory=list)
+    augmentationFunctionCode: str | None = None
+
+
 class Change(BaseModel):
     """Single changed node reported in the diff output."""
 
@@ -45,6 +55,9 @@ class Change(BaseModel):
     augmentation_anchor_node: _Element | None = Field(
         exclude=True, default=None
     )  # needed for entry-level augmentation
+    augmentation_rule_matches: dict[_Element, list[Rule]] | None = Field(
+        exclude=True, default=None
+    )  # needed to refine added-change augmentation targets
     augmentationFunctionCode: str | None = None
 
 
@@ -69,16 +82,6 @@ class DiffOutput(BaseModel):
     hasDetectedChanges: bool
     hasActionableChanges: bool = True  # defensive default to allow eICRs through
     changes: list[Change] = Field(default_factory=list)
-
-
-class Rule(BaseModel):
-    """Configured rule used to match relevant XML nodes."""
-
-    id: UUID = Field(default_factory=uuid4)
-    displayName: str
-    changeTypes: set[ChangeType] = Field(min_length=1)
-    xpaths: list[str] = Field(default_factory=list)
-    augmentationFunctionCode: str | None = None
 
 
 class Configuration(BaseModel):

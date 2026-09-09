@@ -11,7 +11,7 @@ from core.cda.xsd_sequence import (
     insert_sequenced_child_of_parent,
 )
 from core.datetime_utils import get_current_datetime
-from core.models import Change, ChangeType, DiffOutput
+from core.models import Change, ChangeType, DiffOutput, Rule
 from core.xml_utils import (
     hl7_clark_tag,
 )
@@ -747,6 +747,10 @@ def _process_diff_output_changes(
         - if the change is a "delete type" for elements that don't exist in the newer eICR.
         - if the change does not have an appropriate element that can accept author
         (i.e. recordTarget cannot accept author directly)
+
+    Added changes remain ancestor-pruned in the diff output. If an added
+    ancestor is actionable only because a descendant matched a rule, the
+    descendant target is selected here for entry-level augmentation.
     """
     # Handle zero changes detected
     if diff_output is None or len(diff_output.changes) == 0:
@@ -771,24 +775,88 @@ def _process_diff_output_changes(
     ]
 
     for change in augmentable_changes:
-        anchor = change.augmentation_anchor_node
-        if anchor is None:
+        for anchor, rule in _augmentation_targets_for_change(change):
+            author_allowed_element = _find_best_author_allowed_element(anchor)
+            if author_allowed_element is None:
+                continue
+
+            function_code = _get_function_code_for_change(change, rule)
+
+            # If there are multiple changes for the same element, avoid duplicate augmentation
+            if _contains_diff_author_direct_child_with_function_code(
+                author_allowed_element, function_code
+            ):
+                continue
+
+            author = _create_diff_author_element(function_code, timestamp)
+            insert_sequenced_child_of_parent(author_allowed_element, author)
+
+
+def _augmentation_targets_for_change(
+    change: Change,
+) -> list[tuple[_Element, Rule | None]]:
+    """Return the element/rule pairs that should receive augmentation.
+
+    Diff output intentionally retains the outermost added element. When that
+    element is actionable only because a descendant matched a watch rule, the
+    augmentation is placed on the closest actionable descendants instead.
+    """
+    anchor = change.augmentation_anchor_node
+    if anchor is None:
+        return []
+
+    if change.changeType != ChangeType.ADDED:
+        return [(anchor, None)]
+
+    rule_matches = change.augmentation_rule_matches or {}
+    direct_rules = [
+        rule
+        for rule in rule_matches.get(anchor, [])
+        if ChangeType.ADDED in rule.changeTypes
+    ]
+    if direct_rules:
+        return [(anchor, rule) for rule in _unique_rules(direct_rules)]
+
+    descendant_matches: list[tuple[_Element, list[Rule]]] = []
+    for descendant, rules in rule_matches.items():
+        if descendant is anchor:
             continue
+        added_rules = [rule for rule in rules if ChangeType.ADDED in rule.changeTypes]
+        if added_rules:
+            descendant_matches.append((descendant, _unique_rules(added_rules)))
 
-        author_allowed_element = _find_best_author_allowed_element(anchor)
-        if author_allowed_element is None:
-            continue
+    if not descendant_matches:
+        return [(anchor, None)]
 
-        function_code = _get_function_code_for_change(change)
+    closest_depth = min(
+        _descendant_depth(anchor, descendant) for descendant, _ in descendant_matches
+    )
+    return [
+        (descendant, rule)
+        for descendant, rules in descendant_matches
+        if _descendant_depth(anchor, descendant) == closest_depth
+        for rule in rules
+    ]
 
-        # If there are multiple changes for the same element, avoid duplicate augmentation
-        if _contains_diff_author_direct_child_with_function_code(
-            author_allowed_element, function_code
-        ):
-            continue
 
-        author = _create_diff_author_element(function_code, timestamp)
-        insert_sequenced_child_of_parent(author_allowed_element, author)
+def _unique_rules(rules: list[Rule]) -> list[Rule]:
+    """Keep the first occurrence of each rule ID."""
+    unique_by_id: dict[uuid.UUID, Rule] = {}
+    for rule in rules:
+        unique_by_id.setdefault(rule.id, rule)
+    return list(unique_by_id.values())
+
+
+def _descendant_depth(ancestor: _Element, descendant: _Element) -> int:
+    """Return the number of child edges between an ancestor and descendant."""
+    depth = 0
+    current = descendant
+    while current is not ancestor:
+        current = current.getparent()
+        if current is None:
+            raise ValueError("Element is not a descendant of the supplied ancestor")
+        depth += 1
+    return depth
 
 
 def _find_best_author_allowed_element(anchor: _Element) -> _Element | None:
@@ -852,13 +920,15 @@ def _contains_diff_author_direct_child_with_function_code(
     return False
 
 
-def _get_function_code_for_change(change: Change) -> str:
+def _get_function_code_for_change(change: Change, rule: Rule | None = None) -> str:
     """Returns the augmentation function code to use for this change."""
-    if (
-        change.augmentationFunctionCode is not None
-        and change.augmentationFunctionCode.strip()
-    ):
-        return change.augmentationFunctionCode
+    configured_function_code = (
+        rule.augmentationFunctionCode
+        if rule is not None
+        else change.augmentationFunctionCode
+    )
+    if configured_function_code is not None and configured_function_code.strip():
+        return configured_function_code
     elif change.changeType == ChangeType.ADDED:
         return FUNCTION_CODE_ADD_DETECTED
     elif change.changeType == ChangeType.UPDATED:

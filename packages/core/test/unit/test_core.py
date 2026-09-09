@@ -154,7 +154,7 @@ def test_all_change_types_capture_loinc_without_serializing_it() -> None:
         assert '"section_loinc_code"' not in change.model_dump_json()
 
 
-def test_process_additions_watch_list_emits_change_for_watched_descendant():
+def test_process_additions_watch_list_keeps_pruned_ancestor_as_anchor():
     root = elem(
         f"""
         <ClinicalDocument xmlns="{HL7_NS}">
@@ -185,6 +185,96 @@ def test_process_additions_watch_list_emits_change_for_watched_descendant():
         is_actionable=True,
         rule_id=RULE_ID,
         rule_name=RULE_NAME,
+    )
+    assert changes[0].augmentation_anchor_node is added_section
+    assert changes[0].augmentation_rule_matches == {watched_observation: [make_rule()]}
+
+
+def test_process_additions_watch_list_prefers_direct_match_over_descendant_matches():
+    root = elem(
+        f"""
+        <ClinicalDocument xmlns="{HL7_NS}">
+          <component>
+            <section ID="direct-match">
+              <observation ID="nested-match"/>
+            </section>
+          </component>
+        </ClinicalDocument>
+        """
+    )
+    added_section = find_one(root, ".//hl7:section")
+    nested_observation = find_one(added_section, ".//hl7:observation")
+    direct_rule = make_rule(rule_name="Direct section rule")
+    nested_rule = make_rule(rule_id=SECOND_RULE_ID, rule_name="Nested rule")
+
+    changes = _process_additions(
+        added=[added_section],
+        mode=DiffMode.WATCH_LIST,
+        right_rule_match_cache={
+            added_section: [direct_rule],
+            nested_observation: [nested_rule],
+        },
+        current_document=Document(documentId="current-document-id", versionNumber="2"),
+    )
+
+    assert len(changes) == 2
+    assert all(change.changeType == ChangeType.ADDED for change in changes)
+    assert all(change.xpath == structural_xpath(added_section) for change in changes)
+    assert all(change.isActionable for change in changes)
+    assert {change.actionabilityRuleId for change in changes} == {
+        RULE_ID,
+        SECOND_RULE_ID,
+    }
+
+
+def test_process_additions_watch_list_keeps_all_descendant_rule_matches():
+    root = elem(
+        f"""
+        <ClinicalDocument xmlns="{HL7_NS}">
+          <component>
+            <section>
+              <observation ID="first"/>
+              <observation ID="second"/>
+              <entry><observation ID="deeper"/></entry>
+            </section>
+          </component>
+        </ClinicalDocument>
+        """
+    )
+    added_section = find_one(root, ".//hl7:section")
+    first = find_one(added_section, ".//hl7:observation[@ID='first']")
+    second = find_one(added_section, ".//hl7:observation[@ID='second']")
+    deeper = find_one(added_section, ".//hl7:observation[@ID='deeper']")
+    first_rule = make_rule(rule_name="First observation")
+    second_rule = make_rule(rule_id=SECOND_RULE_ID, rule_name="Second observation")
+    deeper_rule = make_rule(
+        rule_id=UUID("cccccccc-cccc-cccc-cccc-cccccccccccc"),
+        rule_name="Deeper observation",
+    )
+
+    changes = _process_additions(
+        added=[added_section],
+        mode=DiffMode.WATCH_LIST,
+        right_rule_match_cache={
+            first: [first_rule],
+            second: [second_rule],
+            deeper: [deeper_rule],
+        },
+        current_document=Document(documentId="current-document-id", versionNumber="2"),
+    )
+
+    assert len(changes) == 3
+    assert all(change.xpath == structural_xpath(added_section) for change in changes)
+    assert all(change.isActionable for change in changes)
+    assert all(change.augmentation_anchor_node is added_section for change in changes)
+    assert all(
+        change.augmentation_rule_matches
+        == {
+            first: [first_rule],
+            second: [second_rule],
+            deeper: [deeper_rule],
+        }
+        for change in changes
     )
 
 

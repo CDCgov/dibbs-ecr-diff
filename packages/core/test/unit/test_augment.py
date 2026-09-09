@@ -5,6 +5,7 @@ import pytest
 from core.augment import (
     DIFF_DETERMINISTIC_NS,
     AugmentationRun,
+    _augmentation_targets_for_change,
     _contains_diff_author_direct_child_with_function_code,
     _create_diff_author_element,
     _derive_augmented_eicr_id,
@@ -19,7 +20,7 @@ from core.augment import (
 )
 from core.cda.clinical_statement import CDA_CLINICAL_STATEMENT_TAGS
 from core.constants import HL7_NS, NAMESPACES
-from core.models import Change, ChangeType, DiffOutput, Document
+from core.models import Change, ChangeType, DiffOutput, Document, Rule
 from core.xml_utils import hl7_clark_tag
 from helpers import elem
 from lxml import etree
@@ -1024,6 +1025,86 @@ def test_get_function_code_for_change_uses_change_specific_function_code():
     )
 
     assert _get_function_code_for_change(change) == "did-custom-code"
+
+
+def test_augmentation_targets_for_added_change_uses_closest_actionable_descendants():
+    section = elem(
+        f"""
+        <section xmlns="{NAMESPACES["hl7"]}">
+          <entry><observation ID="first"/></entry>
+          <entry><observation ID="second"/></entry>
+        </section>
+        """
+    )
+    first = section.find(".//hl7:observation[@ID='first']", NAMESPACES)
+    second = section.find(".//hl7:observation[@ID='second']", NAMESPACES)
+    assert first is not None
+    assert second is not None
+    first_rule = Rule(
+        displayName="First observation",
+        changeTypes={ChangeType.ADDED},
+        augmentationFunctionCode="did-first-detected",
+    )
+    second_rule = Rule(
+        displayName="Second observation",
+        changeTypes={ChangeType.ADDED},
+        augmentationFunctionCode="did-second-detected",
+    )
+    deeper = etree.SubElement(first, hl7_clark_tag("value"))
+    deeper_rule = Rule(
+        displayName="Deeper value",
+        changeTypes={ChangeType.ADDED},
+    )
+    change = Change(
+        changeType=ChangeType.ADDED,
+        xpath="",
+        xpathDocumentId="",
+        isActionable=True,
+        augmentation_anchor_node=section,
+        augmentation_rule_matches={
+            first: [first_rule],
+            second: [second_rule],
+            deeper: [deeper_rule],
+        },
+    )
+
+    targets = _augmentation_targets_for_change(change)
+
+    assert [target for target, _ in targets] == [first, second]
+    assert [rule for _, rule in targets] == [first_rule, second_rule]
+
+
+def test_augmentation_targets_for_added_change_prefers_direct_rule():
+    section = elem(
+        f"""
+        <section xmlns="{NAMESPACES["hl7"]}">
+          <entry><observation ID="nested"/></entry>
+        </section>
+        """
+    )
+    nested = section.find(".//hl7:observation", NAMESPACES)
+    assert nested is not None
+    direct_rule = Rule(
+        displayName="Direct section",
+        changeTypes={ChangeType.ADDED},
+    )
+    nested_rule = Rule(
+        displayName="Nested observation",
+        changeTypes={ChangeType.ADDED},
+    )
+    change = Change(
+        changeType=ChangeType.ADDED,
+        xpath="",
+        xpathDocumentId="",
+        isActionable=True,
+        augmentation_anchor_node=section,
+        augmentation_rule_matches={
+            section: [direct_rule],
+            nested: [nested_rule],
+        },
+    )
+
+    assert _augmentation_targets_for_change(change) == [(section, direct_rule)]
 
 
 def test_get_function_code_for_change_raises_error_for_deletes():
