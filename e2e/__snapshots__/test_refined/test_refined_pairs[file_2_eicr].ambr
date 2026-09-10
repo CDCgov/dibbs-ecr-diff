@@ -17,14 +17,14 @@
     <templateId root="2.16.840.1.113883.10.20.15.2" extension="2022-05-01"/>
     <!-- Globally unique document ID (extension) is scoped by vendor/software -->
     <templateId root="2.16.840.1.113883.10.20.15.2.1.3" extension="2025-11-01"/>
-    <id root="e4f09001-2367-5672-9d52-6c5dd56d393e" assigningAuthorityName="ecr-difference-in-docs"/>
+    <id root="e4f09001-2367-5672-9d52-6c5dd56d393e" assigningAuthorityName="document-differencing"/>
     <!-- Document Code -->
     <code code="55751-2" codeSystem="2.16.840.1.113883.6.1" displayName="Public Health Case Report" codeSystemName="LOINC"/>
     <title>Initial Public Health Case Report</title>
     <effectiveTime value="20260101000000+0000"/>
     <confidentialityCode code="N" codeSystem="2.16.840.1.113883.5.25" displayName="Normal"/>
     <languageCode code="en-US"/>
-    <setId root="3a85fb7a-8126-5508-a1de-a87911c1b185" assigningAuthorityName="ecr-difference-in-docs"/>
+    <setId root="3a85fb7a-8126-5508-a1de-a87911c1b185" assigningAuthorityName="document-differencing"/>
     <versionNumber value="3"/>
     <!-- recordTarget: The patient -->
     <recordTarget>
@@ -214,7 +214,7 @@
         <addr nullFlavor="NA"/>
         <telecom nullFlavor="NA"/>
         <assignedAuthoringDevice>
-          <softwareName code="ecr-difference-in-docs" codeSystem="2.16.840.1.113883.10.20.15.2.7.1" codeSystemName="eCRDataAugmentation" displayName="Difference in Docs"/>
+          <softwareName code="document-differencing" codeSystem="2.16.840.1.113883.10.20.15.2.7.1" codeSystemName="eCRDataAugmentation" displayName="Difference in Docs"/>
         </assignedAuthoringDevice>
       </assignedAuthor>
     </author>
@@ -380,18 +380,6 @@
                 </tbody>
               </table>
             </text>
-            <author>
-              <functionCode code="did-add-detected" codeSystem="2.16.840.1.113883.10.20.15.2.7.1" codeSystemName="eCRDataAugmentation"/>
-              <time value="20260101000000+0000"/>
-              <assignedAuthor>
-                <id nullFlavor="NA"/>
-                <addr nullFlavor="NA"/>
-                <telecom nullFlavor="NA"/>
-                <assignedAuthoringDevice>
-                  <softwareName code="ecr-difference-in-docs" codeSystem="2.16.840.1.113883.10.20.15.2.7.1" codeSystemName="eCRDataAugmentation" displayName="Difference in Docs"/>
-                </assignedAuthoringDevice>
-              </assignedAuthor>
-            </author>
             <entry typeCode="DRIV">
               <!-- This is a request for a test to be performed (a lab test order) -->
               <observation classCode="OBS" moodCode="RQO">
@@ -733,6 +721,19 @@
                 <statusCode code="active"/>
                 <!-- Adding required statusCode -->
                 <effectiveTime value="20250224"/>
+                <author>
+                  <templateId root="2.16.840.1.113883.10.20.15.2.4.10" extension="2025-11-01"/>
+                  <functionCode code="did-add-detected" codeSystem="2.16.840.1.113883.10.20.15.2.7.1" codeSystemName="eCRDataAugmentation"/>
+                  <time value="20260101000000+0000"/>
+                  <assignedAuthor>
+                    <id nullFlavor="NA"/>
+                    <addr nullFlavor="NA"/>
+                    <telecom nullFlavor="NA"/>
+                    <assignedAuthoringDevice>
+                      <softwareName code="document-differencing" codeSystem="2.16.840.1.113883.10.20.15.2.7.1" codeSystemName="eCRDataAugmentation" displayName="Difference in Docs"/>
+                    </assignedAuthoringDevice>
+                  </assignedAuthor>
+                </author>
                 <participant typeCode="LOC">
                   <participantRole classCode="SDLOC">
                     <code code="1184-0" codeSystem="2.16.840.1.113883.1.11.20275" codeSystemName="HealthcareServiceLocation" displayName="Telemedicine"/>
