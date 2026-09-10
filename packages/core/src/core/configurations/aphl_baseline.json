@@ -12,7 +12,8 @@
       "changeTypes": ["ADDED", "UPDATED", "DELETED"],
       "xpaths": [
         "//hl7:entry/descendant-or-self::*"
-      ]
+      ],
+      "isHeaderLevel": false
     },
     {
       "id": "8cdf45eb-0742-4a20-b760-95bb8e48ca5a",
@@ -21,7 +22,8 @@
       "xpaths": [
         "//hl7:patient/sdtc:deceasedInd"
       ],
-      "augmentationFunctionCode": "did-patient-deceased"
+      "augmentationFunctionCode": "did-patient-deceased",
+      "isHeaderLevel": true
     },
     {
       "id": "f7d9fe67-9d42-494a-8dcb-317420af9a74",
@@ -30,7 +32,8 @@
       "xpaths": [
         "//hl7:patient/hl7:birthTime"
       ],
-      "augmentationFunctionCode": "did-patient-birthTime"
+      "augmentationFunctionCode": "did-patient-birthTime",
+      "isHeaderLevel": true
     },
     {
       "id": "68a52121-d283-49bb-8259-fc7cf5b732d1",
@@ -39,7 +42,8 @@
       "xpaths": [
         "//hl7:patient/hl7:name/descendant-or-self::*"
       ],
-      "augmentationFunctionCode": "did-patient-name"
+      "augmentationFunctionCode": "did-patient-name",
+      "isHeaderLevel": true
     },
     {
       "id": "bf619a5d-2af0-48e1-a333-7b5306f9907a",
@@ -48,7 +52,8 @@
       "xpaths": [
         "//hl7:encompassingEncounter/hl7:effectiveTime/hl7:high"
       ],
-      "augmentationFunctionCode": "did-encounter-closeTime"
+      "augmentationFunctionCode": "did-encounter-closeTime",
+      "isHeaderLevel": true
     }
   ]
 }
