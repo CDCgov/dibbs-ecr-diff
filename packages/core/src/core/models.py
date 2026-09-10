@@ -46,6 +46,7 @@ class Change(BaseModel):
         exclude=True, default=None
     )  # needed for entry-level augmentation
     augmentationFunctionCode: str | None = None
+    isHeaderLevel: bool | None = Field(exclude=True, default=False)
 
 
 class Document(BaseModel):
@@ -79,6 +80,7 @@ class Rule(BaseModel):
     changeTypes: set[ChangeType] = Field(min_length=1)
     xpaths: list[str] = Field(default_factory=list)
     augmentationFunctionCode: str | None = None
+    isHeaderLevel: bool | None = False
 
 
 class Configuration(BaseModel):

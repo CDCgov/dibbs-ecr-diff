@@ -194,6 +194,7 @@ def build_changes_for_rule_matches(
                     section_loinc_code=section_loinc_code,
                     augmentation_anchor_node=augmentation_anchor_node,
                     augmentationFunctionCode=rule.augmentationFunctionCode,
+                    isHeaderLevel=rule.isHeaderLevel,
                 )
                 for rule in applicable_rules
             ]
@@ -208,6 +209,7 @@ def build_changes_for_rule_matches(
                     actionabilityRuleDisplayName=None,
                     section_loinc_code=section_loinc_code,
                     augmentation_anchor_node=augmentation_anchor_node,
+                    isHeaderLevel=False,
                 )
             ]
 
@@ -224,6 +226,7 @@ def build_changes_for_rule_matches(
                     section_loinc_code=section_loinc_code,
                     augmentation_anchor_node=augmentation_anchor_node,
                     augmentationFunctionCode=rule.augmentationFunctionCode,
+                    isHeaderLevel=rule.isHeaderLevel,
                 )
                 for rule in applicable_rules
             ]
@@ -238,6 +241,9 @@ def build_changes_for_rule_matches(
                     actionabilityRuleDisplayName=DEFAULT_ACTIONABLE_RULE_DISPLAY_NAME,
                     section_loinc_code=section_loinc_code,
                     augmentation_anchor_node=augmentation_anchor_node,
+                    isHeaderLevel=False,
+                    # Ignore list mode doesn't mesh well with the concept of header-level vs. entry-level augmentation since all ignore list rules are non-actionable.
+                    # Augmentation for ignore lists would need a different way to track whether a change should use header-level augmentation.
                 )
             ]
 

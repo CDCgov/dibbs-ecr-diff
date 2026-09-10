@@ -858,128 +858,244 @@ def test_augment_eicr_flags_no_actionable_changes(
 # Find best author allowed element tests
 # =============================================================================
 
+# Shared behavior for both header and non-header level changes
 
+
+@pytest.mark.parametrize("is_header_level_change", [True, False])
 @pytest.mark.parametrize("tag", CDA_CLINICAL_STATEMENT_TAGS)
-def test_find_best_author_allowed_element_returns_anchor_when_only_anchor_allowed(tag):
+def test_find_best_author_allowed_element_returns_anchor_when_only_anchor_allowed(
+    tag: str, is_header_level_change: bool
+):
     anchor = etree.Element(tag)
-    assert _find_best_author_allowed_element(anchor) is anchor
+    assert _find_best_author_allowed_element(anchor, is_header_level_change) is anchor
 
 
-def test_find_best_author_allowed_element_returns_ancestor_when_only_ancestor_allowed():
+@pytest.mark.parametrize("is_header_level_change", [True, False])
+def test_find_best_author_allowed_element_returns_ancestor_when_only_ancestor_allowed(
+    is_header_level_change: bool,
+):
     grandparent = etree.Element(hl7_clark_tag("act"))
     parent = etree.SubElement(grandparent, hl7_clark_tag("component"))
     anchor = etree.SubElement(parent, hl7_clark_tag("value"))
-    assert _find_best_author_allowed_element(anchor) is grandparent
+    assert (
+        _find_best_author_allowed_element(anchor, is_header_level_change) is grandparent
+    )
 
 
-def test_find_best_author_allowed_element_closest_ancestor_wins():
+@pytest.mark.parametrize("is_header_level_change", [True, False])
+def test_find_best_author_allowed_element_closest_ancestor_wins(
+    is_header_level_change: bool,
+):
     grandparent = etree.Element(hl7_clark_tag("act"))
     parent = etree.SubElement(grandparent, hl7_clark_tag("observation"))
     anchor = etree.SubElement(parent, hl7_clark_tag("value"))
-    assert _find_best_author_allowed_element(anchor) is parent
+    assert _find_best_author_allowed_element(anchor, is_header_level_change) is parent
 
 
-def test_find_best_author_allowed_element_anchor_takes_priority():
+@pytest.mark.parametrize("is_header_level_change", [True, False])
+def test_find_best_author_allowed_element_anchor_takes_priority(
+    is_header_level_change: bool,
+):
     parent = etree.Element(hl7_clark_tag("act"))
     anchor = etree.SubElement(parent, hl7_clark_tag("observation"))
     etree.SubElement(anchor, "encounter")
-    assert _find_best_author_allowed_element(anchor) is anchor
+    assert _find_best_author_allowed_element(anchor, is_header_level_change) is anchor
 
 
-def test_find_best_author_allowed_element_ignores_allowed_descendant_when_ancestor_allowed():
-    parent = etree.Element(hl7_clark_tag("act"))
-    anchor = etree.SubElement(parent, hl7_clark_tag("body"))
-    etree.SubElement(anchor, hl7_clark_tag("observation"))
-    assert _find_best_author_allowed_element(anchor) is parent
-
-
-def test_find_best_author_allowed_element_returns_none_when_anchor_disallowed():
+@pytest.mark.parametrize("is_header_level_change", [True, False])
+def test_find_best_author_allowed_element_returns_none_when_anchor_disallowed(
+    is_header_level_change: bool,
+):
     anchor = etree.Element(hl7_clark_tag("root"))
-    assert _find_best_author_allowed_element(anchor) is None
+    assert _find_best_author_allowed_element(anchor, is_header_level_change) is None
 
 
-def test_find_best_author_allowed_element_ignores_allowed_descendant_when_nothing_else_allowed():
-    root = etree.Element(hl7_clark_tag("root"))
-    child = etree.SubElement(root, hl7_clark_tag("child"))
-    anchor = etree.SubElement(child, hl7_clark_tag("anchor"))
-    etree.SubElement(anchor, hl7_clark_tag("observation"))
-    assert _find_best_author_allowed_element(anchor) is None
-
-
-def test_find_best_author_allowed_element_returns_none_when_nothing_allowed():
+@pytest.mark.parametrize("is_header_level_change", [True, False])
+def test_find_best_author_allowed_element_returns_none_when_nothing_allowed(
+    is_header_level_change: bool,
+):
     root = etree.Element(hl7_clark_tag("root"))
     child = etree.SubElement(root, hl7_clark_tag("child"))
     anchor = etree.SubElement(child, hl7_clark_tag("anchor"))
     etree.SubElement(anchor, hl7_clark_tag("leaf"))
-    assert _find_best_author_allowed_element(anchor) is None
+    assert _find_best_author_allowed_element(anchor, is_header_level_change) is None
+
+
+# Non-header-level changes: descendants are checked before ancestors
+
+
+def test_find_best_author_allowed_element_prefers_descendant_over_ancestor():
+    parent = etree.Element(hl7_clark_tag("act"))
+    anchor = etree.SubElement(parent, hl7_clark_tag("body"))
+    descendant = etree.SubElement(anchor, hl7_clark_tag("observation"))
+    assert (
+        _find_best_author_allowed_element(anchor, is_header_level_change=False)
+        is descendant
+    )
+
+
+def test_find_best_author_allowed_element_returns_descendant_when_nothing_else_allowed():
+    root = etree.Element(hl7_clark_tag("root"))
+    child = etree.SubElement(root, hl7_clark_tag("child"))
+    anchor = etree.SubElement(child, hl7_clark_tag("anchor"))
+    descendant = etree.SubElement(anchor, hl7_clark_tag("observation"))
+    assert (
+        _find_best_author_allowed_element(anchor, is_header_level_change=False)
+        is descendant
+    )
+
+
+def test_find_best_author_allowed_element_descendant_taken_in_document_order():
+    anchor = etree.Element(hl7_clark_tag("body"))
+    direct_child = etree.SubElement(anchor, hl7_clark_tag("act"))
+    etree.SubElement(direct_child, hl7_clark_tag("observation"))
+    assert (
+        _find_best_author_allowed_element(anchor, is_header_level_change=False)
+        is direct_child
+    )
+
+
+def test_find_best_author_allowed_element_section_descendant_allowed():
+    anchor = etree.Element(hl7_clark_tag("component"))
+    section = etree.SubElement(anchor, hl7_clark_tag("section"))
+    assert (
+        _find_best_author_allowed_element(anchor, is_header_level_change=False)
+        is section
+    )
+
+
+def test_find_best_author_allowed_element_falls_back_to_ancestor_when_no_descendant():
+    section = etree.Element(hl7_clark_tag("section"))
+    anchor = etree.SubElement(section, hl7_clark_tag("value"))
+    assert (
+        _find_best_author_allowed_element(anchor, is_header_level_change=False)
+        is section
+    )
+
+
+def test_find_best_author_allowed_element_ignores_clinical_document_when_not_header_level():
+    document = etree.Element(hl7_clark_tag("ClinicalDocument"))
+    anchor = etree.SubElement(document, hl7_clark_tag("value"))
+    assert (
+        _find_best_author_allowed_element(anchor, is_header_level_change=False) is None
+    )
+
+
+# Header-level changes: ancestors only, ClinicalDocument allowed
+
+
+def test_find_best_author_allowed_element_header_level_allows_clinical_document():
+    document = etree.Element(hl7_clark_tag("ClinicalDocument"))
+    anchor = etree.SubElement(document, hl7_clark_tag("value"))
+    assert (
+        _find_best_author_allowed_element(anchor, is_header_level_change=True)
+        is document
+    )
+
+
+def test_find_best_author_allowed_element_header_level_ignores_descendants():
+    parent = etree.Element(hl7_clark_tag("ClinicalDocument"))
+    anchor = etree.SubElement(parent, hl7_clark_tag("body"))
+    etree.SubElement(anchor, hl7_clark_tag("observation"))
+    assert (
+        _find_best_author_allowed_element(anchor, is_header_level_change=True) is parent
+    )
+
+
+def test_find_best_author_allowed_element_header_level_ignores_descendant_returns_none():
+    root = etree.Element(hl7_clark_tag("root"))
+    anchor = etree.SubElement(root, hl7_clark_tag("anchor"))
+    etree.SubElement(anchor, hl7_clark_tag("observation"))
+    assert (
+        _find_best_author_allowed_element(anchor, is_header_level_change=True) is None
+    )
+
+
+# Entry anchors
 
 
 @pytest.mark.parametrize("tag", CDA_CLINICAL_STATEMENT_TAGS)
 def test_find_best_author_allowed_element_entry_returns_clinical_statement_child(tag):
     entry = etree.Element(hl7_clark_tag("entry"))
     child = etree.SubElement(entry, tag)
-    assert _find_best_author_allowed_element(entry) is child
+    assert (
+        _find_best_author_allowed_element(entry, is_header_level_change=False) is child
+    )
 
 
 def test_find_best_author_allowed_element_entry_skips_disallowed_children():
     entry = etree.Element(hl7_clark_tag("entry"))
     etree.SubElement(entry, hl7_clark_tag("templateId"))
     statement = etree.SubElement(entry, hl7_clark_tag("observation"))
-    assert _find_best_author_allowed_element(entry) is statement
+    assert (
+        _find_best_author_allowed_element(entry, is_header_level_change=False)
+        is statement
+    )
 
 
 def test_find_best_author_allowed_element_entry_prefers_direct_child_over_nested():
     entry = etree.Element(hl7_clark_tag("entry"))
     direct_child = etree.SubElement(entry, hl7_clark_tag("act"))
     etree.SubElement(direct_child, hl7_clark_tag("observation"))
-    assert _find_best_author_allowed_element(entry) is direct_child
+    assert (
+        _find_best_author_allowed_element(entry, is_header_level_change=False)
+        is direct_child
+    )
 
 
-def test_find_best_author_allowed_element_entry_ignores_nested_clinical_statement():
+def test_find_best_author_allowed_element_entry_finds_nested_clinical_statement():
     section = etree.Element(hl7_clark_tag("section"))
     entry = etree.SubElement(section, hl7_clark_tag("entry"))
     wrapper = etree.SubElement(entry, hl7_clark_tag("component"))
-    etree.SubElement(wrapper, hl7_clark_tag("observation"))
-    assert _find_best_author_allowed_element(entry) is section
-
-
-def test_find_best_author_allowed_element_entry_ignores_nested_when_nothing_else():
-    entry = etree.Element(hl7_clark_tag("entry"))
-    wrapper = etree.SubElement(entry, hl7_clark_tag("component"))
-    etree.SubElement(wrapper, hl7_clark_tag("observation"))
-    assert _find_best_author_allowed_element(entry) is None
+    statement = etree.SubElement(wrapper, hl7_clark_tag("observation"))
+    assert (
+        _find_best_author_allowed_element(entry, is_header_level_change=False)
+        is statement
+    )
 
 
 def test_find_best_author_allowed_element_entry_descendant_beats_ancestor():
     section = etree.Element(hl7_clark_tag("section"))
     entry = etree.SubElement(section, hl7_clark_tag("entry"))
     statement = etree.SubElement(entry, hl7_clark_tag("observation"))
-    assert _find_best_author_allowed_element(entry) is statement
+    assert (
+        _find_best_author_allowed_element(entry, is_header_level_change=False)
+        is statement
+    )
 
 
 def test_find_best_author_allowed_element_entry_falls_back_to_ancestor():
     section = etree.Element(hl7_clark_tag("section"))
     entry = etree.SubElement(section, hl7_clark_tag("entry"))
     etree.SubElement(entry, hl7_clark_tag("value"))
-    assert _find_best_author_allowed_element(entry) is section
+    assert (
+        _find_best_author_allowed_element(entry, is_header_level_change=False)
+        is section
+    )
 
 
 def test_find_best_author_allowed_element_entry_returns_none_when_nothing_allowed():
     root = etree.Element(hl7_clark_tag("root"))
     entry = etree.SubElement(root, hl7_clark_tag("entry"))
     etree.SubElement(entry, hl7_clark_tag("value"))
-    assert _find_best_author_allowed_element(entry) is None
+    assert (
+        _find_best_author_allowed_element(entry, is_header_level_change=False) is None
+    )
 
 
-def test_find_best_author_allowed_element_entry_without_children_uses_ancestor():
+def test_find_best_author_allowed_element_entry_without_children_ignores_clinical_document():
     document = etree.Element(hl7_clark_tag("ClinicalDocument"))
     entry = etree.SubElement(document, hl7_clark_tag("entry"))
-    assert _find_best_author_allowed_element(entry) is document
+    assert (
+        _find_best_author_allowed_element(entry, is_header_level_change=False) is None
+    )
 
 
 def test_find_best_author_allowed_element_entry_without_children_returns_none():
     entry = etree.Element(hl7_clark_tag("entry"))
-    assert _find_best_author_allowed_element(entry) is None
+    assert (
+        _find_best_author_allowed_element(entry, is_header_level_change=False) is None
+    )
 
 
 # NOTE:

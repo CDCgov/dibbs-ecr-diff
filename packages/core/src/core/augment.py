@@ -775,7 +775,9 @@ def _process_diff_output_changes(
         if anchor is None:
             continue
 
-        author_allowed_element = _find_best_author_allowed_element(anchor)
+        author_allowed_element = _find_best_author_allowed_element(
+            anchor, change.isHeaderLevel
+        )
         if author_allowed_element is None:
             continue
 
@@ -791,23 +793,25 @@ def _process_diff_output_changes(
         insert_sequenced_child_of_parent(author_allowed_element, author)
 
 
-def _find_best_author_allowed_element(anchor: _Element) -> _Element | None:
+def _find_best_author_allowed_element(
+    anchor: _Element, is_header_level_change: bool | None
+) -> _Element | None:
     """Return the best element relative to anchor that allows a CDA author tag or None.
 
-    If anchor element is an entry, then the CDA-required clinical statement direct child should be returned.
-    For non-entry anchor elements, check anchor node itself and then ancestors.
+    Only header-level changes should ever use the ClinicalDocument ancestor.
+
+    All other changes should prioritize anchor node itself, then descendants, and then ancestors excluding ClinicalDocument.
     """
     author_allowed_tags = [
         *CDA_CLINICAL_STATEMENT_TAGS,
         hl7_clark_tag("section"),
-        hl7_clark_tag("ClinicalDocument"),
     ]
 
-    nodes_to_check = [anchor, *anchor.iterancestors()]
-
-    if anchor.tag == hl7_clark_tag("entry"):
-        # CDA requires entry to have one and only one clinical statement direct child
-        nodes_to_check = [anchor, *anchor.iterchildren(), *anchor.iterancestors()]
+    if is_header_level_change:
+        author_allowed_tags.append(hl7_clark_tag("ClinicalDocument"))
+        nodes_to_check = [anchor, *anchor.iterancestors()]
+    else:
+        nodes_to_check = [anchor, *anchor.iterdescendants(), *anchor.iterancestors()]
 
     for el in nodes_to_check:
         if el.tag in author_allowed_tags:
