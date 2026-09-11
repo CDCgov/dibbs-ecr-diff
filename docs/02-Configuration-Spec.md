@@ -56,7 +56,7 @@ A configuration defines a set of rules that match changes based on XPath express
 
 Rules are evaluated in the order they appear in the `rules` array. For each detected change, DiD determines the rule associated with the change. Actionability is then determined by the configured `mode`.
 
-The matching rule's `id` and `displayName` are included in the Diff Output document as `actionabilityRuleId` and `actionabilityRuleDisplayName`.
+The matching rule's `id` and `displayName` are included in the [Diff Output Spec](./03-Diff-Output-Spec.md) as `actionabilityRuleId` and `actionabilityRuleDisplayName`.
 
 ### XPath matching
 

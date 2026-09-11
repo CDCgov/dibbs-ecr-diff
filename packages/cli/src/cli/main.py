@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from core import diff_xml
@@ -24,13 +25,20 @@ def main() -> None:
     ap.add_argument(
         "-c",
         "--config",
-        help="Path to configuration (default: " + DEFAULT_CONFIGURATION_FILE,
+        help="Path to configuration (default: " + DEFAULT_CONFIGURATION_FILE + ")",
     )
     ap.add_argument(
         "-o",
         "--output-dir",
-        help="Path to directory for output files (default: " + DEFAULT_OUTPUT_DIRECTORY,
+        help="Path to directory for output files (default: "
+        + DEFAULT_OUTPUT_DIRECTORY
+        + ")",
     )
+
+    # print the help text when running the CLI without args
+    if len(sys.argv) == 1:
+        ap.print_help()
+        return
 
     args = ap.parse_args()
     opts = DiffingOptions(**vars(args))

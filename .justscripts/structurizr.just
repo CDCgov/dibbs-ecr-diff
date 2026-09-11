@@ -1,4 +1,4 @@
-set working-directory := "../docs"
+set working-directory := "../docs/structurizr"
 
 alias h := _default
 alias help := _default

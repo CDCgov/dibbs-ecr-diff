@@ -1,0 +1,15 @@
+graph TB
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["System Context View: Difference in Docs, Iteration 1 DRAFT"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    1("<div style='font-weight: bold'>AIMS Platform</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Handles incoming eCRs and<br />decides whether to send to<br />PHAs. Includes eCR Refiner.</div>")
+    style 1 fill:#ffffff,stroke:#009ca7,color:#009ca7
+    2("<div style='font-weight: bold'>Difference in Docs</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Determines differences<br />between eCRs based on<br />configuration</div>")
+    style 2 fill:#ffffff,stroke:#6499af,color:#6499af
+
+    2-. "<div>Sends diff output to</div><div style='font-size: 70%'></div>" .->1
+    1-. "<div>Sends eCR input to</div><div style='font-size: 70%'></div>" .->2
+
+  end

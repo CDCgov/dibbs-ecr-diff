@@ -10,20 +10,55 @@
 * [Disclaimer](DISCLAIMER.md)
 * [Contribution Notice](CONTRIBUTING.md)
 * [Code of Conduct](code-of-conduct.md)
+* [Technical Overview](docs/01-Technical-Overview.md)
+* [Configuration Spec](docs/02-Configuration-Spec.md)
+* [Diff Output Spec](docs/03-Diff-Output-Spec.md)
+* [Entry Augmentation Spec](docs/04-Entry-Augmentation-Spec.md)
 * [Telemetry Semantics](docs/Telemetry-Semantics.md)
 
 ## Overview
 
-DIBBs Difference in Docs (DiD) is a project aimed at helping Public Health Authorities (PHAs) better leverage eCR by reducing the frequency of updates to electronic Initial Case Reports (eICRs). This will allow them to identify updates that are meaningful to their public health activities. 
+DIBBs Difference in Docs (DiD) is a project aimed at helping Public Health Authorities (PHAs) better leverage eCR by reducing the frequency of updates to electronic Initial Case Reports (eICRs). This will allow them to identify updates that are meaningful to their public health activities.
+
+Difference in Docs achives this by performing full structural diffs between versions of an eICR, and using a configuration file (in JSON) utilizing [XPath](https://www.w3.org/TR/xpath/) strings to determine what changes are "actionable".
+
+Difference in Docs is deployed as an AWS Lambda Function on APHL's AIMS Platform.
+
+```mermaid
+graph TB
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["System Context View: Difference in Docs, Iteration 1 DRAFT"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    1("<div style='font-weight: bold'>AIMS Platform</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Handles incoming eCRs and<br />decides whether to send to<br />PHAs. Includes eCR Refiner.</div>")
+    style 1 fill:#ffffff,stroke:#009ca7,color:#009ca7
+    2("<div style='font-weight: bold'>Difference in Docs</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Determines differences<br />between eCRs based on<br />configuration</div>")
+    style 2 fill:#ffffff,stroke:#6499af,color:#6499af
+
+    2-. "<div>Sends diff output to</div><div style='font-size: 70%'></div>" .->1
+    1-. "<div>Sends eCR input to</div><div style='font-size: 70%'></div>" .->2
+
+  end
+```
+
+m: [diff-output]: [reading this I'm now understanding that APHL sends a doc and DiD digs up the prior doc to do the compare. I assumed maybe DiD took in two files since the CLI tool has 2 file arguments] -- might be worth clarifying that the CLI exists only for devs to quickly iterate and test the core diffing logic/configuration engine
+
+m: [wait so does this diff get passed to an augmentation step before going to APHL?] -- yes it does; the diff output gets passed to the augmentation step so that `augment.py` can then perform the augmentation with the information from the diff. CLARIFY
+
+m: [I just realized I don't know what exactly is getting passed in to DiD and what gets passed out. 
+output = this diff output plus an augmented eICR?] -- yes that's right. CLARIFY
+
+ moe entry augmentation under diff output spec.md ordering
 
 ## Getting Started
 
 ### Prerequisites
 
-To start developing locally, you need the following tools installed:
+**To start developing locally, or to run any commands in this document, you'll need the following tools installed:**
 
 * [just](https://just.systems/man/en/) `>=1.46.x` for running project commands
-* [uv](https://docs.astral.sh/uv/getting-started/installation/) `>=0.10.x` for Python version, package, and project management
+* [uv](https://docs.astral.sh/uv/getting-started/installation/) `>=0.11.31` for Python version, package, and project management
 * [Docker](https://www.docker.com/) `>=28.3.x` for running containers
 
 ### Setup
@@ -40,13 +75,42 @@ Download Python dependencies and sync all packages:
 just sync
 ```
 
+### Command-Line Interface (CLI)
+
+The Difference in Docs repository includes a command-line interface. **The purpose of this command-line interface is solely for development and manually testing the Difference in Docs core logic.**
+
 To access the CLI, run:
 
 ```bash
 just diff
 ```
 
+This will print help text with instructions on running the CLI against a pair of eICR files.
+
+On successfully running the CLI tool, it will produce a diff output JSON file following the [Diff Output Spec](./docs/03-Diff-Output-Spec.md), and an augmented eICR XML file.
+
+See below for more examples:
+```bash
+# run CLI tool against two eICR versions; will output to `output/` directory by default
+just diff tmp/eICR.xml tmp/eICR_after.xml
+
+# specify output directory
+just diff tmp/eICR.xml tmp/eICR_after.xml -o some_other_output_dir/
+
+# specify configuration file other than the default
+just diff tmp/eICR.xml tmp/eICR_after.xml -c test_configuration.json
+```
+
 ### Local AWS pipeline
+
+m: [how does this tool (DiD) work? CLI or via dev input tool? do they do the same thing? dev input tool seems more configurable] -- we can answer this here by saying that CLI is solely for testing the diff logic; the dev input tool is for testing the DiD Lambda. DiD *IS* the Lambda. The CLI is ONLY for testing core logic for developers
+
+m: [what's expected output from dev input tool?] -- we should mention that the output from the dev input tool is only what is in the S3 Buckets
+
+m: [what's an RR?] -- may be good to briefly define some terms, and then link to refiner's better docs here
+m: [update okay I looked up what an RR is after reading through the rest of the doc and I'm not sure how it gets used by DiD] -- we might have to explicitly mention here how DiD uses the RR
+
+The Difference in Docs repository includes a Docker Compose stack to simulate the AIMS Platform's AWS environment. This is used for local development, as well as for end-to-end testing.
 
 Start the local S3, SQS, EventBridge, DynamoDB, Lambda, and uploader services:
 
@@ -140,9 +204,9 @@ uv add --package did_lambda aws-lambda-powertools
 
 ### Structurizr
 
-The Difference in Docs project uses [Structurizr](https://docs.structurizr.com/) to visualize the software architecture using the [C4 Model](https://c4model.com/).
+Difference in Docs uses [Structurizr](https://docs.structurizr.com/) to visualize the software architecture using the [C4 Model](https://c4model.com/).
 
-To run Structurizr locally, you'll first need to have [Docker](https://www.docker.com/) installed and then run:
+To run Structurizr locally, you'll first need to have the project [prerequisites](#prerequisites) installed and then run:
 
 ```bash
 just arch view
@@ -152,9 +216,11 @@ View it in your browser at http://localhost:7268.
 
 ## Repository Structure
 
-This project is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/) consisting of multiple Python packages.
+The Difference in Docs repository is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/) consisting of multiple Python packages.
 
 ```
+├── docker                    # Docker-related scripts, files, and containerized services
+├── e2e                       # End-to-End tests, assets, and snapshots
 ├── packages
 │   ├── cli                   # Command-line interface package
 │   │   ├── pyproject.toml
@@ -162,9 +228,10 @@ This project is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/wor
 │   ├── core                  # Core Difference in Docs logic and shared modules
 │   │   ├── pyproject.toml
 │   │   └── src/
-│   └── did_lambda                # AWS Lambda package
+│   └── did_lambda            # AWS Lambda Function package
 │       ├── pyproject.toml
 │       └── src/
+├── compose.yml               # Docker Compose stack used for local development and testing
 ├── pyproject.toml            # Workspace config (dependencies, linter rules, metadata)
 └── uv.lock                   # Lockfile for all workspace dependencies
 ```
