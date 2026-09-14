@@ -42,14 +42,7 @@ graph TB
   end
 ```
 
-m: [diff-output]: [reading this I'm now understanding that APHL sends a doc and DiD digs up the prior doc to do the compare. I assumed maybe DiD took in two files since the CLI tool has 2 file arguments] -- might be worth clarifying that the CLI exists only for devs to quickly iterate and test the core diffing logic/configuration engine
-
-m: [wait so does this diff get passed to an augmentation step before going to APHL?] -- yes it does; the diff output gets passed to the augmentation step so that `augment.py` can then perform the augmentation with the information from the diff. CLARIFY
-
-m: [I just realized I don't know what exactly is getting passed in to DiD and what gets passed out. 
-output = this diff output plus an augmented eICR?] -- yes that's right. CLARIFY
-
- moe entry augmentation under diff output spec.md ordering
+For more information on Difference in Docs' technical implementation, see [Technical Overview](docs/01-Technical-Overview.md).
 
 ## Getting Started
 
@@ -77,7 +70,7 @@ just sync
 
 ### Command-Line Interface (CLI)
 
-The Difference in Docs repository includes a command-line interface. **The purpose of this command-line interface is solely for development and manually testing the Difference in Docs core logic.**
+The Difference in Docs repository includes a command-line interface. **The purpose of this command-line interface is solely for development and manually testing the Difference in Docs core logic** (in the `core` package).
 
 To access the CLI, run:
 
@@ -101,30 +94,36 @@ just diff tmp/eICR.xml tmp/eICR_after.xml -o some_other_output_dir/
 just diff tmp/eICR.xml tmp/eICR_after.xml -c test_configuration.json
 ```
 
-### Local AWS pipeline
+### Docker Compose Stack
 
-m: [how does this tool (DiD) work? CLI or via dev input tool? do they do the same thing? dev input tool seems more configurable] -- we can answer this here by saying that CLI is solely for testing the diff logic; the dev input tool is for testing the DiD Lambda. DiD *IS* the Lambda. The CLI is ONLY for testing core logic for developers
+The Difference in Docs repository includes a Docker Compose stack to simulate running Difference in Docs on the AIMS Platform's AWS environment. This is used for local development, as well as for end-to-end testing.
 
-m: [what's expected output from dev input tool?] -- we should mention that the output from the dev input tool is only what is in the S3 Buckets
+The Docker Compose stack consists of multiple services:
 
-m: [what's an RR?] -- may be good to briefly define some terms, and then link to refiner's better docs here
-m: [update okay I looked up what an RR is after reading through the rest of the doc and I'm not sure how it gets used by DiD] -- we might have to explicitly mention here how DiD uses the RR
+* **Localstack** - used to emulate AWS services S3, SQS, EventBridge, DynamoDB
+* **Stackport** - a local AWS resource browser
+* **Difference in Docs Lambda** (`docker/lambda.Dockerfile`) - the DiD Lambda running in a separate container from Localstack
+* **SQS Poller** (`docker/sqs-poller.py`) - a thin service to pull SQS events from Localstack SQS and invoke the DiD Lambda
+* **DiD Dev Uploader** (`docker/uploader.html`) - a frontend tool for DiD engineers to send eICR/RR pairs to Localstack S3
 
-The Difference in Docs repository includes a Docker Compose stack to simulate the AIMS Platform's AWS environment. This is used for local development, as well as for end-to-end testing.
+The workflow for using the Docker Compose stack typically involves:
 
-Start the local S3, SQS, EventBridge, DynamoDB, Lambda, and uploader services:
+1. Using the Dev Uploader to upload an eICR/RR pair. This will generate a `DIDInputManifest`, and upload the manifest, the eICR, and RR to either the `RefinerOutputV2/` or `eCRMessageV2/` prefix on local S3.
+2. This will trigger an S3 Event, and create a new SQS Message (this behavior is configured in `docker/localstack-init.py`).
+3. The SQS Poller will pick up any new SQS Messages, and use these to invoke the DiD Lambda.
+4. DiD Lambda will run and produce output to the `DIDOutput/` prefix on local S3.
+
+#### Running the local pipeline
+
+The Docker Compose stack can be started with the following command:
 
 ```bash
 docker compose --env-file .env.local up --build --watch
 ```
 
-View local AWS resources at `http://localhost:8080`.
+View local AWS resources with Stackport at `http://localhost:8080`.
 
-Open `http://localhost:8081` and upload an eICR and RR. The uploader:
-
-1. Stores the documents in local S3, and generates a manifest which is also stored in local S3.
-2. Triggers an S3 notification to EventBridge -> SQS.
-3. `sqs-poller.py` checks SQS, and invokes the lambda on new messages.
+Open the DiD Dev Uploader at `http://localhost:8081` and upload an eICR and RR
 
 Stop the services with `docker compose down`.
 
