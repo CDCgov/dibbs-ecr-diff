@@ -2,7 +2,7 @@
 
 Difference in Docs (DiD) is an AWS Lambda Function deployed on APHL's AIMS Platform. It compares versions of electronic Initial Case Reports (eICRs), determines whether their changes are actionable, and marks those changes in an augmented eICR.
 
-APHL via SQS Messages provides DiD with an object key to a manifest JSON file (`DIDInputManifest`). This manifest references S3 Object Keys of eICRs and their Reportability Responses (RR).
+APHL provides DiD via SQS Message with an object key to a manifest JSON file (`DIDInputManifest`). This manifest references S3 Object Keys of eICRs and their Reportability Responses (RR).
 
 DiD processes each eICR/RR pair by:
 
