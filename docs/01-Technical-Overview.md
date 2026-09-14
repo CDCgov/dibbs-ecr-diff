@@ -52,24 +52,24 @@ graph TB
   end
 ```
 
-More information can be found in the following documents:
+## Related Technical Documents
 
-## [Configuration Spec](./02-Configuration-Spec.md)
+### [Configuration Spec](./02-Configuration-Spec.md)
 
 Defines the JSON configuration and XPath-based rules used to classify detected changes. It also describes change types for each rule, and augmentation metadata.
 
-## [Diff Output Spec](./03-Diff-Output-Spec.md)
+### [Diff Output Spec](./03-Diff-Output-Spec.md)
 
 Defines the JSON produced when DiD compares two eICR versions. It records each detected change, its actionability, and the matching configuration rule.
 
-## [Entry Augmentation Spec](./04-Entry-Augmentation-Spec.md)
+### [Entry Augmentation Spec](./04-Entry-Augmentation-Spec.md)
 
 Defines how changes from the diff are represented within the augmented eICR. Changes are marked using CDA-compatible author elements and function codes.
 
-## [Storage Architecture](./05-Storage-Architecture.md)
+### [Storage Architecture](./05-Storage-Architecture.md)
 
 Defines how S3 and DynamoDB store documents, outputs, and processing records. It also describes how DiD selects the comparison baseline.
 
-## [Telemetry Semantics](./06-Telemetry-Semantics.md)
+### [Telemetry Semantics](./06-Telemetry-Semantics.md)
 
 Defines the structured logs and CloudWatch metrics emitted by the Lambda. It covers processing results, failures, and safeguards for sensitive data.
