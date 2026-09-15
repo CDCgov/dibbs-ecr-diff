@@ -7,11 +7,11 @@ APHL provides DiD via SQS Message with an object key to a manifest JSON file (`D
 DiD processes each eICR/RR pair by:
 
 1. Using the S3 Object Keys in the manifest to retrieve the latest eICR and RR from S3.
-2. Using the approach in the [Storage Architecture](./05-Storage-Architecture.md) to find and retrieve the most recent actionable eICR recorded in DynamoDB.
-3. Comparing the current and previous eICRs, then applying the rules defined by the [Configuration Spec](./02-Configuration-Spec.md) to classify each detected change.
-4. Producing a JSON document shaped according to the [Diff Output Spec](./03-Diff-Output-Spec.md).
-5. Passing the diff output (in the shape of the Diff Output Spec) to the augmentation step, which marks changes in the current eICR as defined by the [Entry Augmentation Spec](./04-Entry-Augmentation-Spec.md). Note: DiD augments the RR with boilerplate augmentation, but does **not** diff RRs.
-6. Writing the diff output JSON, augmented eICR and RR, and a completion manifest to S3, then recording the result to DynamoDB as described by the [Storage Architecture](./05-Storage-Architecture.md).
+2. Using the approach in the [Storage Architecture](./Storage-Architecture.md) to find and retrieve the most recent actionable eICR recorded in DynamoDB.
+3. Comparing the current and previous eICRs, then applying the rules defined by the [Configuration Spec](./Configuration-Spec.md) to classify each detected change.
+4. Producing a JSON document shaped according to the [Diff Output Spec](./Diff-Output-Spec.md).
+5. Passing the diff output (in the shape of the Diff Output Spec) to the augmentation step, which marks changes in the current eICR as defined by the [Entry Augmentation Spec](./Entry-Augmentation-Spec.md). Note: DiD augments the RR with boilerplate augmentation, but does **not** diff RRs.
+6. Writing the diff output JSON, augmented eICR and RR, and a completion manifest to S3, then recording the result to DynamoDB as described by the [Storage Architecture](./Storage-Architecture.md).
 
 When no previous actionable eICR exists, DiD treats the current document as the initial baseline and does not produce a diff.
 
@@ -54,22 +54,22 @@ graph TB
 
 ## Related Technical Documents
 
-### [Configuration Spec](./02-Configuration-Spec.md)
+### [Configuration Spec](./Configuration-Spec.md)
 
 Defines the JSON configuration and XPath-based rules used to classify detected changes. It also describes change types for each rule, and augmentation metadata.
 
-### [Diff Output Spec](./03-Diff-Output-Spec.md)
+### [Diff Output Spec](./Diff-Output-Spec.md)
 
 Defines the JSON produced when DiD compares two eICR versions. It records each detected change, its actionability, and the matching configuration rule.
 
-### [Entry Augmentation Spec](./04-Entry-Augmentation-Spec.md)
+### [Entry Augmentation Spec](./Entry-Augmentation-Spec.md)
 
 Defines how changes from the diff are represented within the augmented eICR. Changes are marked using CDA-compatible author elements and function codes.
 
-### [Storage Architecture](./05-Storage-Architecture.md)
+### [Storage Architecture](./Storage-Architecture.md)
 
 Defines how S3 and DynamoDB store documents, outputs, and processing records. It also describes how DiD selects the comparison baseline.
 
-### [Telemetry Semantics](./06-Telemetry-Semantics.md)
+### [Telemetry Semantics](./Telemetry-Semantics.md)
 
 Defines the structured logs and CloudWatch metrics emitted by the Lambda. It covers processing results, failures, and safeguards for sensitive data.

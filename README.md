@@ -10,12 +10,6 @@
 * [Disclaimer](DISCLAIMER.md)
 * [Contribution Notice](CONTRIBUTING.md)
 * [Code of Conduct](code-of-conduct.md)
-* [Technical Overview](docs/01-Technical-Overview.md)
-* [Configuration Spec](docs/02-Configuration-Spec.md)
-* [Diff Output Spec](docs/03-Diff-Output-Spec.md)
-* [Entry Augmentation Spec](docs/04-Entry-Augmentation-Spec.md)
-* [Storage Architecture](docs/05-Storage-Architecture.md)
-* [Telemetry Semantics](docs/Telemetry-Semantics.md)
 
 ## Overview
 
@@ -24,6 +18,12 @@ DIBBs Difference in Docs (DiD) is a project aimed at helping Public Health Autho
 Difference in Docs achives this by performing full structural diffs between versions of an eICR, and using a configuration file (in JSON) utilizing [XPath](https://www.w3.org/TR/xpath/) strings to determine what changes are "actionable".
 
 Difference in Docs is deployed as an AWS Lambda Function on APHL's AIMS Platform.
+
+### Documentation
+
+For more information on Difference in Docs' technical implementation, see the [`docs/`](./docs/) folder.
+
+We recommend starting with the [Technical Overview](docs/01-Technical-Overview.md).
 
 ```mermaid
 graph TB
@@ -43,7 +43,29 @@ graph TB
   end
 ```
 
-For more information on Difference in Docs' technical implementation, see [Technical Overview](docs/01-Technical-Overview.md).
+## Repository Structure
+
+The Difference in Docs repository is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/) consisting of multiple Python packages under the `packages/` directory.
+
+```
+├── docker                    # Docker-related scripts, files, and containerized services
+├── docs                      # Difference in Docs documentation
+│   └── structurizr           # Structurizr and architecture diagram files
+├── e2e                       # End-to-End tests, assets, and snapshots
+├── packages
+│   ├── cli                   # Command-line interface package
+│   │   ├── pyproject.toml
+│   │   └── src/
+│   ├── core                  # Core Difference in Docs logic and shared modules
+│   │   ├── pyproject.toml
+│   │   └── src/
+│   └── did_lambda            # AWS Lambda Function package
+│       ├── pyproject.toml
+│       └── src/
+├── compose.yml               # Docker Compose stack used for local development and testing
+├── pyproject.toml            # Workspace config (dependencies, linter rules, metadata)
+└── uv.lock                   # Lockfile for all workspace dependencies
+```
 
 ## Getting Started
 
@@ -213,28 +235,6 @@ just arch view
 ```
 
 View it in your browser at http://localhost:7268.
-
-## Repository Structure
-
-The Difference in Docs repository is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/) consisting of multiple Python packages.
-
-```
-├── docker                    # Docker-related scripts, files, and containerized services
-├── e2e                       # End-to-End tests, assets, and snapshots
-├── packages
-│   ├── cli                   # Command-line interface package
-│   │   ├── pyproject.toml
-│   │   └── src/
-│   ├── core                  # Core Difference in Docs logic and shared modules
-│   │   ├── pyproject.toml
-│   │   └── src/
-│   └── did_lambda            # AWS Lambda Function package
-│       ├── pyproject.toml
-│       └── src/
-├── compose.yml               # Docker Compose stack used for local development and testing
-├── pyproject.toml            # Workspace config (dependencies, linter rules, metadata)
-└── uv.lock                   # Lockfile for all workspace dependencies
-```
 
 ## Public Domain Standard Notice
 This repository constitutes a work of the United States Government and is not
