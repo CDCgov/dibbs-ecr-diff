@@ -14,6 +14,7 @@
 * [Configuration Spec](docs/02-Configuration-Spec.md)
 * [Diff Output Spec](docs/03-Diff-Output-Spec.md)
 * [Entry Augmentation Spec](docs/04-Entry-Augmentation-Spec.md)
+* [Storage Architecture](docs/05-Storage-Architecture.md)
 * [Telemetry Semantics](docs/Telemetry-Semantics.md)
 
 ## Overview
@@ -170,13 +171,13 @@ E2E tests can be run using the included script:
 just e2e
 ```
 
-The E2E tests use a pytest plugin, [syrupy](https://github.com/syrupy-project/syrupy), for snapshot assertions. To update snapshots located in `e2e/__snapshots`, pass the `--snapshot-update` flag. Updating snapshots will also delete any stale/unused snapshot files.
+The E2E tests use a pytest plugin, [syrupy](https://github.com/syrupy-project/syrupy), for snapshot assertions. To update snapshots located in `e2e/__snapshots__`, pass the `--snapshot-update` flag. Updating snapshots will also delete any stale/unused snapshot files.
 
 ```bash
 just e2e --snapshot-update
 ```
 
-E2E tests use the same local Docker Compose stack located in `compose.yml`, with specific environment variables defined in `e2e/.e2e.env`. The Compose stack is configured as a fixture in `e2e/conftest.py`. To see additional log information while running E2E scripts, including Docker output, pass the `-s` flag to pytest:
+E2E tests use the same local Docker Compose stack located in `compose.yml`, with specific environment variables defined in `e2e/.env.e2e`. The Compose stack is configured as a fixture in `e2e/conftest.py`. To see additional log information while running E2E scripts, including Docker output, pass the `-s` flag to pytest:
 
 ```bash
 just e2e -s
