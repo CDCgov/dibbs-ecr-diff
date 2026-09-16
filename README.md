@@ -10,6 +10,7 @@
 * [Disclaimer](DISCLAIMER.md)
 * [Contribution Notice](CONTRIBUTING.md)
 * [Code of Conduct](code-of-conduct.md)
+* [Augmentation](docs/Augmentation.md)
 * [Telemetry Semantics](docs/Telemetry-Semantics.md)
 
 ## Overview
