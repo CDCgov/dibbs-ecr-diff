@@ -33,22 +33,6 @@ For each eICR/RR pair, DiD creates one augmentation run. The run captures:
 Sharing these values keeps the augmented eICR and RR visibly associated with the
 same processing operation and the same clinical-case version.
 
-```text
-current eICR + current refined RR
-                 |
-                 | one augmentation run
-                 v
-       +-------------------------+
-       | timestamp               |
-       | eICR versionNumber      |
-       | original eICR setId     |
-       +-------------------------+
-              /           \
-             v             v
-    augmented eICR    augmented RR
-    + diff markers    + provenance
-```
-
 ## When augmentation runs
 
 In the Lambda pipeline, DiD augments the current eICR and its refined RR after
@@ -64,7 +48,7 @@ jurisdiction identifier and does not augment an RR.
 
 ## Two layers of augmentation
 
-DiD adds augmentation at two layers:
+DiD adds augmentation at two possible layers:
 
 1. **Document-level augmentation** describes the transformation of the document
    as a whole. It gives the output a new identity, records when and by which tool
