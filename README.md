@@ -13,7 +13,7 @@
 
 ## Overview
 
-DIBBs Difference in Docs (DiD) is a project aimed at helping Public Health Authorities (PHAs) better leverage eCR by reducing the frequency of updates to electronic Initial Case Reports (eICRs). This will allow them to identify updates that are meaningful to their public health activities.
+DIBBs Difference in Docs (DiD) is a project aimed at helping Public Health Authorities (PHAs) better leverage eCR by reducing the frequency of updates to electronic Initial Case Reports (eICRs). This will allow them to identify updates that are actionable to their public health activities.
 
 Difference in Docs achives this by performing full structural diffs between versions of an eICR, and using a configuration file (in JSON) utilizing [XPath](https://www.w3.org/TR/xpath/) strings to determine what changes are "actionable".
 
