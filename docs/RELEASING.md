@@ -11,9 +11,9 @@ APHL pull the `latest` tag to deploy into their dev environment, but they will o
 2. **Find the last released version.** Go to the [Releases page](../../../releases) and note the most recent version so you can decide the next one.
 
 3. **Decide the next version.** Use semver (`vMAJOR.MINOR.PATCH`):
-    - `MAJOR` — breaking change
-    - `MINOR` — new feature, backwards compatible
-    - `PATCH` — bug fix, backwards compatible
+    - `MAJOR`: breaking change
+    - `MINOR`: new feature, backwards compatible
+    - `PATCH`: bug fix, backwards compatible
 
 4. **Draft a new release.** Go to Releases → **Draft a new release**.
     - **Choose a tag:** enter the new version (e.g. `v1.4.0`) and create it.
@@ -28,4 +28,4 @@ APHL pull the `latest` tag to deploy into their dev environment, but they will o
 
 ## If the push fails
 
-Open the failed run in the **Actions** tab and click **Re-run failed jobs**. Re-running is safe — it rebuilds and re-pushes the same version.
+Open the failed run in the **Actions** tab and click **Re-run failed jobs**. Re-running is safe. It rebuilds and re-pushes the same version.
