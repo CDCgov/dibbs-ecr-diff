@@ -22,9 +22,7 @@ APHL pull the `latest` tag to deploy into their dev environment, but they will o
 
 5. **Publish the release.** Click **Publish release**. This creates the tag and automatically triggers the release workflow.
 
-6. **Confirm the push succeeded.** Go to the **Actions** tab and open the running workflow.
-    - On success, the run's **Summary** shows the version pushed to ECR.
-    - On failure, an alert is posted to the team Slack channel.
+6. **Confirm the push succeeded.** Go to the **Actions** tab and open the running workflow. On successful completion, the run's **Summary** shows the version pushed to ECR.
 
 ## If the push fails
 
