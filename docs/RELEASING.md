@@ -1,6 +1,6 @@
 # Releasing the Lambda Image
 
-This describes how to release a new version of the Lambda image to ECR. Publishing a GitHub Release triggers a workflow that builds the image and pushes it to ECR, where our partners deploy it themselves.
+This describes how to release a new version of the Lambda image. Publishing a GitHub Release triggers a workflow that builds the image and pushes it to AIMS dev ECR, where APHL then deploy it themselves to one or more of their environments (e.g. dev, test, prod).
 
 _TODO: can add additional context about release process or decisions made here_
 
