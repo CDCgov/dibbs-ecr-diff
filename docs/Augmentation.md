@@ -1,5 +1,7 @@
 # Difference in Docs: Augmentation
 
+Created 17 SEPT 2026
+
 ## Purpose
 
 Difference in Docs (DiD) compares versions of an electronic Initial Case
@@ -16,7 +18,9 @@ Augmentation serves two related purposes:
    without parsing the separate JSON diff output.
 
 This document describes the current implementation of DiD eICR augmentation and the
-reasoning behind it.
+reasoning behind it. It covers only DiD eICR augmentation. The latest APHL Data
+Augmentation Specification, available directly from APHL, is authoritative. Proposed
+changes to the specification must be routed through and approved by APHL.
 
 ## Mental model
 
@@ -34,6 +38,14 @@ Sharing these values keeps the augmented eICR and RR visibly associated with the
 same processing operation and the same clinical-case version.
 
 ## When augmentation runs
+
+eICR augmentation is performed by multiple DIBBs products, not just DiD. In
+particular, the eCR Refiner also runs in the AIMS pipeline and creates augmented eCRs.
+When an eCR/RR pair contains multiple reportable conditions, Refiner can produce
+multiple condition-specific eCRs. Although some header-level augmentation is the same
+or similar, augmentation is fundamentally different between DIBBs products, and this
+guide describes only DiD augmentation in detail. Learn more in the
+[eCR Refiner repository](https://github.com/CDCgov/dibbs-ecr-refiner).
 
 In the Lambda pipeline, DiD augments the current eICR and its refined RR after
 loading the documents and, when a prior actionable eICR exists, generates a
@@ -166,14 +178,15 @@ A rule's `augmentationFunctionCode` takes precedence over the default based on
 change type. This supports domain-specific codes such as
 `did-patient-deceased`, `did-patient-birthTime`, `did-patient-name`, and
 `did-encounter-closeTime`. Configured values are expected to come from the Data
-Augmentation Tool Operation value set.
+Augmentation Tool Operation value set. These values can be found in APHL's Augmentation
+Spec V2, which is available by request from APHL.
 
 The distinction between “no change” and “no actionable change” matters:
 
 - `did-no-change` means DiD has no reported changes to mark. In the current
   implementation, this also covers the first-version case where no comparison
   was performed because no baseline existed.
-- `did-no-actionable-change` means differences were reported, but the active
+- `did-no-actionable-change` means DiD detected changes, but the active
   configuration classified all of them as non-actionable.
 
 ## Choosing where to put a diff marker
