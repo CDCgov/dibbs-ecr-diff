@@ -1,0 +1,97 @@
+# Builds the Difference in Docs Lambda container image and pushes it to AWS ECR.
+#
+# Trigger: publishing a GitHub Release, which creates a semver tag (v*).
+# The pushed tag fires this workflow, which builds the image, tags it with the
+# semver version (and `latest`), and pushes to AIMS ECR.
+
+name: Release Lambda image to ECR
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          # Build from the tag that triggered the run.
+          ref: ${{ github.ref }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Configure AIMS dev AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          aws-access-key-id: ${{ secrets.AIMS_DEV_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AIMS_DEV_AWS_SECRET_ACCESS_KEY }}
+
+      - name: Login to AIMS dev ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Determine Docker tags
+        id: vars
+        env:
+          # The tag that triggered the run, e.g. "v1.4.0".
+          REF_NAME: ${{ github.ref_name }}
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          # Sanitize the tag so it's a valid image tag.
+          TAG=$(echo "$REF_NAME" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
+
+          echo "version_tag=$TAG" >> $GITHUB_OUTPUT
+
+          TAGS=()
+          TAGS+=("$ECR_REGISTRY/dibbs-dev-did/lambda:$TAG")
+          # Also push `latest` alongside the semver tag.
+          TAGS+=("$ECR_REGISTRY/dibbs-dev-did/lambda:latest")
+
+          echo "image_tags=$(IFS=, ; echo "${TAGS[*]}")" >> $GITHUB_OUTPUT
+
+      - name: Debug Docker tags
+        env:
+          IMAGE_TAGS: ${{ steps.vars.outputs.image_tags }}
+        run: |
+          echo "IMAGE_TAGS: $IMAGE_TAGS"
+
+      - name: Build and push Lambda image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          provenance: false
+          file: docker/lambda.Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.vars.outputs.image_tags }}
+          build-args: |
+            VERSION=${{ steps.vars.outputs.version_tag }}
+
+      - name: Record pushed version in job summary
+        run: |
+          echo "### Pushed to ECR :rocket:" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version: \`${{ steps.vars.outputs.version_tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Time: $(date -u '+%Y-%m-%d %H:%M UTC')" >> "$GITHUB_STEP_SUMMARY"
+
+#      - name: Notify Slack on failure
+#        if: failure()
+#        env:
+#          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+#        run: |
+#          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+#          curl -s -X POST -H 'Content-type: application/json' \
+#            --data "{\"text\":\":x: ECR release push failed for tag \`${{ github.ref_name }}\`. Re-run: $RUN_URL\"}" \
+#            "$SLACK_WEBHOOK_URL"
