@@ -10,20 +10,71 @@
 * [Disclaimer](DISCLAIMER.md)
 * [Contribution Notice](CONTRIBUTING.md)
 * [Code of Conduct](code-of-conduct.md)
-* [Telemetry Semantics](docs/Telemetry-Semantics.md)
 
 ## Overview
 
-DIBBs Difference in Docs (DiD) is a project aimed at helping Public Health Authorities (PHAs) better leverage eCR by reducing the frequency of updates to electronic Initial Case Reports (eICRs). This will allow them to identify updates that are meaningful to their public health activities. 
+DIBBs Difference in Docs (DiD) is a project aimed at helping Public Health Authorities (PHAs) better leverage eCR by reducing the frequency of updates to electronic Initial Case Reports (eICRs). This will allow them to identify updates that are actionable to their public health activities.
+
+Difference in Docs achieves this by performing full structural diffs between versions of an eICR, and using a configuration file (in JSON) utilizing [XPath](https://www.w3.org/TR/xpath/) strings to determine what changes are "actionable".
+
+Difference in Docs is deployed as an AWS Lambda Function on APHL's AIMS Platform.
+
+### Documentation
+
+For more information on Difference in Docs' technical implementation, see the [`docs/`](./docs/) folder.
+
+We recommend starting with the [Technical Overview](docs/01-Technical-Overview.md).
+
+```mermaid
+graph TB
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["System Context View: Difference in Docs, Iteration 1 DRAFT"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    1("<div style='font-weight: bold'>AIMS Platform</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Handles incoming eCRs and<br />decides whether to send to<br />PHAs. Includes eCR Refiner.</div>")
+    style 1 fill:#ffffff,stroke:#009ca7,color:#009ca7
+    2("<div style='font-weight: bold'>Difference in Docs</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Determines differences<br />between eCRs based on<br />configuration</div>")
+    style 2 fill:#ffffff,stroke:#6499af,color:#6499af
+
+    2-. "<div>Sends diff output to</div><div style='font-size: 70%'></div>" .->1
+    1-. "<div>Sends eCR input to</div><div style='font-size: 70%'></div>" .->2
+
+  end
+```
+
+## Repository Structure
+
+The Difference in Docs repository is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/) consisting of multiple Python packages under the `packages/` directory.
+
+```
+├── docker                    # Docker-related scripts, files, and containerized services
+├── docs                      # Difference in Docs documentation
+│   └── structurizr           # Structurizr and architecture diagram files
+├── e2e                       # End-to-End tests, assets, and snapshots
+├── packages
+│   ├── cli                   # Command-line interface package
+│   │   ├── pyproject.toml
+│   │   └── src/
+│   ├── core                  # Core Difference in Docs logic and shared modules
+│   │   ├── pyproject.toml
+│   │   └── src/
+│   └── did_lambda            # AWS Lambda Function package
+│       ├── pyproject.toml
+│       └── src/
+├── compose.yml               # Docker Compose stack used for local development and testing
+├── pyproject.toml            # Workspace config (dependencies, linter rules, metadata)
+└── uv.lock                   # Lockfile for all workspace dependencies
+```
 
 ## Getting Started
 
 ### Prerequisites
 
-To start developing locally, you need the following tools installed:
+**To start developing locally, or to run any commands in this document, you'll need the following tools installed:**
 
 * [just](https://just.systems/man/en/) `>=1.46.x` for running project commands
-* [uv](https://docs.astral.sh/uv/getting-started/installation/) `>=0.10.x` for Python version, package, and project management
+* [uv](https://docs.astral.sh/uv/getting-started/installation/) `>=0.11.31` for Python version, package, and project management
 * [Docker](https://www.docker.com/) `>=28.3.x` for running containers
 
 ### Setup
@@ -40,27 +91,62 @@ Download Python dependencies and sync all packages:
 just sync
 ```
 
+### Command-Line Interface (CLI)
+
+The Difference in Docs repository includes a command-line interface. **The purpose of this command-line interface is solely for development and manually testing the Difference in Docs core logic** (in the `core` package).
+
 To access the CLI, run:
 
 ```bash
 just diff
 ```
 
-### Local AWS pipeline
+This will print help text with instructions on running the CLI against a pair of eICR files.
 
-Start the local S3, SQS, EventBridge, DynamoDB, Lambda, and uploader services:
+On successfully running the CLI tool, it will produce a diff output JSON file following the [Diff Output Spec](./docs/03-Diff-Output-Spec.md), and an augmented eICR XML file.
+
+See below for more examples:
+```bash
+# run CLI tool against two eICR versions; will output to `output/` directory by default
+just diff tmp/eICR.xml tmp/eICR_after.xml
+
+# specify output directory
+just diff tmp/eICR.xml tmp/eICR_after.xml -o some_other_output_dir/
+
+# specify configuration file other than the default
+just diff tmp/eICR.xml tmp/eICR_after.xml -c test_configuration.json
+```
+
+### Docker Compose Stack
+
+The Difference in Docs repository includes a Docker Compose stack to simulate running Difference in Docs on the AIMS Platform's AWS environment. This is used for local development and for end-to-end testing.
+
+The Docker Compose stack consists of multiple services:
+
+* **Localstack** - used to emulate AWS services S3, SQS, EventBridge, DynamoDB
+* **Stackport** - a local AWS resource browser
+* **Difference in Docs Lambda** (`docker/lambda.Dockerfile`) - the DiD Lambda running in a separate container from Localstack
+* **SQS Poller** (`docker/sqs-poller.py`) - a thin service to pull SQS events from Localstack SQS and invoke the DiD Lambda
+* **DiD Dev Uploader** (`docker/uploader.html`) - a frontend tool for DiD engineers to send eICR/RR pairs to Localstack S3
+
+The workflow for using the Docker Compose stack typically involves:
+
+1. Using the Dev Uploader to upload an eICR/RR pair. This will generate a `DIDInputManifest`, and upload the manifest, the eICR, and RR to either the `RefinerOutputV2/` or `eCRMessageV2/` prefix on local S3.
+2. This will trigger an S3 Event, and create a new SQS Message (this behavior is configured in `docker/localstack-init.py`).
+3. The SQS Poller will pick up any new SQS Messages, and use these to invoke the DiD Lambda.
+4. DiD Lambda will run and produce output to the `DIDOutput/` prefix on local S3.
+
+#### Running the local pipeline
+
+The Docker Compose stack can be started with the following command:
 
 ```bash
 docker compose --env-file .env.local up --build --watch
 ```
 
-View local AWS resources at `http://localhost:8080`.
+View local AWS resources with Stackport at `http://localhost:8080`.
 
-Open `http://localhost:8081` and upload an eICR and RR. The uploader:
-
-1. Stores the documents in local S3, and generates a manifest which is also stored in local S3.
-2. Triggers an S3 notification to EventBridge -> SQS.
-3. `sqs-poller.py` checks SQS, and invokes the lambda on new messages.
+Open the DiD Dev Uploader at `http://localhost:8081` and upload an eICR and RR
 
 Stop the services with `docker compose down`.
 
@@ -93,7 +179,7 @@ All unit tests can be run with pytest:
 just test
 ```
 
-Unit tests for a specific package can be ran by passing a path to pytest:
+Unit tests for a specific package can be run by passing a path to pytest:
 
 ```bash
 just test packages/cli
@@ -107,13 +193,13 @@ E2E tests can be run using the included script:
 just e2e
 ```
 
-The E2E tests use a pytest plugin, [syrupy](https://github.com/syrupy-project/syrupy), for snapshot assertions. To update snapshots located in `e2e/__snapshots`, pass the `--snapshot-update` flag. Updating snapshots will also delete any stale/unused snapshot files.
+The E2E tests use a pytest plugin, [syrupy](https://github.com/syrupy-project/syrupy), for snapshot assertions. To update snapshots located in `e2e/__snapshots__`, pass the `--snapshot-update` flag. Updating snapshots will also delete any stale/unused snapshot files.
 
 ```bash
 just e2e --snapshot-update
 ```
 
-E2E tests use the same local Docker Compose stack located in `compose.yml`, with specific environment variables defined in `e2e/.e2e.env`. The Compose stack is configured as a fixture in `e2e/conftest.py`. To see additional log information while running E2E scripts, including Docker output, pass the `-s` flag to pytest:
+E2E tests use the same local Docker Compose stack located in `compose.yml`, with specific environment variables defined in `e2e/.env.e2e`. The Compose stack is configured as a fixture in `e2e/conftest.py`. To see additional log information while running E2E scripts, including Docker output, pass the `-s` flag to pytest:
 
 ```bash
 just e2e -s
@@ -140,34 +226,15 @@ uv add --package did_lambda aws-lambda-powertools
 
 ### Structurizr
 
-The Difference in Docs project uses [Structurizr](https://docs.structurizr.com/) to visualize the software architecture using the [C4 Model](https://c4model.com/).
+Difference in Docs uses [Structurizr](https://docs.structurizr.com/) to visualize the software architecture using the [C4 Model](https://c4model.com/).
 
-To run Structurizr locally, you'll first need to have [Docker](https://www.docker.com/) installed and then run:
+To run Structurizr locally, you'll first need to have the project [prerequisites](#prerequisites) installed and then run:
 
 ```bash
 just arch view
 ```
 
-View it in your browser at http://localhost:7268.
-
-## Repository Structure
-
-This project is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/) consisting of multiple Python packages.
-
-```
-├── packages
-│   ├── cli                   # Command-line interface package
-│   │   ├── pyproject.toml
-│   │   └── src/
-│   ├── core                  # Core Difference in Docs logic and shared modules
-│   │   ├── pyproject.toml
-│   │   └── src/
-│   └── did_lambda                # AWS Lambda package
-│       ├── pyproject.toml
-│       └── src/
-├── pyproject.toml            # Workspace config (dependencies, linter rules, metadata)
-└── uv.lock                   # Lockfile for all workspace dependencies
-```
+Diagrams can be viewed in the browser at http://localhost:7268.
 
 ## Public Domain Standard Notice
 This repository constitutes a work of the United States Government and is not
