@@ -2,7 +2,7 @@
 
 This describes how to release a new version of the Lambda image. Publishing a GitHub Release triggers a workflow that builds the image and pushes it to AIMS dev ECR, where APHL then deploy it themselves to one or more of their environments (e.g. dev, test, prod).
 
-_TODO: can add additional context about release process or decisions made here_
+APHL pull the `latest` tag to deploy into their dev environment, but they will only promote an image beyond dev if it carries a semver tag. Cutting a release (below) produces both a semver-tagged image and `latest`.
 
 ## Steps
 
