@@ -15,7 +15,7 @@
 
 DIBBs Difference in Docs (DiD) is a project aimed at helping Public Health Authorities (PHAs) better leverage eCR by reducing the frequency of updates to electronic Initial Case Reports (eICRs). This will allow them to identify updates that are actionable to their public health activities.
 
-Difference in Docs achives this by performing full structural diffs between versions of an eICR, and using a configuration file (in JSON) utilizing [XPath](https://www.w3.org/TR/xpath/) strings to determine what changes are "actionable".
+Difference in Docs achieves this by performing full structural diffs between versions of an eICR, and using a configuration file (in JSON) utilizing [XPath](https://www.w3.org/TR/xpath/) strings to determine what changes are "actionable".
 
 Difference in Docs is deployed as an AWS Lambda Function on APHL's AIMS Platform.
 
@@ -119,7 +119,7 @@ just diff tmp/eICR.xml tmp/eICR_after.xml -c test_configuration.json
 
 ### Docker Compose Stack
 
-The Difference in Docs repository includes a Docker Compose stack to simulate running Difference in Docs on the AIMS Platform's AWS environment. This is used for local development, as well as for end-to-end testing.
+The Difference in Docs repository includes a Docker Compose stack to simulate running Difference in Docs on the AIMS Platform's AWS environment. This is used for local development and for end-to-end testing.
 
 The Docker Compose stack consists of multiple services:
 
@@ -179,7 +179,7 @@ All unit tests can be run with pytest:
 just test
 ```
 
-Unit tests for a specific package can be ran by passing a path to pytest:
+Unit tests for a specific package can be run by passing a path to pytest:
 
 ```bash
 just test packages/cli
@@ -234,7 +234,7 @@ To run Structurizr locally, you'll first need to have the project [prerequisites
 just arch view
 ```
 
-View it in your browser at http://localhost:7268.
+Diagrams can be viewed in the browser at http://localhost:7268.
 
 ## Public Domain Standard Notice
 This repository constitutes a work of the United States Government and is not
