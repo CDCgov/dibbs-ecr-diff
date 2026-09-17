@@ -1,0 +1,34 @@
+graph TB
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["Sequence Diagram: Difference in Docs, Iteration 1 DRAFT"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    subgraph 2 ["Difference in Docs"]
+      style 2 fill:#ffffff,stroke:#6499af,color:#6499af
+
+      3[("<div style='font-weight: bold'>Database</div><div style='font-size: 70%; margin-top: 0px'>[Container: AWS DynamoDB]</div><div style='font-size: 80%; margin-top:10px'>Stores previously seen eCR<br />metadata</div>")]
+      style 3 fill:#ed2bf7,stroke:#971b9e,color:#ffffff
+      4["<div style='font-weight: bold'>Storage Account</div><div style='font-size: 70%; margin-top: 0px'>[Container: AWS S3]</div><div style='font-size: 80%; margin-top:10px'>Stores eCR data with input<br />and output buckets</div>"]
+      style 4 fill:#8caf31,stroke:#7aa116,color:#ffffff
+      5["<div style='font-weight: bold'>Message Queue</div><div style='font-size: 70%; margin-top: 0px'>[Container: AWS SQS]</div><div style='font-size: 80%; margin-top:10px'>Holds incoming eCR data</div>"]
+      style 5 fill:#d72b6c,stroke:#af2359,color:#ffffff
+      6["<div style='font-weight: bold'>Lambda</div><div style='font-size: 70%; margin-top: 0px'>[Container: AWS Lambda, Python]</div><div style='font-size: 80%; margin-top:10px'>Runs function to determine<br />differences between eCR<br />versions</div>"]
+      style 6 fill:#e48125,stroke:#cc5717,color:#ffffff
+    end
+
+    1("<div style='font-weight: bold'>AIMS Platform</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Handles incoming eCRs and<br />decides whether to send to<br />PHAs. Includes eCR Refiner.</div>")
+    style 1 fill:#ffffff,stroke:#009ca7,color:#009ca7
+
+    1-. "<div>1. Adds eCR to an input<br />bucket on</div><div style='font-size: 70%'></div>" .->4
+    4-. "<div>2. Publishes event with eCR<br />metadata to</div><div style='font-size: 70%'>[SNS]</div>" .->5
+    5-. "<div>3. Triggers with eCR metadata<br />as input</div><div style='font-size: 70%'>[SNS]</div>" .->6
+    6-. "<div>4. Persists eCR metadata with<br />bucket URL to</div><div style='font-size: 70%'>[HTTPS]</div>" .->3
+    6-. "<div>5. Queries for previous eCR<br />version with matching Set ID</div><div style='font-size: 70%'>[HTTPS]</div>" .->3
+    3-. "<div>6. Returns previous eCR<br />version metadata with bucket<br />URL if it exists</div><div style='font-size: 70%'>[HTTPS]</div>" .->6
+    6-. "<div>7. Fetches eCR files of<br />current and previous version<br />using saved bucket URLs</div><div style='font-size: 70%'>[HTTPS]</div>" .->4
+    4-. "<div>8. Returns eCR files of<br />current and previous version<br />to compare</div><div style='font-size: 70%'>[HTTPS]</div>" .->6
+    6-. "<div>9. Adds diff output to</div><div style='font-size: 70%'>[HTTPS]</div>" .->4
+    4-. "<div>10. Triggers remaining AIMS<br />processing</div><div style='font-size: 70%'></div>" .->1
+
+  end
