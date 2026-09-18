@@ -89,11 +89,21 @@ jobs:
           context: .
           provenance: false
           file: docker/lambda.Dockerfile
-          push: true
+          # TEMPORARILY DISABLED FOR TESTING
+          # push: true
+          push: false
           platforms: linux/amd64
           tags: ${{ steps.vars.outputs.image_tags }}
           build-args: |
             ${{ steps.vars.outputs.version_arg }}
+
+      - name: temporarily log build build-push args
+        env:
+          IMAGE_TAGS: ${{ steps.vars.outputs.image_tags }}
+          VERSION_ARG: ${{ steps.vars.outputs.version_arg }}
+        run: |
+          echo "tags: $IMAGE_TAGS"
+          echo "build-args: ${VERSION_ARG:-<none>}"
 
       - name: Record pushed version in job summary
         run: |
