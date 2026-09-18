@@ -1,11 +1,12 @@
 # Builds the Difference in Docs Lambda container image and pushes it to AWS ECR.
 #
 # Two triggers:
-#   1. Publishing a GitHub Release creates a semver tag (v*), which builds from
-#      that tag and pushes the version image tag (v stripped out) plus
-#      `latest`.
-#   2. Manual (workflow_dispatch): build from a given commit/branch and push
-#      ONLY the `latest` tag. Use this to push to ECR without cutting a release.
+#   1. On any v* tag push: builds the image from that tag's commit and pushes
+#      it to ECR tagged with the version and `latest`. This is triggered by
+#      publishing a release.
+#   2. Manual (workflow_dispatch): builds the image from a given commit/branch
+#      and pushes it to ECR tagged only with `latest`. Use this to push to ECR
+#      without cutting a release.
 
 name: Push Lambda image to ECR
 
@@ -34,7 +35,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          #  Manual run: build from the input ref. Tag run: build from the tag.
+          # Manual run: build from the input ref. Tag run: build from the tag.
           ref: ${{ github.event.inputs.ref || github.ref }}
 
       - name: Set up Docker Buildx
