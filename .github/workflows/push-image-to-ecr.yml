@@ -12,6 +12,8 @@ name: Push Lambda image to ECR
 
 on:
   push:
+    branches:
+      - meh/test-release-workflow
     tags:
       - "v*"
   workflow_dispatch:
