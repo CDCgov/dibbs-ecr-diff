@@ -1,6 +1,6 @@
 # Stable Key
 
-## Purpose
+## Purpose 
 
 The stable key serves to identify the same XML element across different
 versions of an eICR regardless of its position among sibling elements.
