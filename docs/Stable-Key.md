@@ -43,13 +43,15 @@ The stable key candidate hierarchy reflects how uniquely a candidate key is expe
 
 ## Limitations
 
-Missing identifiers, reused identifiers, duplicated keys among
+* It's not uncommon for an eICR authoring system to use a different id element across eICRs for the same part of the eICR. In this case the stable key will try to match on the id candidate and then move on to the next stable key candidate if the id elements fail to match. Noting this here since it goes against the intuition that id elements should remain the same across eICRs.
+
+* Missing identifiers, reused identifiers, duplicated keys among
 siblings, broad template IDs, or changes to the identifying fields can leave
 an element without a sufficiently specific key. In that case, there is fallback matching logic that gets attempted after stable key matching fails.
 
-Keys are not guaranteed to be globally unique across the document; uniqueness is evaluated within the context of sibling elements.
+* Keys are not guaranteed to be globally unique across the document; uniqueness is evaluated within the context of sibling elements.
 
-A candidate key can be present but still too broad to identify one element, especially a shared template ID or common code.
+* A candidate key can be present but still too broad to identify one element, especially a shared template ID or common code.
 
-The matching and diffing procedures that consume these keys are specified
+* The matching and diffing procedures that consume these keys are specified
 separately.
