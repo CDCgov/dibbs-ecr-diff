@@ -13,13 +13,26 @@
 
 ## Overview
 
-DIBBs Difference in Docs (DiD) is a project aimed at helping Public Health Authorities (PHAs) better leverage eCR by reducing the frequency of updates to electronic Initial Case Reports (eICRs). This will allow them to identify updates that are actionable to their public health activities.
+DIBBs Difference in Docs (DiD) is a project aimed at helping Public Health Authorities (PHAs) better leverage electronic case reporting by reducing the frequency of updates to electronic Initial Case Reports (eICRs). This will allow them to identify updates that are actionable to their public health activities.
 
-Difference in Docs achieves this by performing full structural diffs between versions of an eICR, and using a configuration file (in JSON) utilizing [XPath](https://www.w3.org/TR/xpath/) strings to determine what changes are "actionable".
+DiD is deployed as an AWS Lambda Function on the Association of Public Health Laboratories (APHL) AIMS Platform.
 
-Difference in Docs is deployed as an AWS Lambda Function on APHL's AIMS Platform.
+### The Problem
 
-### Documentation
+Electronic case reports (eCR) are continuously, automatically updated as changes are made to a patient's electronic health record (EHR). For example, as a patient receives care or their test results are updated, this can lead to a very noisy experience as PHAs try to stay on top of changes to those eICRs.
+
+Oftentimes, small changes occur that aren't of interest to PHAs, or important changes can be missed amid the noise. Additionally, not all updates are flagged clearly which means the PHA must decide whether to invest the human effort or computing resources to scan through each version of an eICR for relevant updates or risk missing important information by batching or ignoring eICRs that come in quick succession. PHAs also need to decide how and whether to store each version of an eCR, which has considerable impacts on their infrastructure footprint.
+
+### How it works
+
+As eICRs pass through APHL's AIMS platform, they are scanned, validated, and delivered according to rules configured by each PHA. DiD enhances that functionality by identifying differences between versions of an eICR, determining whether the changes are actionable based on configurable rules, and marking those changes in an augmented eICR output. If there are actionable changes, AIMS sends the augmented eICR to the PHA. If there are not actionable changes, AIMS can withhold that eICR so PHAs won't receive that unimportant noisy update.
+
+The following diagram shows how an eICR is processed by DiD within the AIMS pipeline.
+
+![Diagram showing how DiD processes eICRs](docs/did-document-journey.png)
+
+
+### Technical Documentation
 
 For more information on Difference in Docs' technical implementation, see the [`docs/`](./docs/) folder.
 
