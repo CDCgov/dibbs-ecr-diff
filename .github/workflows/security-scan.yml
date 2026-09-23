@@ -61,6 +61,16 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Run Trivy vulnerability scanner (SARIF)
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          image-ref: local-scan/${{ matrix.image.name }}:${{ github.sha }}
+          format: "sarif"
+          output: "trivy-${{ matrix.image.name }}-results.sarif"
+          severity: ${{ env.TRIVY_SEVERITY }}
+          ignore-unfixed: false
+          timeout: "10m"
+
       - name: Run Trivy vulnerability scanner (JSON)
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
@@ -70,14 +80,7 @@ jobs:
           severity: ${{ env.TRIVY_SEVERITY }}
           ignore-unfixed: false
           timeout: "10m"
-
-      - name: Convert Trivy results to SARIF
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
-        with:
-          scan-type: "convert"
-          input: "trivy-${{ matrix.image.name }}-results.json"
-          format: "sarif"
-          output: "trivy-${{ matrix.image.name }}-results.sarif"
+          skip-setup-trivy: true
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
