@@ -13,7 +13,7 @@
 
 ## Overview
 
-DIBBs Difference in Docs (DiD) is a project aimed at helping Public Health Authorities (PHAs) better leverage electronic case reporting by reducing the frequency of updates to electronic Initial Case Reports (eICRs). This will allow them to identify updates that are actionable to their public health activities.
+DIBBs Difference in Docs (DiD) is a project aimed at helping Public Health Authorities (PHAs) better leverage electronic case reporting (eCR) by reducing the frequency of updates to electronic Initial Case Reports (eICRs). This will allow them to identify updates that are actionable to their public health activities.
 
 DiD is deployed as an AWS Lambda Function on the Association of Public Health Laboratories (APHL) AIMS Platform.
 
