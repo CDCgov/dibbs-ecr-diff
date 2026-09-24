@@ -87,7 +87,7 @@ jobs:
         if: ${{ always() && !env.ACT }}
         with:
           sarif_file: "trivy-${{ matrix.image.name }}-results.sarif"
-          category: "pr-scan-${{ matrix.image.name }}"
+          category: "security-scan-${{ matrix.image.name }}"
 
       - name: Upload JSON results as artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -105,7 +105,7 @@ jobs:
           if [ -f "trivy-${{ matrix.image.name }}-results.sarif" ]; then
             echo "Vulnerability scan completed successfully" >> $GITHUB_STEP_SUMMARY
             echo "Results uploaded to Security tab" >> $GITHUB_STEP_SUMMARY
-            echo "Category: pr-scan-${{ matrix.image.name }}" >> $GITHUB_STEP_SUMMARY
+            echo "Category: security-scan-${{ matrix.image.name }}" >> $GITHUB_STEP_SUMMARY
           else
             echo "Scan failed or no results generated" >> $GITHUB_STEP_SUMMARY
           fi
