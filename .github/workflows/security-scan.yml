@@ -1,4 +1,10 @@
-name: PR Security Scan
+# Security Scan
+#
+# Builds the lambda image, scans it for vulnerabilities with Trivy, and uploads
+# the results to the Security tab. If triggered by a pull request, also posts a
+# comment on the PR summarizing the results.
+
+name: Security Scan
 
 on:
   workflow_dispatch:
@@ -8,6 +14,11 @@ on:
   merge_group:
     types:
       - checks_requested
+  push:
+    branches: [main]
+  schedule:
+    # Run on main once daily at 2 PM UTC
+    - cron: "0 14 * * *"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -60,7 +71,7 @@ jobs:
           ignore-unfixed: false
           timeout: "10m"
 
-      - name: Run Trivy vulnerability scanner (JSON for PR comment)
+      - name: Run Trivy vulnerability scanner (JSON)
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           image-ref: local-scan/${{ matrix.image.name }}:${{ github.sha }}
@@ -69,19 +80,14 @@ jobs:
           severity: ${{ env.TRIVY_SEVERITY }}
           ignore-unfixed: false
           timeout: "10m"
-
-      - name: Display Trivy results as table
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
-        with:
-          image-ref: local-scan/${{ matrix.image.name }}:${{ github.sha }}
-          format: "table"
+          skip-setup-trivy: true
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
         if: ${{ always() && !env.ACT }}
         with:
           sarif_file: "trivy-${{ matrix.image.name }}-results.sarif"
-          category: "pr-scan-${{ matrix.image.name }}"
+          category: "security-scan-${{ matrix.image.name }}"
 
       - name: Upload JSON results as artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -99,12 +105,13 @@ jobs:
           if [ -f "trivy-${{ matrix.image.name }}-results.sarif" ]; then
             echo "Vulnerability scan completed successfully" >> $GITHUB_STEP_SUMMARY
             echo "Results uploaded to Security tab" >> $GITHUB_STEP_SUMMARY
-            echo "Category: pr-scan-${{ matrix.image.name }}" >> $GITHUB_STEP_SUMMARY
+            echo "Category: security-scan-${{ matrix.image.name }}" >> $GITHUB_STEP_SUMMARY
           else
             echo "Scan failed or no results generated" >> $GITHUB_STEP_SUMMARY
           fi
 
-  scan-summary:
+  # Posts/updates a PR comment summarizing findings.
+  pr-comment:
     runs-on: ubuntu-latest
     needs: build-and-scan
     if: ${{ always() && github.event_name == 'pull_request' }}
