@@ -1,0 +1,84 @@
+# Generate Risk Exception Document
+#
+# Builds the lambda image at a chosen ref, scans it with Trivy, and generates a
+# risk-exception.md template pre-filled with those findings.
+#
+# The ref input accepts a branch, tag, or full commit SHA; leave it blank to use
+# the ref selected in "Use workflow from".
+#
+# If the scan finds no vulnerabilities at the target severities, no document is
+# produced.
+
+name: Generate Risk Exception Document
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or full commit SHA to scan. Leave blank to use the ref selected in 'Use workflow from'."
+        required: false
+        # Blank input falls back to the dispatch ref (the ref selected in "Use
+        # workflow from").
+        default: ""
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Severities to scan for and include in the risk exception document.
+  GENERATE_FOR_SEVERITY: "CRITICAL,HIGH"
+  IMAGE_NAME: "did-lambda"
+  IMAGE_DOCKERFILE: "docker/lambda.Dockerfile"
+
+jobs:
+  generate-doc:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.inputs.ref }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Build image locally (no push)
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: ${{ env.IMAGE_DOCKERFILE }}
+          load: true
+          tags: local-scan/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scanner (JSON)
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          image-ref: local-scan/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          format: "json"
+          output: "trivy-${{ env.IMAGE_NAME }}-results.json"
+          severity: ${{ env.GENERATE_FOR_SEVERITY }}
+          ignore-unfixed: false
+          timeout: "10m"
+
+      - name: Generate risk exception template
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const script = require('./.github/scripts/security-summary.js');
+            await script.generateRiskExceptionTemplate(core, [process.env.IMAGE_NAME]);
+
+      - name: Upload risk exception document
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: risk-exception-${{ env.IMAGE_NAME }}
+          path: risk-exception.md
+          # No file generated if no vulnerabilities found.
+          if-no-files-found: ignore
+          retention-days: 7
