@@ -12,8 +12,6 @@
 name: Generate Risk Exception Document
 
 on:
-  push:
-    branches: [meh/auto-exception-doc]
   workflow_dispatch:
     inputs:
       ref:
