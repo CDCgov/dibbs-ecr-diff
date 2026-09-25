@@ -215,6 +215,78 @@ async function generatePRSummary(github, context, core, images = [], isLocalActR
   await postGitHubComment(github, context, message);
 }
 
+/**
+ * Build the risk exception markdown from given image scan results.
+ */
+function generateRiskExceptionMarkdown(imageResults) {
+  const date = new Date().toISOString().split("T")[0];
+
+  let md = `# Security Risk Exception Request\n\n`;
+  md += `**Date:** ${date}\n\n`;
+
+  for (const image of imageResults) {
+    md += `## ${image.name} image\n\n`;
+
+    for (const vuln of image.vulnerabilities) {
+      const hasFix = vuln.FixedVersion
+        ? `Yes — upgrade to ${vuln.FixedVersion}`
+        : "No fix available";
+
+      // The Aqua page is often slow to update, so prefer the NVD URL for CVEs
+      // and fall back to Trivy's PrimaryURL otherwise.
+      const referenceUrl = vuln.VulnerabilityID?.startsWith("CVE-")
+        ? `https://nvd.nist.gov/vuln/detail/${vuln.VulnerabilityID}`
+        : (vuln.PrimaryURL ?? "N/A");
+
+      md += `### ${vuln.Severity}: ${vuln.VulnerabilityID}\n\n`;
+      md += `| Field | Details |\n|---|---|\n`;
+      md += `| **Package** | \`${vuln.PkgName}\` |\n`;
+      md += `| **Installed Version** | \`${vuln.InstalledVersion}\` |\n`;
+      md += `| **Fix Available** | ${hasFix} |\n`;
+      md += `| **Title** | ${vuln.Title ?? "N/A"} |\n`;
+      md += `| **Reference** | ${referenceUrl} |\n\n`;
+
+      md += `#### Risk Acceptance Justification\n\n`;
+      md += `> _Why is this an acceptable risk?_\n\n`;
+      md += `**Justification:** \n\n`;
+      md += `**Mitigating Controls:** \n\n`;
+      md += `**Remediation Timeline:** \n\n`;
+      md += `---\n\n`;
+    }
+  }
+
+  return md;
+}
+
+/**
+ * Generate the risk exception template file from Trivy JSON results matching
+ * the given images. Writes risk-exception.md only when there is at least one
+ * vulnerability; otherwise writes nothing.
+ */
+async function generateRiskExceptionTemplate(core, images = []) {
+  if (!images.length) {
+    core.info("No images provided; skipping risk exception template.");
+    return;
+  }
+
+  const scanResults = parseScanResults(images);
+
+  const actionableImageResults = scanResults.imageResults
+    .filter((r) => !r.error && r.vulnerabilities.length > 0);
+
+  if (actionableImageResults.length === 0) {
+    core.info(
+      "No vulnerabilities found in scan results. Skipping risk exception template.",
+    );
+    return;
+  }
+
+  const markdown = generateRiskExceptionMarkdown(actionableImageResults);
+  fs.writeFileSync("risk-exception.md", markdown);
+  core.info("Risk exception template written to risk-exception.md");
+}
+
 module.exports = {
-  generatePRSummary
+  generatePRSummary,
+  generateRiskExceptionTemplate,
 };
