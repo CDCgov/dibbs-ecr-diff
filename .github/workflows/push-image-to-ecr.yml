@@ -1,0 +1,104 @@
+# Builds the Difference in Docs Lambda container image and pushes it to AWS ECR.
+#
+# Two triggers:
+#   1. On any v* tag push: builds the image from that tag's commit and pushes
+#      it to ECR tagged with the version and `latest`. This is triggered by
+#      publishing a release.
+#   2. Manual (workflow_dispatch): builds the image from a given commit/branch
+#      and pushes it to ECR tagged only with `latest`. Use this to push to ECR
+#      without cutting a release.
+
+name: Push Lambda image to ECR
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit hash or branch to build from"
+        required: true
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          # Manual run: build from the input ref. Tag run: build from the tag.
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Configure AIMS dev AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          aws-access-key-id: ${{ secrets.AIMS_DEV_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AIMS_DEV_AWS_SECRET_ACCESS_KEY }}
+
+      - name: Login to AIMS dev ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Determine Docker tags
+        id: vars
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          # On a tag run this is the tag, e.g. "v1.4.0".
+          REF_NAME: ${{ github.ref_name }}
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          REPO="$ECR_REGISTRY/dibbs-dev-did/lambda"
+          TAGS=()
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            # Manual run: only push `latest`.
+            TAGS+=("$REPO:latest")
+            echo "version_arg=" >> $GITHUB_OUTPUT
+          else
+            # Release run: strip and sanitize the git tag for the image tag
+            VERSION=$(echo "$REF_NAME" | sed 's/^v//' | tr '/' '-' | tr '[:upper:]' '[:lower:]')
+            TAGS+=("$REPO:$VERSION")
+            TAGS+=("$REPO:latest")
+            echo "version_arg=VERSION=$VERSION" >> $GITHUB_OUTPUT
+          fi
+
+          echo "image_tags=$(IFS=, ; echo "${TAGS[*]}")" >> $GITHUB_OUTPUT
+
+      - name: Debug Docker tags
+        env:
+          IMAGE_TAGS: ${{ steps.vars.outputs.image_tags }}
+        run: |
+          echo "IMAGE_TAGS: $IMAGE_TAGS"
+
+      - name: Build and push Lambda image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          provenance: false
+          file: docker/lambda.Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.vars.outputs.image_tags }}
+          build-args: |
+            ${{ steps.vars.outputs.version_arg }}
+
+      - name: Record pushed version in job summary
+        run: |
+          echo "### Pushed to ECR :rocket:" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Trigger: \`${{ github.event_name }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Image tag(s): \`${{ steps.vars.outputs.image_tags }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Time: $(date -u '+%Y-%m-%d %H:%M UTC')" >> "$GITHUB_STEP_SUMMARY"
