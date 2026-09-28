@@ -82,7 +82,7 @@ function parseScanResults(images) {
 /**
  * Format results as GitHub markdown comment
  */
-function formatGitHubComment(scanResults, repoOwner, repoName) {
+function formatGitHubComment(scanResults, repoOwner, repoName, prNumber) {
   const {
     totalCritical,
     totalHigh,
@@ -131,8 +131,13 @@ function formatGitHubComment(scanResults, repoOwner, repoName) {
     }
   }
 
+  const securityTabBaseUrl = `https://github.com/${repoOwner}/${repoName}/security/code-scanning`;
+  const detailsUrl = prNumber
+      ? `${securityTabBaseUrl}?query=${encodeURIComponent(`pr:${prNumber} tool:Trivy is:open`)}`
+      : securityTabBaseUrl;
+
   message += `\n---\n`;
-  message += `**View detailed results**: [Security tab](https://github.com/${repoOwner}/${repoName}/security/code-scanning)\n`;
+  message += `**View detailed results**: [Security tab](${detailsUrl})\n`;
   message += `*Last updated: ${new Date()
     .toISOString()
     .replace("T", " ")
@@ -144,9 +149,7 @@ function formatGitHubComment(scanResults, repoOwner, repoName) {
 /**
  * Post or update PR comment
  */
-async function postGitHubComment(github, context, message) {
-  const prNumber = context.payload.pull_request?.number;
-
+async function postGitHubComment(github, context, message, prNumber) {
   if (!prNumber) {
     console.log("Not a PR, skipping GitHub comment");
     return;
@@ -192,10 +195,12 @@ async function generatePRSummary(github, context, core, images = [], isLocalActR
   // Parse all scan results
   const scanResults = parseScanResults(images);
 
-  const message = formatGitHubComment(
-    scanResults,
+  const prNumber = context.payload.pull_request?.number;
+
+  const message = formatGitHubComment(scanResults,
     context.repo.owner,
     context.repo.repo,
+    prNumber,
   );
 
   if (isLocalActRun) {
@@ -212,7 +217,7 @@ async function generatePRSummary(github, context, core, images = [], isLocalActR
   }
 
   // Post GitHub comment
-  await postGitHubComment(github, context, message);
+  await postGitHubComment(github, context, message, prNumber);
 }
 
 module.exports = {
