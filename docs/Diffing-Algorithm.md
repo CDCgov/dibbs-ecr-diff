@@ -65,9 +65,9 @@ At each rank:
 <observation ID="obs-123"><value code="new"/></observation>
 ```
 
-The direct `ID` attribute value is unique and unchanged, so the observations pair and an update is found recursively in the changed <value> child.
+The direct `ID` attribute value is unique and unchanged, so the observations pair and an update is found recursively in the changed `<value>` child.
 
-#### Example: direct-child <id> key with no update
+#### Example: direct-child `<id>` key with no update
 
 ```xml
 <!-- before -->
@@ -77,9 +77,9 @@ The direct `ID` attribute value is unique and unchanged, so the observations pai
 <observation><id root="urn:example:observation" extension="42"/></observation>
 ```
 
-The observation's direct-child <id> stable-key candidate is the same on both sides. In the above scenario, the observations are matched but there's no update.
+The observation's direct-child `<id>` stable-key candidate is the same on both sides. In the above scenario, the observations are matched but there's no update.
 
-#### Example: multiple reordered child <id>'s as a key set
+#### Example: multiple reordered child `<id>`'s as a key set
 
 ```xml
 <!-- before -->
@@ -95,7 +95,7 @@ The observation's direct-child <id> stable-key candidate is the same on both sid
 </observation>
 ```
 
-The observation's collection of child <id> elements is sorted and deduplicated, so child reordering does not change the candidate key. A collection key is still subject to one-to-one uniqueness across eICRs.
+The observation's collection of child `<id>` elements is sorted and deduplicated, so child reordering does not change the candidate key. A collection key is still subject to one-to-one uniqueness across eICRs.
 
 #### Example: a lower-ranked candidate matches after an ambiguous higher-ranked candidate
 
@@ -109,7 +109,7 @@ The observation's collection of child <id> elements is sorted and deduplicated, 
 <observation ID="shared"><id root="observation-b"/></observation>
 ```
 
-The observation's direct `ID` attribute candidate is ambiguous since it appears on two sibling elements. As a result, the `ID` attribute candidate is rejected for matching and the algorithm tries to match using a lower-ranked candidate. In the above case, once the algorithm reaches the candidate rank for a key set of child <id> elements, the two observations can be paired by their respective <id> `root` values.
+The observation's direct `ID` attribute candidate is ambiguous since it appears on two sibling elements. As a result, the `ID` attribute candidate is rejected for matching and the algorithm tries to match using a lower-ranked candidate. In the above case, once the algorithm reaches the candidate rank for a key set of child `<id>` elements, the two observations can be paired by their respective `<id>` `root` values.
 
 ### 3. Stable-key subset matching
 
@@ -117,10 +117,10 @@ Subset matching is used when a collection-based stable key changes because a val
 
 The subset matching methods run in this order:
 
-#### 3a. Partial child <id> overlap
+#### 3a. Partial child `<id>` overlap
 
-For collections of direct child <id>'s and nested clinical-statement <id>'s, one shared
-`root`/`extension` value across the eICR collections is sufficient to match, provided the shared <id> identifies only one element on each side.
+For collections of direct child `<id>`'s and nested clinical-statement `<id>`'s, one shared
+`root`/`extension` value across the eICR collections is sufficient to match, provided the shared `<id>` identifies only one element on each side.
 
 ```text
 before direct child <id>'s: {A, B}
@@ -128,16 +128,16 @@ after direct child <id>'s:  {A, C}
 result: match, because A is a shared <id> identifier, and <id> elements are generally considered to be strong identifiers
 ```
 
-The partial child <id> overlap method is useful when one child <id> element stays the same while others get added or deleted.
+The partial child `<id>` overlap method is useful when one child `<id>` element stays the same while others get added or deleted.
 
-#### 3b. Complete nested-section <id> subset
+#### 3b. Complete nested-section `<id>` subset
 
-For wrappers identified by descendant section <id>'s, every <id> in the smaller set
+For wrappers identified by descendant section `<id>`'s, every `<id>` in the smaller set
 must be completely contained in the larger set. It does not matter if the smaller set is in the before eICR or the after eICR.
 
 ```text
-before section <id>'s': {section-A, section-B}
-after section <id>'s':  {section-A, section-B, section-C}
+before section <id>'s: {section-A, section-B}
+after section <id>'s:  {section-A, section-B, section-C}
 result: match, because the smaller set is completely contained in the larger
 ```
 
@@ -149,15 +149,15 @@ after:  {section-A, section-C}
 result: no subset match
 ```
 
-#### 3c. Complete direct-clinical-statement <id> subset
+#### 3c. Complete direct-clinical-statement `<id>` subset
 
-For wrappers such as `entry`, `entryRelationship`, or suitable `component`elements, the direct clinical-statement child <id>'s only match if every <id> in the smaller set is completely contained in the larger set, similar to 3b above. This supports matching when clinical statements are added or removed.
+For wrappers such as `entry`, `entryRelationship`, or suitable `component`elements, the direct clinical-statement child `<id>`'s only match if every `<id>` in the smaller set is completely contained in the larger set, similar to 3b above. This supports matching when clinical statements are added or removed.
 
-#### 3d. Complete template <id> subset
+#### 3d. Complete template `<id>` subset
 
-Direct-child, nested-section, and nested-clinical-statement template <id> sets are different types of sets, but they're all matched using template <id> sets. A match is only valid if every template <id> in the smaller set is completely contained in the larger set, similar to 3b above. This supports matching when template <id>'s are added or removed.
+Direct-child, nested-section, and nested-clinical-statement template `<id>` sets are different types of sets, but they're all matched using template `<id>` sets. A match is only valid if every template `<id>` in the smaller set is completely contained in the larger set, similar to 3b above. This supports matching when template `<id>`'s are added or removed.
 
-Template <id>'s describe conformance or content type more than an individual instance, so this is the weakest subset fallback.
+Template `<id>`'s describe conformance or content type more than an individual instance, so this is the weakest subset fallback.
 
 ### 4. Bucket and discriminator fallback
 
