@@ -21,6 +21,19 @@ RUN uv export \
 
 FROM public.ecr.aws/lambda/python:3.14
 
+# AL2023's ca-certificates still ships two roots distrusted after the eMudhra CA
+# key compromise: emSign ECC Root CA - G3 and Comodo's AAA Certificate Services.
+# Drop them from the trust source and re-extract every bundle. This is a no-op
+# once AL2023 ships a fixed package.
+RUN gawk -i inplace -v RS= -v ORS='\n\n' \
+    '!/\nlabel: "(emSign ECC Root CA - G3|Comodo AAA Services root)"\n/' \
+    /usr/share/pki/ca-trust-source/ca-bundle.trust.p11-kit \
+    && update-ca-trust extract
+
+# Remove the base image's own AWS SDK and pip. The function uses the pinned
+# copies in LAMBDA_TASK_ROOT, and the base copies ship outdated CA bundles.
+RUN pip uninstall -y --no-cache-dir boto3 botocore s3transfer pip
+
 # default VERSION is 0.0.0 if not passed at build time
 ARG VERSION="0.0.0"
 
@@ -35,6 +48,17 @@ COPY ./packages/core/src/core ${LAMBDA_TASK_ROOT}/core
 
 # copy main lambda app
 COPY ./packages/did_lambda/src/did_lambda ${LAMBDA_TASK_ROOT}/app/lambda
+
+# Fail the build if either distrusted root is left in any CA bundle, whether from
+# the OS or vendored by a Python package. Each pattern is one line of a root's
+# base64 body (emSign ECC Root CA - G3, then AAA Certificate Services), so it
+# matches however a bundle labels the certificate. grep exits 1 only when
+# nothing matched.
+RUN grep -rlF \
+    -e 'CUfvO6wIBHxcmbHtRwfSAjEAnbpV/KlK6O3t5nYBQnvI+GDZjVGLVTv7jHvrZQnD' \
+    -e 'l2D4kF501KKaU73yqWjgom7C12yxow+ev+to51byrvLjKzg6CYG1a4XXvi3tPxq3' \
+    /etc /usr /var; \
+    test $? -eq 1
 
 # used to satisfy scans since AWS Lambda will already run function as its own non-root user at runtime
 USER 1001:1001
