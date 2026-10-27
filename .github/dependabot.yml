@@ -9,9 +9,6 @@ updates:
       minor-and-patch:
         applies-to: version-updates
         update-types: ["minor", "patch"]
-      majors:
-        applies-to: version-updates
-        update-types: ["major"]
 
   - package-ecosystem: "docker"
     directory: "/docker"
