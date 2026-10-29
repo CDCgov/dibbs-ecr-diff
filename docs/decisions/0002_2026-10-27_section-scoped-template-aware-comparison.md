@@ -137,6 +137,9 @@ fixes what APHL flagged and stays explainable?**
   DiD.
 - The improvement is measurable in production with the same queries the silent evaluation
   used.
+- `setId` continuity: if two inputs share a `setId` (`@root` and `@extension`), every PHA
+  receives DiD's output for them under one `setId`, whatever the version. It is how PHAs
+  group the versions of one condition-specific case report.
 
 ## Considered Options
 
@@ -196,7 +199,7 @@ fixes what APHL flagged and stays explainable?**
 ### F. Sequencing
 
 - **F1. Rewrite only.** PHAs see no placement fix until the rewrite lands.
-- **F2. Placement fixes first, then the rewrite (RECOMMENDED).** Gaps 1, 2, 4 and 5 are
+- **F2. Placement fixes first, then the rewrite.** Gaps 1, 2, 4 and 5 are
   fixable in `augment.py` on today's matcher, so PHAs get correct flags before the rewrite
   lands. The cost is writing placement twice if the rewrite changes what a finding is; the
   acceptance fixtures carry over unchanged, so the second version is held to the same
@@ -213,9 +216,21 @@ fixes what APHL flagged and stays explainable?**
   improvement therefore reaches senders with stable ids, which is what the fixtures model.
   Production gets better with the rewrite.
 
+- **F3. Classify first, project last (RECOMMENDED).** Two questions are easy to confuse:
+  whether a change is classified correctly (was this really an addition, or an update?) and
+  how it is written into the document. Most of what APHL flagged is the first: context 1, 2,
+  #147, and the root of gap 4 (a changed `@code` splits into DELETED + ADDED). Only gap 5,
+  gap 6, panels and the `did-*` codes are purely the second. F2 fixes the tag on top of a
+  classification that is still wrong, and PHAs mostly read the narrative, not the
+  `<author>`s. So the work runs in three steps: **classify** (findings, piloted silently),
+  **judge** (which findings matter: actionability and the baseline configuration), then
+  **project** (findings written into the document). Body authors are off until the
+  projection step; the header flags and the IG wrapper stay as they are. The cost is that
+  PHAs see no corrected body flags until the end.
+
 ## Decision Outcome
 
-Proposed: **A2 + B3 + C2 + D2 + E2 + F2**.
+Proposed: **A2 + B3 + C2 + D2 + E2 + F3**.
 
 In short:
 
@@ -228,8 +243,10 @@ In short:
   earlier augmentation never surface as change
 - narrative is read only in narrative-only sections, and only when it gains content
 - an author goes on the section or statement that changed, one per statement per pass
-- placement fixes ship first on today's matcher; the rewrite pilots silently against
-  production before PHAs see it
+- findings come first and pilot silently against production; they are written into the
+  document last, as a narrative footnote first and `<author>` second. Body authors are off
+  until then
+- a stream keeps one output `setId` across versions
 
 ### Units
 
@@ -317,6 +334,8 @@ and cites its CONF.
        `config_version` and outcome (`dibbs-ecr-refiner` `narrative/footnote.py:150-160`).
        They are removed before the narrative compare, so a configuration bump between
        versions doesn't flag every section
+     - DiD's own provenance footnotes (Placement), removed the same way, so an earlier
+       pass's footnote never reads as a narrative change
    - **clinical:** `moodCode`, `statusCode`, `negationInd`, `effectiveTime`, `nullFlavor`,
      and on a code `@displayName`, `originalText` and `sdtc:valueSet`. A corrected display
      name is an update, as APHL expects (gap deck slide 19). Gaining `sdtc:valueSet` marks a
@@ -516,6 +535,12 @@ as a window into rendered content.
 Placement runs after every finding is collected, so authors written during a pass are never
 read back as content.
 
+Placement is a _projection_ of findings, and it comes last (F3). There are two projections of
+the same findings: a provenance footnote in the narrative first (Narrative provenance, below),
+since that is what PHAs read, and `<author>`s second. The rules below are the `<author>`
+projection. Header flags are the exception: they sit on `ClinicalDocument`, outside
+`<structuredBody>`, and stay on throughout.
+
 - **Who can carry an author:** a section or one of the nine clinical statements. With
   `ClinicalDocument`, that is the 11 author-capable types in the CDA R2 XSD (9 + `Section` +
   `ClinicalDocument`).
@@ -524,7 +549,7 @@ read back as content.
   finding.
 - **Added wrappers:** read through one level, then flag the wrapper and every section or
   statement beneath it with `did-add-detected` (gaps 1, 2). The document body is never an
-  added wrapper (F2).
+  added wrapper (context 1).
 - **One author per statement per pass.** The function code comes from the statement the
   author sits on, not from a child's change type (gaps 4, 5).
 - **Header pseudo-sections** place their authors on `ClinicalDocument`, as today
@@ -556,6 +581,18 @@ This is APHL's rule (nearest section or statement, gap deck slide 28), and it ma
 CDA's inheritance implies. Whether PHAs reading at panel level also want the organizer marked
 when only a result changed is open with APHL (Questions to APHL). If they do, the panel needs a
 distinct, weaker code, since `did-update-detected` there claims every result changed.
+
+**Narrative provenance.** PHAs mostly read a section's `<text>`, not its entries, and have
+said they don't want the `<author>` flags. So the first projection is one unanchored
+`<footnote>` per changed section, holding a table of its findings in plain language: what
+changed, before and after, and how it paired (`paired_by` as words, such as "probable update:
+only `code` differed"). A footnote can also list removals, which an `<author>` can't (gap 6).
+The Refiner already writes provenance footnotes this way (`dibbs-ecr-refiner`
+`narrative/footnote.py:73-160`), so the mechanism is shared through `dibbs-ecr`, not copied.
+The wording is shown to PHAs, and what they find useful shapes the codes DiD proposes for the
+_Data Augmentation Tool Operation_ value set `[aug-v5-v2 CONF:5573-43]` before any body
+`<author>` is written. [inferred] The eICR stylesheets have no `footnote` template, so the
+table renders inline at the end of `<text>`; confirm by rendering one.
 
 ### Computation
 
@@ -652,13 +689,27 @@ which context 2 can't (Pairing).
 
 ### Testing
 
+- Fixtures carry two layers of expectations: **findings** (unit, kind, `paired_by`), asserted
+  from the start, and **authors**, marked expected-to-fail until the projection step (F3). A
+  harness one layer below the Lambda compares an explicit pair against its expectation file,
+  with no docker, so which version the Lambda picks as the baseline doesn't affect it.
+- `did-test-package-1` comes first. It holds two three-version chains from the eCR test
+  environment, original and refined, and the tester marked each change with an XML comment
+  (8 per chain: five new entries, guardian added, birth date updated, encounter `high`
+  added). Those comments are the ground truth. The refined files lose the comments, so their
+  labels are mapped from the originals. Unmarked differences between versions are listed
+  first, since they show how much incidental churn the test environment adds. It is mostly
+  additions, so it doesn't exercise #147; the gap documents and DiD's synthetic pairs do.
 - The gap-analysis documents become acceptance fixtures, each with its expected findings
   and authors: APHL expects 23, 6, 3 and 6 flags across the four scenarios, with function
   codes checked as well as counts. The stable-key count assumes id-only changes are flagged;
   DiD's expectation for that file is below.
-- A synthetic pair whose body fails to pair under today's matcher (context 1) guards the F2
-  placement fix. Its expected output is today's: exactly one `did-add-detected`, on the
-  first section.
+- `setId` continuity: every version of each package-1 chain gets one output `setId`, original
+  and refined, plus synthetic variants for a changed jurisdiction list and for two streams
+  that differ only in `@extension` (which must not share one).
+- Coupled tests (the e2e snapshots of augmented output, and the unit tests of the stable-key
+  ladder, pruning and change-type function codes) are turned off or marked as expected
+  failures while the pieces they cover are reworked, and replaced, not restored.
 - Synthetic pairs with **regenerated entry `<id>`s**, since APHL's fixtures keep every id
   stable: a corrected code on a singleton (pairs at step 3, `paired_by: singleton`), the
   same with other unpaired statements of its template in scope (pairs at step 4 when only the
@@ -720,6 +771,9 @@ Fixtures are synthetic: no production-derived documents without written APHL cle
   of the step 3 guard.
 - Every finding says why it paired and what changed, with before and after values, which
   today's output cannot.
+- Body authors are off from Phase 0 until the projection step, so PHAs see the header flags
+  and nothing in `<structuredBody>` in the meantime. They have said they don't want the
+  body flags, so [inferred] little is lost.
 - `stable_key.py`'s ladder, `_prune_to_outermost` and change-type function codes are
   retired. The XPath configuration form is deprecated.
 - `dibbs-ecr` grows the template model, and the Refiner can later use it for matching and
@@ -730,7 +784,10 @@ Fixtures are synthetic: no production-derived documents without written APHL cle
 
 - Removal flags (gap 6), pending APHL and the IG.
 - Which version a new one is compared against. That is the Lambda's call; comparison takes
-  two documents and doesn't care which baseline they came from.
+  two documents and doesn't care which baseline they came from. Today the Lambda compares
+  against the latest earlier _actionable_ version (`did_lambda/dynamodb.py:25-36`), so the
+  actionability verdict decides the baseline. The verdict is examined in its own spike once
+  classification is fixed (Suggested Implementation Tickets).
 - Where findings are delivered beyond the augmented document.
 - Diffing the RR, which DiD doesn't do today either.
 - Linking entries across sections, such as order → result. The `related` field reserves room
@@ -743,8 +800,13 @@ Fixtures are synthetic: no production-derived documents without written APHL cle
 versions of one stream, and DiD's verdict on whether a document is worth sending rests on it.
 If it shifts between versions, continuity is gone: DiD finds no baseline and treats the
 version as first, or the PHA receives what looks like an unrelated new document. This ADR
-changes nothing about how DiD derives or writes `setId`, and should stay conservative here
-until these are settled:
+keeps the IG pattern (a new DiD `setId`, stamped from v1 on) and changes one thing about it:
+the seed drops jurisdiction and gains `@extension`, so it becomes
+`uuid5(DIFF_DETERMINISTIC_NS, "eicr-setid:{root}|{extension}")`. DiD has no knowledge of
+which jurisdictions turned it on for a stream. Two jurisdictions with the same configuration
+receiving one `setId` is how originals already work. Jurisdiction- and condition-specific
+DiD configuration would reopen this. Everything else stays conservative until these are
+settled:
 
 - **Where it breaks today.** The Lambda finds its baseline by the input `setId`
   (`did_lambda/lambda_function.py:179-183`). Upstream, the Refiner seeds its output `setId` on
@@ -752,7 +814,11 @@ until these are settled:
   change starts a new stream from DiD's point of view. DiD's own output `setId` seeds on the
   joined jurisdiction list, so it shifts when that list changes, and it reads `@root` only,
   so distinct sender streams that differ in `@extension` can collapse into one
-  (`core/augment.py:101-125`).
+  (`core/augment.py:101-125`). The new seed fixes both. Changing it is a one-time `setId`
+  change for any stream already in flight, so it ships before anyone relies on DiD's output,
+  or with a cutover plan.
+- **Cutover.** A stream whose v1 never went through DiD reaches the PHA at v2 with a new
+  `setId`. Stamping v1 only gives continuity if DiD sees v1.
 - **Should DiD create its own output at all?** The IG gives DiD a new `id` / `setId` and a
   `relatedDocument` for its input `[aug-v5-v1 Table 1]`. The alternative is for DiD only to
   gate and annotate, passing `setId` through as received. One gives IG conformance and
@@ -772,7 +838,8 @@ reviews.
 ## Questions to APHL
 
 Each has DiD's proposed answer, so the work can proceed while they are open. A different
-answer changes a rule, not the design.
+answer changes a rule, not the design. Questions 3, 7 and 8 concern projection. They are
+answered from PHA feedback on the narrative footnote (Placement), not decided up front.
 
 1. **Id-only changes.** Should an otherwise unchanged entry ever be flagged when only its
    `<id>` changed (gap deck slide 25)? _Proposed:_ no. It is recorded as `identity_only` and
@@ -825,9 +892,9 @@ answer changes a rule, not the design.
 | telemetry never records the verdict                                      | yes                                     | Measurement                                                                                |
 | header changes outside the four header rules get no author               | partly                                  | `patient` and `encounter` pseudo-sections; the rest stays non-actionable                   |
 | rules see one version at a time                                          | partly                                  | kinds are cross-version; cross-entry links later                                           |
-| removals unmarked (gap 6)                                                | no                                      | out of scope, pending APHL and the IG                                                      |
+| removals unmarked (gap 6)                                                | partly                                  | the narrative footnote can list them; `<author>` pending APHL and the IG                   |
 | the RR is never diffed                                                   | no                                      | out of scope                                                                               |
-| the output `setId` can shift or collapse streams                         | no                                      | Future-state problems                                                                      |
+| the output `setId` can shift or collapse streams                         | yes                                     | the seed drops jurisdiction and gains `@extension` (Future-state problems)                 |
 
 ### Why not the RIM's split
 
@@ -854,59 +921,93 @@ to slide 25 (Questions to APHL).
 
 ### Suggested Implementation Tickets
 
-In DiD unless marked `dibbs-ecr`. The acceptance fixtures come first, so every later ticket
-is measured against them.
+In DiD unless marked `dibbs-ecr`. They run in phases (F3): ground and guard, classify, judge,
+project. Each phase says what it is for, and a phase isn't done until its exit holds. This is
+a proposal; the order is the part most open to the team's feedback.
 
-#### `test: gap-analysis and #147 acceptance fixtures`
+#### Phase 0: ground and guard
 
-Each gap document and #147 file, with its expected findings and authors. They fail today;
-the count passing is the progress measure.
+Goal: a measurable target and a safe floor before any comparison code changes.
 
-#### `fix: placement for gaps 1, 2, 4, 5 on the current matcher`
+##### `test: did-test-package-1 difference inventory and expectations`
 
-In `augment.py`, against the acceptance fixtures and the collapsed-body guard. It ships
-before the rewrite.
+List every difference in each package-1 pair, marked and unmarked, and turn the marked ones
+into expected findings, mapped onto the refined files. The unmarked ones measure the test
+environment's incidental churn.
 
-#### `chore: adopt dibbs-ecr v0.1`
+##### `test: comparison harness and acceptance fixtures`
+
+A harness that runs the comparison on an explicit pair against an expectation file, below the
+Lambda and with no docker. Package-1, the gap documents and #147's files go in, with findings
+asserted and authors expected to fail. The count passing is the progress measure.
+
+##### `test: setId continuity`
+
+One output `setId` per input stream across versions, on both package-1 chains (original and
+refined), plus a changed jurisdiction list and an `@extension`-only difference. The
+jurisdiction case fails today; that is the point.
+
+##### `fix: setId seed without jurisdiction`
+
+`eicr-setid:{root}|{extension}` for the eICR, and the same change for the RR. It needs a
+decision on in-flight streams first (Future-state problems).
+
+##### `chore: turn off body authors and decouple the coupled tests`
+
+Body authors off; the header flags and the IG wrapper stay. The verdict and the diff output
+have to keep working without body augmentation. Snapshots of augmented output are re-taken
+in this change alone, and tests of code the rewrite retires are turned off or marked as
+expected failures.
+
+#### Phase 1: classify
+
+Goal: added, updated and removed are right, and each finding says why. Built simple first
+(sections, pairing by `<id>`, `identity_only`), and each ticket adds one step or one layer and
+has to show its effect on the fixtures.
+
+##### `chore: adopt dibbs-ecr v0.1`
 
 Covered by Refiner ADR 0017: drop the augmentation fork, take reportable conditions, raise
-`requires-python`.
+`requires-python`. It's meant to keep behaviour the same.
 
-#### `feat(dibbs-ecr): template structure from Schematron`
+##### `feat: section units and header pseudo-sections`
+
+##### `feat: pairing by id and field comparison`
+
+Cascade step 1, and fields compared inside a pair. `identity_only` recorded and never flagged.
+
+##### `feat: findings model`
+
+The contract between classifying and projecting: section, unit, template, kind, `paired_by`,
+before and after values with display names. It carries what a human-readable footnote row
+needs as well as what an `<author>` needs.
+
+##### `feat(dibbs-ecr): template structure from Schematron`
 
 The generator, its pinned source, the generated records and a regeneration test.
 
-#### `feat(dibbs-ecr): generic attribute meaning and change kinds`
+##### `feat(dibbs-ecr): generic attribute meaning and change kinds`
 
-Layer 2 plus the generic kind vocabulary.
+Layer 2 plus the generic kind vocabulary, including DiD's own and the Refiner's footnotes as
+non-clinical.
 
-#### `feat(dibbs-ecr): template meaning for the baseline templates`
+##### `feat(dibbs-ecr): template meaning for the baseline templates`
 
 Layer 3 for the templates the fixtures exercise, starting with the Initial Case Report
 Trigger Code Result Observation and its Laboratory Observation Result Status qualifier
 (`4.419`), the other trigger-code templates, and identity fields for each statement template
 the fixtures touch. Identity fields are per template, never one key per statement kind (B2).
 
-#### `feat: section units and header pseudo-sections`
+##### `feat: pairing by identity fields and singleton (steps 2-3)`
 
-#### `feat: pairing cascade (steps 1-3) and field comparison`
+##### `feat: the narrative-only section rule`
 
-#### `feat: findings model and the narrative-only section rule`
-
-#### `feat: placement from findings`
-
-#### `feat: baseline configuration v2 on the named-element catalog`
-
-Also update `Configuration-Spec.md`.
-
-#### `feat: telemetry for findings`
+##### `feat: telemetry for findings`
 
 Base template root, `paired_by`, kind, step 4's differing fields, the unpaired reason,
 `encounter_type`, the verdict, and reportable conditions.
 
-#### `chore: retire the stable-key ladder and outermost pruning`
-
-#### `feat: similarity pairing for leftovers (step 4)`
+##### `feat: similarity pairing for leftovers (step 4)`
 
 The anti-join over what steps 1-3 leave, within one scope and template:
 
@@ -915,16 +1016,73 @@ The anti-join over what steps 1-3 leave, within one scope and template:
 - ties refuse to pair; never across sections; off where the sender's ids are evidently stable
 - no weights, no new dependency; the limit is revisited from pilot telemetry
 
-#### `chore: silent production pilot`
+##### `chore: silent production pilot`
 
-Run the rewrite alongside today's DiD without writing authors, and compare with the
-silent-evaluation queries: the `paired_by` distribution, the ambiguous rate per base root,
-and the differing-fields counts at step 4. New edge cases become curation tickets.
+Run the new comparison alongside today's DiD without writing anything, and compare with the
+silent-evaluation queries: the `paired_by` distribution, the ambiguous rate per base root, and
+the differing-fields counts at step 4. New edge cases become curation tickets.
+
+Exit: the fixtures' findings pass, and the pilot's ambiguous rate and `paired_by`
+distribution are understood well enough to trust what is projected.
+
+#### Spike: what does actionability decide?
+
+After classification is fixed, so it measures the verdict and not the classifier's mistakes.
+Today v1 is always actionable, v2 onwards is actionable if any change matches a rule (chiefly
+`//hl7:entry/descendant-or-self::*`), failures default to actionable (`core/models.py:71`),
+and a non-actionable version is dropped from the baseline (`did_lambda/dynamodb.py:25-36`).
+[inferred] That reads as "did anything change", not a judgement. Data quality is out of
+scope, since inputs are valid reportable eICR/RR pairs.
+
+Questions: on package-1, the gap fixtures and the pilot's verdict telemetry, which versions
+come out actionable and which rule decided each one? Does the verdict separate meaningful
+versions from noise? What does dropping non-actionable versions from the baseline do to later
+comparisons?
+
+Output: keep, redefine or drop the verdict and the baseline filter. If it is correct and fast
+on fixed findings, keep it. Recorded in `docs/algorithms/ecr-diff.md`.
+
+#### Phase 2: judge
+
+Goal: which findings matter, written against what the actionability spike decided.
+
+##### `feat: baseline configuration v2 on the named-element catalog`
+
+Also update `Configuration-Spec.md`.
+
+#### Phase 3: project
+
+Goal: findings written into the document in the form PHAs read.
+
+##### `feat(dibbs-ecr): provenance footnote`
+
+One footnote per changed section with a table of its findings, removals included, shared with
+the Refiner's footnote rather than copied. Render it through the eICR stylesheet to see how
+it looks.
+
+##### `chore: PHA feedback on the footnote`
+
+Show PHAs the footnote's wording, including `paired_by` as words, and collect what is useful
+and what is noise. That answers Questions to APHL 3, 7 and 8.
+
+##### `docs: propose DiD's codes to the IG`
+
+The codes that survived feedback, proposed for the _Data Augmentation Tool Operation_ value
+set `[aug-v5-v2 CONF:5573-43]`.
+
+##### `feat: author placement from findings`
+
+Body `<author>`s back on, from findings, with the codes above. Per deployment, alongside the
+footnote.
+
+##### `chore: retire the stable-key ladder and outermost pruning`
+
+Once nothing writes from the old pipeline. The XPath configuration form is deprecated.
 
 #### `spike: narrative content`
 
-What a narrative change means across Epic, Cerner and Meditech, and whether the eICR
-stylesheet's rendering gives a stable view to compare.
+Independent of the phases. What a narrative change means across Epic, Cerner and Meditech,
+and whether the eICR stylesheet's rendering gives a stable view to compare.
 
 ### Links
 
