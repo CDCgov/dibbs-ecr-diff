@@ -33,7 +33,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Manual run: build from the input ref. Tag run: build from the tag.
           ref: ${{ github.event.inputs.ref || github.ref }}
