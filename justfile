@@ -8,6 +8,14 @@ default:
 [group('structurizr')]
 mod arch './.justscripts/structurizr.just'
 
+# Alias for `decisions`
+[group('alias')]
+mod rfc './.justscripts/decisions.just'
+
+# Author and manage decision records
+[group('docs')]
+mod decisions './.justscripts/decisions.just'
+
 alias install := sync
 alias i := sync
 
