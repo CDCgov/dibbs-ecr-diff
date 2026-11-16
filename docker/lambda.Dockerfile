@@ -1,4 +1,4 @@
-FROM public.ecr.aws/lambda/python:3.14 AS builder
+FROM public.ecr.aws/lambda/python:3.15 AS builder
 
 WORKDIR ${LAMBDA_TASK_ROOT}
 
@@ -19,7 +19,7 @@ RUN uv export \
     --output-file requirements.txt && \
     pip install --no-cache-dir -r requirements.txt --target "${LAMBDA_TASK_ROOT}"
 
-FROM public.ecr.aws/lambda/python:3.14
+FROM public.ecr.aws/lambda/python:3.15
 
 # AL2023's ca-certificates still ships two roots distrusted after the eMudhra CA
 # key compromise: emSign ECC Root CA - G3 and Comodo's AAA Certificate Services.
