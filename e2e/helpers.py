@@ -18,6 +18,10 @@ COMPLETE_PREFIX = "DIDCompleteV2/"
 parser = etree.XMLParser(remove_blank_text=True, huge_tree=True)
 
 
+class E2EError(Exception):
+    """Raised when e2e test inputs are invalid."""
+
+
 class UploadType(StrEnum):
     """Types of eICR/RR pairs that can be uploaded."""
 
@@ -115,7 +119,7 @@ class Uploader:
             rr_path = self.assets_dir / pair.rr
 
             if not eicr_path.is_file() or not rr_path.is_file():
-                raise Exception(f"Invalid files for eICR pair: {pair}")
+                raise E2EError(f"Invalid files for eICR pair: {pair}")
 
             # parse setId and versionNumber from eICR file
             set_id, version_number = self._get_metadata(eicr_path)
@@ -224,10 +228,10 @@ class Uploader:
                 f"RefinerOutputV2/{persistence_id}/{pair.jurisdiction}/unrefined_rr/refined_rr.xml",
             )
 
-        raise Exception(f"Invalid upload type: {pair.upload_type}")
+        raise E2EError(f"Invalid upload type: {pair.upload_type}")
 
     def _parse_xml(self, path: Path) -> etree._Element:
         try:
             return etree.parse(path, parser).getroot()
         except etree.XMLSyntaxError as exc:
-            raise Exception(f"Invalid XML file: {path}") from exc
+            raise E2EError(f"Invalid XML file: {path}") from exc

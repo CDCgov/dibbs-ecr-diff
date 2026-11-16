@@ -5,7 +5,7 @@ from e2e.helpers import Pair, Uploader
 
 def test_refined_pairs(uploader: Uploader, snapshot: SnapshotAssertion) -> None:
     """Refined eICRs test case."""
-    input_manifest, complete_manifest, _persistence_id = uploader.send_manifest(
+    _input_manifest, complete_manifest, _persistence_id = uploader.send_manifest(
         [
             Pair(eicr="example/1_eICR.xml", rr="example/1_RR.xml"),
             Pair(eicr="example/2_eICR.xml", rr="example/2_RR.xml"),

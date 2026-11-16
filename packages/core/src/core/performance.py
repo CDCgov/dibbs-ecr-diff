@@ -1,10 +1,10 @@
 import time
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 
 
 @contextmanager
-def measure_time(name: str) -> Iterator[None]:
+def measure_time(name: str) -> Generator[None]:
     """Context manager for measuring execution performance."""
     start = time.perf_counter()
     yield
