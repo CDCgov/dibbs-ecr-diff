@@ -194,10 +194,12 @@ def collect_additions_updates_deletes(
         assert before_node is not None
         assert after_node is not None
 
-        if _node_updated(before_node, after_node):
-            if id(after_node) not in seen_updated:
-                seen_updated.add(id(after_node))
-                updated_nodes.append((before_node, after_node))
+        if (
+            _node_updated(before_node, after_node)
+            and id(after_node) not in seen_updated
+        ):
+            seen_updated.add(id(after_node))
+            updated_nodes.append((before_node, after_node))
 
         if _equivalent_excluding_version_metadata(
             before_node, after_node, fingerprint_cache

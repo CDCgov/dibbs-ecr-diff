@@ -3,7 +3,7 @@
 import os
 import time
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Never
@@ -99,7 +99,7 @@ class BatchProcessingStats:
 
 
 @contextmanager
-def batch_telemetry() -> Iterator[BatchProcessingStats]:
+def batch_telemetry() -> Generator[BatchProcessingStats]:
     """Record aggregate telemetry when a batch finishes."""
     stats = BatchProcessingStats()
     try:
@@ -110,7 +110,7 @@ def batch_telemetry() -> Iterator[BatchProcessingStats]:
 
 
 @contextmanager
-def track_manifest(stats: BatchProcessingStats) -> Iterator[None]:
+def track_manifest(stats: BatchProcessingStats) -> Generator[None]:
     """Count a manifest as processed or failed w/o swallowing failures."""
     try:
         yield
@@ -122,7 +122,7 @@ def track_manifest(stats: BatchProcessingStats) -> Iterator[None]:
 
 
 @contextmanager
-def track_document(stats: BatchProcessingStats) -> Iterator[None]:
+def track_document(stats: BatchProcessingStats) -> Generator[None]:
     """Count document failures."""
     try:
         yield
@@ -135,7 +135,7 @@ def track_document(stats: BatchProcessingStats) -> Iterator[None]:
 def processing_stage(
     stage: str,
     persistence_id_with_index: str | None = None,
-) -> Iterator[None]:
+) -> Generator[None]:
     """Raise a processing failure with its stage and document identifier."""
     try:
         yield
