@@ -57,15 +57,19 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Trivy runs from its container image rather than aquasecurity/trivy-action
+      # (see security-scan.yml for why). Keep the tag and digest in step with
+      # security-scan.yml.
       - name: Run Trivy vulnerability scanner (JSON)
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: docker://aquasec/trivy:0.70.0@sha256:be1190afcb28352bfddc4ddeb71470835d16462af68d310f9f4bca710961a41e
         with:
-          image-ref: local-scan/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          format: "json"
-          output: "trivy-${{ env.IMAGE_NAME }}-results.json"
-          severity: ${{ env.GENERATE_FOR_SEVERITY }}
-          ignore-unfixed: false
-          timeout: "10m"
+          args: >-
+            image
+            --format json
+            --output trivy-${{ env.IMAGE_NAME }}-results.json
+            --severity ${{ env.GENERATE_FOR_SEVERITY }}
+            --timeout 10m
+            local-scan/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       - name: Generate risk exception template
         uses: actions/github-script@v9.0.0
