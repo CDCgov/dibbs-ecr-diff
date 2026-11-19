@@ -68,7 +68,9 @@ jobs:
       # digest together (`docker buildx imagetools inspect aquasec/trivy:<tag>`).
       #
       # The SARIF report covers every severity, as trivy-action did by default;
-      # TRIVY_SEVERITY applies to the JSON report used for the PR comment.
+      # TRIVY_SEVERITY applies to the JSON report used for the PR comment. The
+      # runner passes workflow env into the container and Trivy reads
+      # TRIVY_SEVERITY, so the SARIF step overrides it with an explicit flag.
       - name: Run Trivy vulnerability scanner (SARIF)
         uses: docker://aquasec/trivy:0.70.0@sha256:be1190afcb28352bfddc4ddeb71470835d16462af68d310f9f4bca710961a41e
         with:
@@ -76,6 +78,7 @@ jobs:
             image
             --format sarif
             --output trivy-${{ matrix.image.name }}-results.sarif
+            --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
             --timeout 10m
             local-scan/${{ matrix.image.name }}:${{ github.sha }}
 
