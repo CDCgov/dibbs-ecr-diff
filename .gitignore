@@ -54,3 +54,6 @@ coverage.xml
 
 # CLI output
 output/
+
+# random files or ideas not to track
+.scratch/
