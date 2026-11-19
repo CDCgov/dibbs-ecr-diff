@@ -1,9 +1,13 @@
+# uv is pulled in as a named stage (not `COPY --from=<image>`) so Dependabot,
+# which only reads FROM lines, keeps it updated.
+FROM ghcr.io/astral-sh/uv:0.13.8 AS uv
+
 FROM public.ecr.aws/lambda/python:3.15 AS builder
 
 WORKDIR ${LAMBDA_TASK_ROOT}
 
 # copy uv binary from uv image
-COPY --from=ghcr.io/astral-sh/uv:0.11.31 /uv /bin/uv
+COPY --from=uv /uv /bin/uv
 
 # copy dependency manifests
 COPY uv.lock pyproject.toml ./
