@@ -48,6 +48,10 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
       - LS_LOG=error
+      # LocalStack runs DynamoDB Local on a JVM, which inherits this.
+      # Mitigates CVE-2026-114938 (JDK Base64 intrinsic overflow). Remove once
+      # the image ships a patched JDK. See keycloak/keycloak#55293.
+      - JAVA_TOOL_OPTIONS=-XX:-UseBASE64Intrinsics
     volumes:
       - localstack-data:/var/lib/localstack
       - ./docker/localstack-init.py:/etc/localstack/init/ready.d/10-localstack-init.py
